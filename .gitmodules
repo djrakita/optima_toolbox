@@ -1,0 +1,12 @@
+[submodule "optima_assets"]
+	path = optima_assets
+	url = https://github.com/djrakita/optima_assets.git
+[submodule "optima"]
+	path = optima
+	url = https://github.com/djrakita/optima.git
+[submodule "optima_py"]
+	path = optima_py
+	url = https://github.com/djrakita/optima_py.git
+[submodule "optima_js"]
+	path = optima_js
+	url = https://github.com/djrakita/optima_js.git
