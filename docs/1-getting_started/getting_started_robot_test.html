@@ -3,8 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Optima Toolbox</title>
-        <meta name="robots" content="noindex" />
+        <title>Robot Test - Optima Toolbox</title>
 
 
         <!-- Custom HTML head -->
@@ -14,21 +13,21 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff" />
 
-        <link rel="icon" href="favicon.svg">
-        <link rel="shortcut icon" href="favicon.png">
-        <link rel="stylesheet" href="css/variables.css">
-        <link rel="stylesheet" href="css/general.css">
-        <link rel="stylesheet" href="css/chrome.css">
-        <link rel="stylesheet" href="css/print.css" media="print">
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="fonts/fonts.css">
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" href="highlight.css">
-        <link rel="stylesheet" href="tomorrow-night.css">
-        <link rel="stylesheet" href="ayu-highlight.css">
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
 
@@ -38,7 +37,7 @@
     <body>
         <!-- Provide site root to javascript -->
         <script type="text/javascript">
-            var path_to_root = "";
+            var path_to_root = "../";
             var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
         </script>
 
@@ -84,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="introduction.html">Introduction</a></li><li class="chapter-item expanded "><a href="1-getting_started/getting_started_0.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="1-getting_started/getting_started_optima_toolbox_installation.html"><strong aria-hidden="true">1.1.</strong> Optima Installation</a></li><li class="chapter-item expanded "><a href="1-getting_started/getting_started_rust_installation.html"><strong aria-hidden="true">1.2.</strong> Rust Installation</a></li><li class="chapter-item expanded "><a href="1-getting_started/getting_started_robot_test.html"><strong aria-hidden="true">1.3.</strong> Robot Test</a></li><li class="chapter-item expanded "><a href="1-getting_started/getting_started_adding_a_robot.html"><strong aria-hidden="true">1.4.</strong> Adding a Robot</a></li></ol></li><li class="chapter-item expanded "><a href="2-optima_rust_tutorials/optima_rust_tutorials_0.html"><strong aria-hidden="true">2.</strong> Optima Rust Tutorials</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="2-optima_rust_tutorials/optima_rust_tutorials_loading_a_robot.html"><strong aria-hidden="true">2.1.</strong> Loading a Robot Model</a></li></ol></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="../introduction.html">Introduction</a></li><li class="chapter-item expanded "><a href="../1-getting_started/getting_started_0.html"><strong aria-hidden="true">1.</strong> Getting Started</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../1-getting_started/getting_started_optima_toolbox_installation.html"><strong aria-hidden="true">1.1.</strong> Optima Installation</a></li><li class="chapter-item expanded "><a href="../1-getting_started/getting_started_rust_installation.html"><strong aria-hidden="true">1.2.</strong> Rust Installation</a></li><li class="chapter-item expanded "><a href="../1-getting_started/getting_started_robot_test.html" class="active"><strong aria-hidden="true">1.3.</strong> Robot Test</a></li><li class="chapter-item expanded "><a href="../1-getting_started/getting_started_adding_a_robot.html"><strong aria-hidden="true">1.4.</strong> Adding a Robot</a></li></ol></li><li class="chapter-item expanded "><a href="../2-optima_rust_tutorials/optima_rust_tutorials_0.html"><strong aria-hidden="true">2.</strong> Optima Rust Tutorials</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="../2-optima_rust_tutorials/optima_rust_tutorials_loading_a_robot.html"><strong aria-hidden="true">2.1.</strong> Loading a Robot Model</a></li></ol></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -116,7 +115,7 @@
                     <h1 class="menu-title">Optima Toolbox</h1>
 
                     <div class="right-buttons">
-                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
 
@@ -145,58 +144,7 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
-<p>Optima is an easy to set up and easy to use robotics toolbox.  Its primary use-case is robot motion generation (e.g., trajectory optimization, motion planning, optimization-based inverse kinematics, etc), though its underlying structures are general and can apply to many planning and optimization problem domains.  The core library is written in Rust, though high quality support for other targets such as Python and Webassembly are afforded via Rust's flexible compiler.</p>
-<p>Optima features an extensive suite of efficient and flexible robotics subroutines, including forward kinematics, jacobian computations, etc.  Optima also features implementations of state-of-the-art robotics algorithms related to planning, optimization, and proximity computations, such as RelaxedIK, CollisionIK, and Proxima (with more algorithms on the way).  These robotics features are designed to be easy to set up and access.  Models of many popular robots such as UR5, Franka Emika Panda, Kinova Gen3, etc., are included out-of-the-box and can be instantiated with a single line of code.  If your robot model is not included in our provided assets, a robot can be added to the library in just minutes.</p>
-<h2 id="high-level-features"><a class="header" href="#high-level-features">High-level Features</a></h2>
-<ul>
-<li>
-<p>The underlying non-linear optimization engine has several backend options, such as the <a href="https://alphaville.github.io/optimization-engine/docs/open-intro">Open Engine</a> and <a href="https://nlopt.readthedocs.io/en/latest/">NLopt</a>.  All algorithms support a non-linear objective function, non-linear equality constraints, and non-linear inequality constraints.  Most provided algorithms are local solvers, though several global optimization algorithms are provided via NLopt as well.  These optimization algorithm options can be swapped in and out by changing a single parameter, making testing and benchmarking over optimization algorithms easy to conduct.</p>
-</li>
-<li>
-<p>The library presents a powerful Rust trait called <code>OptimaTensorFunction</code>; any function that implements this trait can automatically compute derivatives (up to the fourth derivative) using a derivative composition graph that automatically selects either analytical derivatives, when provided, or finite-difference approximate derivatives, by default, through its traversal.  Thus, instead of depending on low-level automatic differentiation libraries that often fail on important subroutines, this approach provides a highly efficient and flexible way to perform derivatives for any implemented function.  High order derivatives are even computable on multi-dimensional functions as the library supports tensors of any arbitrary dimension.  For instance, a function \( \mathit{f}: \mathbb{R}^{3 \times 5} \rightarrow {R}^{4 \times 4} \) implemented as an <code>OptimaTensorFunction</code> can automatically provide derivatives \( \frac{\partial f}{\partial \mathbf{X}} \in {R}^{4 \times 4 \times 3 \times 5} \), \( \frac{\partial^2 f}{\partial \mathbf{X}^2} \in {R}^{4 \times 4 \times 3 \times 5 \times 3 \times 5} \), etc.</p>
-</li>
-<li>
-<p>Optima uses flexible transform and rotation implementations that make SE(3) computations a breeze.  For instance, any computations over transforms can use homogeneous matrices, implicit dual quaternions, a rotation matrix + vector, unit quaternion + vector, euler angles + vector, etc.  No matter what SE(3) representation is chosen, the library will automatically ensure that all conversions and computations are handled correctly under the hood.</p>
-</li>
-<li>
-<p>In just a few lines of code, individual robot models can be combined to form a &quot;robot set&quot;, allowing for easy planning and optimization over several robots all at once.  For instance, a UR5 (6DOF) can be easily combined with two Rethink Sawyer (7DOF) robots to form a robot set with 20 total DOF.  In addition, any robot in the library (including those in a robot set) can be easily supplemented with a mobile base of numerous types (e.g., floating base, planar base, etc.).  The extra degrees of freedom accompanying these mobile base options are automatically added to the robot (or robot set) model.</p>
-</li>
-</ul>
-<h2 id="sub-repositories"><a class="header" href="#sub-repositories">Sub-repositories</a></h2>
-<p>The Optima Toolbox is comprised of four primary sub-repositories:</p>
-<ol>
-<li><a href="https://github.com/djrakita/optima"><code>optima</code></a>: This repository contains the core Rust code of the Optima Toolbox.  This code can be compiled to Rust, Python, and Web-assembly.</li>
-<li><a href="https://github.com/djrakita/optima_assets/tree/main"><code>optima_assets</code></a>: This repository contains asset files that are pre-packaged with the toolbox.  For instance, these assets include pre-processed robot models (in the <a href="https://github.com/djrakita/optima_robots/tree/main"><code>optima_robots</code></a> repository), as well as 3D mesh files that can be used to build up scenes around robot models.</li>
-<li><a href="https://github.com/djrakita/optima_js/tree/main"><code>optima_js</code></a>: This repository will contain utility code when using Optima in Javascript.  This folder is an empty place-holder right now; code will be added here over time.</li>
-<li><a href="https://github.com/djrakita/optima_py/tree/main"><code>optima_py</code></a>: This repository will contain utility code when using Optima in Python.  This folder is an empty place-holder right now; code will be added here over time.</li>
-</ol>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h1>
-<p>In this Chapter, I will overview how to set up the Optima Toolbox.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="optima-toolbox-installation"><a class="header" href="#optima-toolbox-installation">Optima Toolbox Installation</a></h1>
-<p>The Optima Toolbox code lives on <a href="https://github.com/djrakita/optima_toolbox">github</a>.  A standard way to install this code is to ensure that <a href="https://git-scm.com/book/en/v2/Getting-Started-Installing-Git">git</a> is installed on your system, then <a href="https://www.w3schools.com/git/git_clone.asp?remote=github">clone</a>, e.g. running the following command line in your terminal after navigating to a desired directory:</p>
-<pre><code>git clone https://github.com/djrakita/optima_toolbox.git
-</code></pre>
-<p>The Optima Toolbox repository has several sub-repositories.  In order to pull all updates from the sub-repositories, navigate into the <code>optima_toolbox</code> directory:</p>
-<pre><code>cd optima_toolbox
-</code></pre>
-<p>then run the following command line in your terminal:</p>
-<pre><code>git submodule update --init --recursive
-</code></pre>
-<p>And that's it!  The Optima Toolbox files are now on your computer.  In the following section, I will outline how to install the Rust toolchain in order to further set up the Optima Toolbox.   </p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="rust-installation"><a class="header" href="#rust-installation">Rust Installation</a></h1>
-<p>We will next ensure that the <a href="https://www.rust-lang.org/">Rust programming language</a> toolchain is installed on your computer.  Rust is required in order to set up and compile all of the features offered by Optima, even if you are mostly interested in using Optima in Python, Webassembly, etc.</p>
-<p>Fortunately, the Rust toolchain is very easy to install.  Simply follow the one-step installation guide <a href="https://www.rust-lang.org/learn/get-started">here</a>.  To verify that the Rust has been successfully installed, run the following command:</p>
-<pre><code class="language-shell">cargo --version
-</code></pre>
-<p>Also, to verify that the newly installed Rust compiler works with the Optima Toolbox, navigate to the <code>optima</code> sub-directory in the Optima Toolbox (assuming you are already in the <code>optima_toolbox</code> directory.):</p>
-<pre><code class="language-shell">cd optima
-</code></pre>
-<p>Then run:</p>
-<pre><code>cargo test
-</code></pre>
-<p>Numerous tests should run, all passing with a result of <code>ok</code>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="robot-test"><a class="header" href="#robot-test">Robot Test</a></h1>
+                        <h1 id="robot-test"><a class="header" href="#robot-test">Robot Test</a></h1>
 <p>We will now further verify that the Optima Toolbox is properly setup with the Rust toolchain.</p>
 <p>In the <code>optima_toolbox/optima</code> directory, run the following command:</p>
 <pre><code class="language-shell">cargo run --bin print_robot_info ur5
@@ -327,77 +275,18 @@ DOF Joint Axis 16 ---&gt; JointAxis { joint_idx: 19, joint_sub_dof_idx: 0, fixed
 DOF Joint Axis 17 ---&gt; JointAxis { joint_idx: 20, joint_sub_dof_idx: 0, fixed_value: None, axis_as_unit: [[-1.0, 0.0, 0.0]], axis: [[-1.0, 0.0, 0.0]], axis_primitive_type: Translation, bounds: (0.0, 0.025) }
 </code></pre>
 <p>The outputs of these commands will make more sense as you move through the tutorials ahead, but for now, as long as the outputs in your console appear as they do here, the toolbox is correctly set up on your system!  </p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="adding-a-robot"><a class="header" href="#adding-a-robot">Adding a Robot</a></h1>
-<p>The Optima Toolbox comes pre-packaged with models of several popular robots.  These models can be found in the <code>optima_toolbox/optima_assets/optima_robots</code> directory.  Each robot directory here (e.g., ur5, sawyer, etc.) contains all necessary information for using their respective robot models throughout the Optima Toolbox.</p>
-<p>Guide on adding a robot is coming soon!  If you need a new robot added to the Optima Toolbox before this guide is made available, please email me at <a href="mailto:1-getting_started/daniel.rakita@yale.edu">daniel.rakita@yale.edu</a>.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="getting-started-1"><a class="header" href="#getting-started-1">Getting Started</a></h1>
-<p>In this Chapter, I will cover brief tutorial topics on how to use the core Optima library in Rust.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="loading-a-robot-model"><a class="header" href="#loading-a-robot-model">Loading a Robot Model</a></h1>
-<p>In this tutorial, we will cover how to load a robot model into Optima.  The code for this example is as follows:</p>
-<pre><pre class="playground"><code class="language-rust editable runnable">extern crate optima;
-
-use optima::robot_modules::robot::Robot;
-use optima::utils::utils_robot::robot_module_utils::RobotNames;
-
-fn main () {
-    // load the given robot
-    let robot = Robot::new_from_names(RobotNames::new(&quot;ur5&quot;, None));
-
-    // prints a summary of the robot configuration
-    robot.robot_configuration_module().print_summary();
-
-    // prints a summary of the robot's degrees of freedom
-    robot.robot_joint_state_module().print_dof_summary();
-}
-</code></pre></pre>
-<p>Let's take a look through the code.  The important part of this code is line 8 where the ur5 robot model is loaded.  The easiest way to load a robot is using the <code>new_from_names</code> function.  This function takes a <code>RobotNames</code> parameter, which has two parameters of its own.  The first parameter here is the name of the robot (<code>&quot;ur5&quot;</code> in this case).  This string literal parameter could be any robot in the directory <code>optima_toolbox/optima_assets/optima_robots</code>.  The second parameter is a Rust <a href="https://doc.rust-lang.org/std/option/">Option</a> that can, as the name implies, serve as an optional string parameter specifying the name of a robot configuration.  Robot configurations will be covered in a following section, so in this case, the configuration is specifies as <code>None</code>, meaning the loaded robot model will simply be its base configuration.</p>
-<p>A <code>Robot</code> in Optima is a large struct that aggregates smaller structs that contain specialized code to perform particular tasks, referred to as <em>modules</em>.  For instance, a <code>Robot</code> contains a <code>RobotConfigurationModule</code>, a <code>RobotJointStateModule</code>, a <code>RobotKinematicsModule</code>, and so on.  For details on each module, refer to the Optima API documentation.  Lines 11 and 14 here print a summary of the configuration module and joint state module, respectively, to the console. </p>
-<p>The code for this tutorial can be found in the file <code>optima_toolbox/optima/examples/0_load_robot.rs</code> and can be run from the <code>optima_toolbox/optima</code> directory using the following command:</p>
-<pre><code class="language-shell">cargo run --example 0_load_robot
-</code></pre>
-<p>The output of this example should be the following:</p>
-<pre><code class="language-s">  Link index:  0   Link name:  base_link   Present:  true 
-  Link index:  1   Link name:  shoulder_link   Present:  true 
-  Link index:  2   Link name:  upper_arm_link   Present:  true 
-  Link index:  3   Link name:  forearm_link   Present:  true 
-  Link index:  4   Link name:  wrist_1_link   Present:  true 
-  Link index:  5   Link name:  wrist_2_link   Present:  true 
-  Link index:  6   Link name:  wrist_3_link   Present:  true 
-  Link index:  7   Link name:  ee_link   Present:  true 
-  Link index:  8   Link name:  base   Present:  true 
-  Link index:  9   Link name:  tool0   Present:  true 
-  Link index:  10   Link name:  world   Present:  true 
-
-&gt;&gt; Joint index:  0   Joint name:  shoulder_pan_joint   Num dofs:  1   Present:  true 
-      -- Joint sub idx 0:  Rotation about axis [[0.0, 0.0, 1.0]], Not fixed.
-&gt;&gt; Joint index:  1   Joint name:  shoulder_lift_joint   Num dofs:  1   Present:  true 
-      -- Joint sub idx 0:  Rotation about axis [[0.0, 1.0, 0.0]], Not fixed.
-&gt;&gt; Joint index:  2   Joint name:  elbow_joint   Num dofs:  1   Present:  true 
-      -- Joint sub idx 0:  Rotation about axis [[0.0, 1.0, 0.0]], Not fixed.
-&gt;&gt; Joint index:  3   Joint name:  wrist_1_joint   Num dofs:  1   Present:  true 
-      -- Joint sub idx 0:  Rotation about axis [[0.0, 1.0, 0.0]], Not fixed.
-&gt;&gt; Joint index:  4   Joint name:  wrist_2_joint   Num dofs:  1   Present:  true 
-      -- Joint sub idx 0:  Rotation about axis [[0.0, 0.0, 1.0]], Not fixed.
-&gt;&gt; Joint index:  5   Joint name:  wrist_3_joint   Num dofs:  1   Present:  true 
-      -- Joint sub idx 0:  Rotation about axis [[0.0, 1.0, 0.0]], Not fixed.
-&gt;&gt; Joint index:  6   Joint name:  ee_fixed_joint   Num dofs:  0   Present:  true 
-&gt;&gt; Joint index:  7   Joint name:  base_link-base_fixed_joint   Num dofs:  0   Present:  true 
-&gt;&gt; Joint index:  8   Joint name:  wrist_3_link-tool0_fixed_joint   Num dofs:  0   Present:  true 
-&gt;&gt; Joint index:  9   Joint name:  world_joint   Num dofs:  0   Present:  true 
-
-DOF Joint Axis 0 ---&gt; JointAxis { joint_idx: 0, joint_sub_dof_idx: 0, fixed_value: None, axis_as_unit: [[0.0, 0.0, 1.0]], axis: [[0.0, 0.0, 1.0]], axis_primitive_type: Rotation, bounds: (-6.2831853, 6.2831853) }
-DOF Joint Axis 1 ---&gt; JointAxis { joint_idx: 1, joint_sub_dof_idx: 0, fixed_value: None, axis_as_unit: [[0.0, 1.0, 0.0]], axis: [[0.0, 1.0, 0.0]], axis_primitive_type: Rotation, bounds: (-6.2831853, 6.2831853) }
-DOF Joint Axis 2 ---&gt; JointAxis { joint_idx: 2, joint_sub_dof_idx: 0, fixed_value: None, axis_as_unit: [[0.0, 1.0, 0.0]], axis: [[0.0, 1.0, 0.0]], axis_primitive_type: Rotation, bounds: (-6.2831853, 6.2831853) }
-DOF Joint Axis 3 ---&gt; JointAxis { joint_idx: 3, joint_sub_dof_idx: 0, fixed_value: None, axis_as_unit: [[0.0, 1.0, 0.0]], axis: [[0.0, 1.0, 0.0]], axis_primitive_type: Rotation, bounds: (-6.2831853, 6.2831853) }
-DOF Joint Axis 4 ---&gt; JointAxis { joint_idx: 4, joint_sub_dof_idx: 0, fixed_value: None, axis_as_unit: [[0.0, 0.0, 1.0]], axis: [[0.0, 0.0, 1.0]], axis_primitive_type: Rotation, bounds: (-6.2831853, 6.2831853) }
-DOF Joint Axis 5 ---&gt; JointAxis { joint_idx: 5, joint_sub_dof_idx: 0, fixed_value: None, axis_as_unit: [[0.0, 1.0, 0.0]], axis: [[0.0, 1.0, 0.0]], axis_primitive_type: Rotation, bounds: (-6.2831853, 6.2831853) }
-</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../1-getting_started/getting_started_rust_installation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
 
+                            <a rel="next" href="../1-getting_started/getting_started_adding_a_robot.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
 
                         <div style="clear: both"></div>
                     </nav>
@@ -405,7 +294,13 @@ DOF Joint Axis 5 ---&gt; JointAxis { joint_idx: 5, joint_sub_dof_idx: 0, fixed_v
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../1-getting_started/getting_started_rust_installation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
 
+                    <a rel="next" href="../1-getting_started/getting_started_adding_a_robot.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
             </nav>
 
         </div>
@@ -420,29 +315,22 @@ DOF Joint Axis 5 ---&gt; JointAxis { joint_idx: 5, joint_sub_dof_idx: 0, fixed_v
             window.playground_copyable = true;
         </script>
 
-        <script src="ace.js" type="text/javascript" charset="utf-8"></script>
-        <script src="editor.js" type="text/javascript" charset="utf-8"></script>
-        <script src="mode-rust.js" type="text/javascript" charset="utf-8"></script>
-        <script src="theme-dawn.js" type="text/javascript" charset="utf-8"></script>
-        <script src="theme-tomorrow_night.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../ace.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../editor.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mode-rust.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../theme-dawn.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../theme-tomorrow_night.js" type="text/javascript" charset="utf-8"></script>
 
-        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
 
-        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
-        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
-        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
 
         <!-- Custom JS scripts -->
 
-        <script type="text/javascript">
-        window.addEventListener('load', function() {
-            MathJax.Hub.Register.StartupHook('End', function() {
-                window.setTimeout(window.print, 100);
-            });
-        });
-        </script>
 
     </body>
 </html>
