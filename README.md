@@ -2,6 +2,10 @@
 
 [Documentation](https://djrakita.github.io/optima_toolbox/)
 
+## Development Update for Version 0.0.2 (8/10/2022)
+- [Initial documentation](https://djrakita.github.io/optima_toolbox/) has been posted!  It's still a work in progress, but it's a good start.
+- `OptimaIK` has been implemented.  This new IK solver heavily draws on *RelaxedIK* and *CollisionIK*, and also adds a "static" IK option.
+
 ## Introduction
 
 Optima is an easy to set up and easy to use robotics toolbox.  Its primary use-case is robot motion generation (e.g., trajectory optimization, motion planning, optimization-based inverse kinematics, etc), though its underlying structures are general and can apply to many planning and optimization problem domains.  The core library is written in Rust, though high quality support for other targets such as Python and Webassembly are afforded via Rust's flexible compiler.  
