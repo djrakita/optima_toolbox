@@ -1,8 +1,10 @@
 # optima_toolbox
 
-[Documentation](https://djrakita.github.io/optima_toolbox/)
+[![Crates.io](https://img.shields.io/crates/v/optima.svg)](https://crates.io/crates/optima)
 
-## Development Update for Version 0.0.2 (8/10/2022)
+| [Documentation](https://djrakita.github.io/optima_toolbox/) | [API](https://docs.rs/optima/0.0.3/optima/) | 
+
+## Development Update for Version 0.0.3 (8/10/2022)
 - [Initial documentation](https://djrakita.github.io/optima_toolbox/) has been posted!  It's still a work in progress, but it's a good start.
 - `OptimaIK` has been implemented.  This new IK solver heavily draws on *RelaxedIK* and *CollisionIK*, and also adds a "static" IK option.
 
