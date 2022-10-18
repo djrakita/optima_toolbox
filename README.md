@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/optima.svg)](https://crates.io/crates/optima)
 
-| [Documentation](https://djrakita.github.io/optima_toolbox/) | [API](https://docs.rs/optima/0.0.3/optima/) | 
+| [Documentation](https://djrakita.github.io/optima_toolbox/) | [API](https://docs.rs/optima/0.0.4/optima/) | 
 
 ## Development Update for Version 0.0.3 (8/10/2022)
 - [Initial documentation](https://djrakita.github.io/optima_toolbox/) has been posted!  It's still a work in progress, but it's a good start.
