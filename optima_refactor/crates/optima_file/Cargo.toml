@@ -1,0 +1,36 @@
+[package]
+name = "optima_file"
+version = "0.0.4"
+edition = "2021"
+
+[dependencies]
+optima_console = { path = "../optima_console" }
+serde = { version="*", features = ["derive"] }
+serde_json = { version="*" }
+ron = { version="*" }
+toml = { version="*" }
+vfs = { version="*", features=["embedded-fs"] }
+rust-embed = { version="*", features=["debug-embed", "interpolate-folder-path", "compression", "include-exclude"] }
+dirs = { version="*" }
+walkdir = { version="*" }
+
+# excludes have higher priority than includes.  Includes work based on union of sets, so if you use
+# even one include, you must then include everything else you want too.
+[features]
+default = [
+    "do_not_embed_assets"
+]
+do_not_embed_assets = [ ]
+only_use_embedded_assets = [ ] # NOTE!  This will only work if you include --no-default-features.
+exclude_all_robot_assets = [ ]
+exclude_all_robot_meshes = [ ]
+exclude_optima_scenes = [ ]
+exclude_file_io = [ ]
+exclude_optima_robot_sets = [ ]
+include_ur5 = [ ]
+include_sawyer = [ ]
+include_fetch = [ ]
+include_hubo = [ ]
+include_optima_scenes = [ ]
+include_file_io = [ ]
+include_optima_robot_sets = [ ]

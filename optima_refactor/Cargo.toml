@@ -1,0 +1,54 @@
+[package]
+name = "optima"
+version = "0.0.4"
+edition = "2021"
+description = "An easy to set up and easy optimization and planning toolbox, particularly for robotics."
+documentation = "https://docs.rs/optima"
+keywords = ["optimization", "planning", "robotics", "motion", "kinematics"]
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/djrakita/optima_toolbox"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[workspace]
+members = [
+    "crates/optima_file",
+    "crates/optima_console",
+    "crates/optima_3d_spatial"
+]
+
+[dependencies]
+optima_file = { path = "crates/optima_file" }
+
+[features]
+default = [
+    "do_not_embed_assets"
+]
+
+# optima_file_features
+do_not_embed_assets = [ "optima_file/do_not_embed_assets" ]
+only_use_embedded_assets = [ "optima_file/only_use_embedded_assets" ] # NOTE!  This will only work if you include --no-default-features.
+exclude_all_robot_assets = [ "optima_file/exclude_all_robot_assets" ]
+exclude_all_robot_meshes = [ "optima_file/exclude_all_robot_meshes" ]
+exclude_optima_scenes = [ "optima_file/exclude_optima_scenes" ]
+exclude_file_io = [ "optima_file/exclude_file_io" ]
+exclude_optima_robot_sets = [ "optima_file/exclude_optima_robot_sets" ]
+include_ur5 = [ "optima_file/include_ur5" ]
+include_sawyer = [ "optima_file/include_sawyer" ]
+include_fetch = [ "optima_file/include_fetch" ]
+include_hubo = [ "optima_file/include_hubo" ]
+include_optima_scenes = [ "optima_file/include_optima_scenes" ]
+include_file_io = [ "optima_file/include_file_io" ]
+include_optima_robot_sets = [ "optima_file/include_optima_robot_sets" ]
+
+[lib]
+name = "optima"
+crate-type = ["cdylib", "rlib"]
+
+[profile.dev]
+opt-level = 3
+
+[profile.release]
+opt-level = 3
+lto = "thin"
