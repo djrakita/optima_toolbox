@@ -6,6 +6,8 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_file/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_3d_spatial/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/optima_robotics/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/optima_utils/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />

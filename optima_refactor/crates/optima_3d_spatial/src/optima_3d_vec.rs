@@ -1,9 +1,10 @@
 use std::fmt::{Debug};
-use ad_trait::{AD, NalgebraMatMulAD};
-use nalgebra::{ArrayStorage, Const, Vector3};
+use ad_trait::{AD};
+use nalgebra::{Point3, Vector3};
+use serde::{Deserialize, Serialize};
 
-pub trait Optima3DVec<'a, T: AD> :
-    Debug
+pub trait O3DVec<T: AD> :
+    Debug + Serialize + for<'a> Deserialize<'a>
 {
     fn x(&self) -> T;
     fn y(&self) -> T;
@@ -12,12 +13,12 @@ pub trait Optima3DVec<'a, T: AD> :
     fn as_slice(&self) -> &[T];
     fn add(&self, other: &Self) -> Self;
     fn sub(&self, other: &Self) -> Self;
-    fn scalar_mul(&'a self, scalar: T) -> Self;
+    fn scalar_mul(&self, scalar: T) -> Self;
     fn norm(&self) -> T;
     fn dis(&self, other: &Self) -> T;
 }
 
-impl<'a, T: AD> Optima3DVec<'a, T> for [T; 3] {
+impl<T: AD> O3DVec<T> for [T; 3] {
     #[inline(always)]
     fn x(&self) -> T {
         self[0]
@@ -54,7 +55,7 @@ impl<'a, T: AD> Optima3DVec<'a, T> for [T; 3] {
     }
 
     #[inline]
-    fn scalar_mul(&'a self, scalar: T) -> Self {
+    fn scalar_mul(&self, scalar: T) -> Self {
         [ scalar * self[0], scalar * self[1], scalar * self[2] ]
     }
 
@@ -69,7 +70,7 @@ impl<'a, T: AD> Optima3DVec<'a, T> for [T; 3] {
     }
 }
 
-impl<'a, T: AD> Optima3DVec<'a, T> for Vec<T> {
+impl<T: AD> O3DVec<T> for Vec<T> {
     #[inline(always)]
     fn x(&self) -> T {
         self[0]
@@ -106,7 +107,7 @@ impl<'a, T: AD> Optima3DVec<'a, T> for Vec<T> {
     }
 
     #[inline]
-    fn scalar_mul(&'a self, scalar: T) -> Self {
+    fn scalar_mul(&self, scalar: T) -> Self {
         vec![ scalar * self[0], scalar * self[1], scalar * self[2] ]
     }
 
@@ -121,7 +122,7 @@ impl<'a, T: AD> Optima3DVec<'a, T> for Vec<T> {
     }
 }
 
-impl<'a, T: AD + NalgebraMatMulAD<'a, Const<3>, Const<1>, ArrayStorage<T, 3, 1>>> Optima3DVec<'a, T> for Vector3<T> {
+impl<T: AD> O3DVec<T> for Vector3<T> {
     #[inline(always)]
     fn x(&self) -> T {
         self.x
@@ -158,8 +159,9 @@ impl<'a, T: AD + NalgebraMatMulAD<'a, Const<3>, Const<1>, ArrayStorage<T, 3, 1>>
     }
 
     #[inline]
-    fn scalar_mul(&'a self, scalar: T) -> Self {
-        scalar * self
+    fn scalar_mul(&self, scalar: T) -> Self {
+        scalar.mul_by_nalgebra_matrix_ref(self)
+        // scalar * self
         // let mut v = [T::zero(); 3];
         // v.iter_mut().zip(self.iter()).for_each(|(x,y)| *x = scalar * *y);
         // Vector3::from_column_slice(&v)
@@ -172,6 +174,48 @@ impl<'a, T: AD + NalgebraMatMulAD<'a, Const<3>, Const<1>, ArrayStorage<T, 3, 1>>
 
     #[inline]
     fn dis(&self, other: &Self) -> T {
-        self.sub(other).norm()
+        (self - other).norm()
+    }
+}
+
+impl<T: AD> O3DVec<T> for Point3<T> {
+    fn x(&self) -> T {
+        self.x
+    }
+
+    fn y(&self) -> T {
+        self.y
+    }
+
+    fn z(&self) -> T {
+        self.z
+    }
+
+    fn from_slice(slice: &[T]) -> Self {
+        Point3::from_slice(slice)
+    }
+
+    fn as_slice(&self) -> &[T] {
+        self.coords.as_slice()
+    }
+
+    fn add(&self, other: &Self) -> Self {
+        (&self.coords + &other.coords).into()
+    }
+
+    fn sub(&self, other: &Self) -> Self {
+        (&self.coords - &other.coords).into()
+    }
+
+    fn scalar_mul(&self, scalar: T) -> Self {
+        scalar.mul_by_nalgebra_matrix_ref(&self.coords).into()
+    }
+
+    fn norm(&self) -> T {
+        self.coords.norm()
+    }
+
+    fn dis(&self, other: &Self) -> T {
+        (self - other).norm()
     }
 }

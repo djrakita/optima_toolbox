@@ -1,7 +1,7 @@
 use ad_trait::AD;
-use optima_3d_spatial::optima_se3_pose::{ImplicitDualQuaternion, OptimaSE3Pose};
+use optima_3d_spatial::optima_se3_pose::{ImplicitDualQuaternion, OSE3Pose};
 
-fn test<'a, T: AD, P: OptimaSE3Pose<'a, T>>(pose1: &P, pose2: &P) -> P {
+fn test<'a, T: AD, P: OSE3Pose<T>>(pose1: &P, pose2: &P) -> P {
     pose1.mul(pose2)
 }
 

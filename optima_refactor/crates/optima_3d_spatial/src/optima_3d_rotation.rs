@@ -1,21 +1,21 @@
 use std::fmt::Debug;
-use ad_trait::{AD, NalgebraMatMulAD};
-use nalgebra::{ArrayStorage, Const, Matrix3, Quaternion, Rotation3, UnitQuaternion, Vector3};
-use crate::optima_3d_vec::Optima3DVec;
+use ad_trait::{AD};
+use nalgebra::{Matrix3, Quaternion, Rotation3, UnitQuaternion, Vector3};
+use serde::{Deserialize, Serialize};
+use crate::optima_3d_vec::O3DVec;
 
 /// Point is the "native vector" type that serve as the native type that this rotation multiplies by
-pub trait Optima3DRotation<'a, T: AD> :
-    Debug
-{
-    type Native3DVecType: Optima3DVec<'a, T>;
+pub trait O3DRotation<T: AD> :
+    Debug + Serialize + for<'a> Deserialize<'a>{
+    type Native3DVecType: O3DVec<T>;
 
     fn mul(&self, other: &Self) -> Self;
     fn mul_by_point_native(&self, point: &Self::Native3DVecType) -> Self::Native3DVecType;
-    fn mul_by_point_generic<V: Optima3DVec<'a, T>>(&self, point: &V) -> V;
+    fn mul_by_point_generic<V: O3DVec<T>>(&self, point: &V) -> V;
     fn scaled_axis_of_rotation(&self) -> [T; 3];
-    fn from_scaled_axis_of_rotation<V: Optima3DVec<'a, T>>(axis: &V) -> Self;
+    fn from_scaled_axis_of_rotation<V: O3DVec<T>>(axis: &V) -> Self;
     fn euler_angles(&self) -> [T; 3];
-    fn from_euler_angles<V: Optima3DVec<'a, T>>(euler_angles: &V) -> Self;
+    fn from_euler_angles<V: O3DVec<T>>(euler_angles: &V) -> Self;
     fn rotation_matrix_as_column_major_slice(&self) -> [T; 9];
     fn from_rotation_matrix_as_column_major_slice(slice: &[T]) -> Self;
     fn unit_quaternion_as_wxyz_slice(&self) -> [T; 4];
@@ -35,7 +35,7 @@ pub trait Optima3DRotation<'a, T: AD> :
     fn interpolate(&self, to: &Self, t: T) -> Self;
 }
 
-impl<'a, T: AD + NalgebraMatMulAD<'a, Const<3>, Const<1>, ArrayStorage<T, 3, 1>>> Optima3DRotation<'a, T> for Rotation3<T> {
+impl<T: AD> O3DRotation<T> for Rotation3<T> {
     type Native3DVecType = Vector3<T>;
 
     fn mul(&self, other: &Self) -> Self {
@@ -46,7 +46,7 @@ impl<'a, T: AD + NalgebraMatMulAD<'a, Const<3>, Const<1>, ArrayStorage<T, 3, 1>>
         self * point
     }
 
-    fn mul_by_point_generic<V: Optima3DVec<'a, T>>(&self, point: &V) -> V {
+    fn mul_by_point_generic<V: O3DVec<T>>(&self, point: &V) -> V {
         let res = self * Vector3::from_column_slice(point.as_slice());
         V::from_slice(res.as_slice())
     }
@@ -56,7 +56,7 @@ impl<'a, T: AD + NalgebraMatMulAD<'a, Const<3>, Const<1>, ArrayStorage<T, 3, 1>>
         [ v[0], v[1], v[2] ]
     }
 
-    fn from_scaled_axis_of_rotation<V: Optima3DVec<'a, T>>(axis: &V) -> Self {
+    fn from_scaled_axis_of_rotation<V: O3DVec<T>>(axis: &V) -> Self {
         let slice = axis.as_slice();
         Rotation3::from_scaled_axis(Vector3::from_column_slice(slice))
     }
@@ -67,7 +67,7 @@ impl<'a, T: AD + NalgebraMatMulAD<'a, Const<3>, Const<1>, ArrayStorage<T, 3, 1>>
         [ e.0, e.1, e.2 ]
     }
 
-    fn from_euler_angles<V: Optima3DVec<'a, T>>(euler_angles: &V) -> Self {
+    fn from_euler_angles<V: O3DVec<T>>(euler_angles: &V) -> Self {
         Rotation3::from_euler_angles(euler_angles.x(), euler_angles.y(), euler_angles.z())
     }
 
@@ -120,7 +120,7 @@ impl<'a, T: AD + NalgebraMatMulAD<'a, Const<3>, Const<1>, ArrayStorage<T, 3, 1>>
     }
 }
 
-impl<'a, T: AD + NalgebraMatMulAD<'a, Const<3>, Const<1>, ArrayStorage<T, 3, 1>>> Optima3DRotation<'a, T> for UnitQuaternion<T> {
+impl<T: AD> O3DRotation<T> for UnitQuaternion<T> {
     type Native3DVecType = Vector3<T>;
 
     fn mul(&self, other: &Self) -> Self {
@@ -131,7 +131,7 @@ impl<'a, T: AD + NalgebraMatMulAD<'a, Const<3>, Const<1>, ArrayStorage<T, 3, 1>>
         self * point
     }
 
-    fn mul_by_point_generic<V: Optima3DVec<'a, T>>(&self, point: &V) -> V {
+    fn mul_by_point_generic<V: O3DVec<T>>(&self, point: &V) -> V {
         let res = self * Vector3::from_column_slice(point.as_slice());
         V::from_slice(res.as_slice())
     }
@@ -141,7 +141,7 @@ impl<'a, T: AD + NalgebraMatMulAD<'a, Const<3>, Const<1>, ArrayStorage<T, 3, 1>>
         [ v[0], v[1], v[2] ]
     }
 
-    fn from_scaled_axis_of_rotation<V: Optima3DVec<'a, T>>(axis: &V) -> Self {
+    fn from_scaled_axis_of_rotation<V: O3DVec<T>>(axis: &V) -> Self {
         let slice = axis.as_slice();
         UnitQuaternion::from_scaled_axis(Vector3::from_column_slice(slice))
     }
@@ -152,7 +152,7 @@ impl<'a, T: AD + NalgebraMatMulAD<'a, Const<3>, Const<1>, ArrayStorage<T, 3, 1>>
         [ e.0, e.1, e.2 ]
     }
 
-    fn from_euler_angles<V: Optima3DVec<'a, T>>(euler_angles: &V) -> Self {
+    fn from_euler_angles<V: O3DVec<T>>(euler_angles: &V) -> Self {
         UnitQuaternion::from_euler_angles(euler_angles.x(), euler_angles.y(), euler_angles.z())
     }
 
@@ -206,14 +206,14 @@ impl<'a, T: AD + NalgebraMatMulAD<'a, Const<3>, Const<1>, ArrayStorage<T, 3, 1>>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub trait Optima3DRotationConstructor<'a, T: AD, TargetRotationType: Optima3DRotation<'a, T>> {
+pub trait O3DRotationConstructor<T: AD, TargetRotationType: O3DRotation<T>> {
     fn construct(&self) -> TargetRotationType;
 }
 
 /// This will be euler angles
-impl<'a, T, TargetRotationType> Optima3DRotationConstructor<'a, T, TargetRotationType> for [T; 3]
+impl<T, TargetRotationType> O3DRotationConstructor<T, TargetRotationType> for [T; 3]
     where T: AD,
-          TargetRotationType: Optima3DRotation<'a, T>
+          TargetRotationType: O3DRotation<T>
 {
     fn construct(&self) -> TargetRotationType {
         TargetRotationType::from_euler_angles(self)
@@ -221,27 +221,27 @@ impl<'a, T, TargetRotationType> Optima3DRotationConstructor<'a, T, TargetRotatio
 }
 
 pub struct ScaledAxis<T: AD>(pub [T; 3]);
-impl<'a, T, TargetRotationType> Optima3DRotationConstructor<'a, T, TargetRotationType> for ScaledAxis<T>
+impl<T, TargetRotationType> O3DRotationConstructor<T, TargetRotationType> for ScaledAxis<T>
     where T: AD,
-          TargetRotationType: Optima3DRotation<'a, T>
+          TargetRotationType: O3DRotation<T>
 {
     fn construct(&self) -> TargetRotationType {
         TargetRotationType::from_scaled_axis_of_rotation(&self.0)
     }
 }
 
-impl<'a, T, TargetRotationType> Optima3DRotationConstructor<'a, T, TargetRotationType> for Rotation3<T>
+impl<T, TargetRotationType> O3DRotationConstructor<T, TargetRotationType> for Rotation3<T>
     where T: AD,
-          TargetRotationType: Optima3DRotation<'a, T>
+          TargetRotationType: O3DRotation<T>
 {
     fn construct(&self) -> TargetRotationType {
         TargetRotationType::from_rotation_matrix_as_column_major_slice(self.matrix().as_slice())
     }
 }
 
-impl<'a, T, TargetRotationType> Optima3DRotationConstructor<'a, T, TargetRotationType> for UnitQuaternion<T>
+impl<T, TargetRotationType> O3DRotationConstructor<T, TargetRotationType> for UnitQuaternion<T>
     where T: AD,
-          TargetRotationType: Optima3DRotation<'a, T>
+          TargetRotationType: O3DRotation<T>
 {
     fn construct(&self) -> TargetRotationType {
         TargetRotationType::from_unit_quaternion_as_wxyz_slice(self.coords.as_slice())

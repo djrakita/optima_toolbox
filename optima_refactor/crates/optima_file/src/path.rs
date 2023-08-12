@@ -10,6 +10,7 @@ use serde::de::DeserializeOwned;
 use walkdir::WalkDir;
 use crate::traits::ToAndFromJsonString;
 use optima_console::output::{optima_print, PrintColor, PrintMode};
+use urdf_rs::Robot;
 
 /// excludes have higher priority than includes.  Includes work based on union of sets, so if you use
 /// even one include, you must then include everything else you want too.
@@ -170,6 +171,48 @@ impl OptimaStemCellPath {
         }
         return vec![];
     }
+    pub fn get_all_items_in_directory_as_paths(&self, include_directories: bool, include_hidden_files: bool) -> Vec<OptimaStemCellPath> {
+        let mut out = vec![];
+
+        let mut tmp_paths = vec![];
+
+        for optima_file_path in &self.optima_file_paths {
+            let paths = optima_file_path.get_all_items_in_directory_as_paths(include_directories, include_hidden_files);
+            tmp_paths.push(paths);
+        }
+
+        let num_items = tmp_paths[0].len();
+        for item_idx in 0..num_items {
+            let mut paths = vec![];
+            for path_type_idx in 0..tmp_paths.len() {
+                paths.push( tmp_paths[path_type_idx][item_idx].clone() )
+            }
+            out.push(OptimaStemCellPath { optima_file_paths: paths })
+        }
+        
+        out
+    }
+    pub fn get_all_directories_in_directory_as_paths(&self) -> Vec<OptimaStemCellPath> {
+        let mut out = vec![];
+
+        let mut tmp_paths = vec![];
+
+        for optima_file_path in &self.optima_file_paths {
+            let paths = optima_file_path.get_all_directories_in_directory_as_paths();
+            tmp_paths.push(paths);
+        }
+
+        let num_items = tmp_paths[0].len();
+        for item_idx in 0..num_items {
+            let mut paths = vec![];
+            for path_type_idx in 0..tmp_paths.len() {
+                paths.push( tmp_paths[path_type_idx][item_idx].clone() )
+            }
+            out.push(OptimaStemCellPath { optima_file_paths: paths })
+        }
+
+        out
+    }
     pub fn save_object_to_file_as_json<T: Serialize + DeserializeOwned>(&self, object: &T) {
         self.try_function_on_all_optima_file_paths_with_one_param(OptimaPath::save_object_to_file_as_json, object, "save_object_to_file_as_json")
     }
@@ -183,11 +226,9 @@ impl OptimaStemCellPath {
         }
         return vec![];
     }
-    /*
-    pub fn load_urdf(&self) -> Result<Robot, OptimaError> {
+    pub fn load_urdf(&self) -> Robot {
         return self.try_function_on_all_optima_file_paths(OptimaPath::load_urdf, "load_urdf");
     }
-    */
     pub fn try_function_on_all_optima_file_paths<T>(&self, f: fn(&OptimaPath) -> Result<T, String>, function_name: &str) -> T {
         let mut error_strings = vec![];
         for p in &self.optima_file_paths {
@@ -785,16 +826,38 @@ impl OptimaPath {
 
         out_vec
     }
-    /*
-    pub fn load_urdf(&self) -> Robot {
+    pub fn get_all_items_in_directory_as_paths(&self, include_directories: bool, include_hidden_files: bool) -> Vec<OptimaPath> {
+        let mut out = vec![];
+
+        let items = self.get_all_items_in_directory(include_directories, include_hidden_files);
+        for item in &items {
+            let mut s = self.clone();
+            s.append(item);
+            out.push(s);
+        }
+
+        out
+    }
+    pub fn get_all_directories_in_directory_as_paths(&self) -> Vec<OptimaPath> {
+        let mut out = vec![];
+
+        let items = self.get_all_directories_in_directory();
+        for item in &items {
+            let mut s = self.clone();
+            s.append(item);
+            out.push(s);
+        }
+
+        out
+    }
+    pub fn load_urdf(&self) -> Result<Robot, String> {
         let s = self.read_file_contents_to_string()?;
-        let robot_res = urdf_rs::read_from_string(&s);
-        match robot_res {
-            Ok(r) => { Ok(r) }
-            Err(_) => { Err(OptimaError::new_generic_error_str(&format!("Robot could not be loaded from path {:?}", self), file!(), line!())) }
+        let robot = urdf_rs::read_from_string(&s);
+        return match robot {
+            Ok(robot) => { Ok(robot) }
+            Err(e) => { Err(format!("{:?}", e)) }
         }
     }
-    */
     fn directory_walk_standard_entry(optima_path: &mut OptimaPath,
                                      out_vec: &mut Vec<OptimaPath>,
                                      pattern: &OptimaPathMatchingPattern) -> bool {
@@ -912,6 +975,19 @@ impl OptimaPath {
 pub fn load_object_from_json_string<T: DeserializeOwned>(json_str: &str) -> Result<T, String> {
     let o_res = serde_json::from_str(json_str);
     return match o_res {
+        Ok(o) => {
+            Ok(o)
+        }
+        Err(e) => {
+            Err(e.to_string())
+        }
+    }
+}
+
+/// Loads an object that implements the `Deserialize` trait from a deserialized ron string.
+pub fn load_object_from_ron_string<T: DeserializeOwned>(ron_str: &str) -> Result<T, String> {
+    let o_res = ron::from_str::<T>(ron_str);
+    match o_res {
         Ok(o) => {
             Ok(o)
         }

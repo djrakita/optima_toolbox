@@ -15,7 +15,9 @@ repository = "https://github.com/djrakita/optima_toolbox"
 members = [
     "crates/optima_file",
     "crates/optima_console",
-    "crates/optima_3d_spatial"
+    "crates/optima_3d_spatial",
+    "crates/optima_robotics",
+    "crates/optima_utils"
 ]
 
 [dependencies]
