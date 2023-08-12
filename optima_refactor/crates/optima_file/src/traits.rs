@@ -58,24 +58,29 @@ pub trait AssetSaveAndLoadable: SaveAndLoadable {
 }
 impl <T> AssetSaveAndLoadable for T where T: SaveAndLoadable { }
 
-pub trait ToAndFromRonString: Serialize + DeserializeOwned {
+pub trait ToRonString: Serialize {
     fn to_ron_string(&self) -> String {
         ron::to_string(self).expect("error")
     }
+}
+impl<T> ToRonString for T where T: Serialize { }
+pub trait FromRonString: ToRonString + DeserializeOwned {
     fn from_ron_string(ron_str: &str) -> Self where Self: Sized {
         let load: Result<Self, _> = ron::from_str(ron_str);
         return if let Ok(load) = load { load } else {
-            // Err(OptimaError::new_generic_error_str(&format!("Could not load ron string {:?} into correct type.", ron_str), file!(), line!()))
             panic!("Could not load ron string {:?} into correct type.", ron_str)
         }
     }
 }
-impl <T> ToAndFromRonString for T where T: Serialize + DeserializeOwned {  }
+impl<T> FromRonString for T where T: ToRonString + DeserializeOwned { }
 
-pub trait ToAndFromJsonString: Serialize + DeserializeOwned {
+pub trait ToJsonString: Serialize {
     fn to_json_string(&self) -> String {
         serde_json::to_string(self).expect("error")
     }
+}
+impl<T> ToJsonString for T where T: Serialize { }
+pub trait FromJsonString: ToJsonString + DeserializeOwned {
     fn from_json_string(json_str: &str) -> Self where Self: Sized {
         let load: Result<Self, _> = serde_json::from_str(json_str);
         return if let Ok(load) = load { load } else {
@@ -84,12 +89,15 @@ pub trait ToAndFromJsonString: Serialize + DeserializeOwned {
         }
     }
 }
-impl <T> ToAndFromJsonString for T where T: Serialize + DeserializeOwned {  }
+impl<T> FromJsonString for T where T: ToJsonString + DeserializeOwned { }
 
-pub trait ToAndFromTomlString: Serialize + DeserializeOwned {
+pub trait ToTomlString: Serialize {
     fn to_toml_string(&self) -> String {
         toml::to_string(self).expect("error")
     }
+}
+impl<T> ToTomlString for T where T: Serialize { }
+pub trait FromTomlString: ToTomlString + DeserializeOwned {
     fn from_toml_string(toml_string: &str) -> Self where Self: Sized {
         let load: Result<Self, _> = toml::from_str(toml_string);
         return if let Ok(load) = load { load } else {
@@ -98,4 +106,5 @@ pub trait ToAndFromTomlString: Serialize + DeserializeOwned {
         }
     }
 }
-impl <T> ToAndFromTomlString for T where T: Serialize + DeserializeOwned {  }
+impl<T> FromTomlString for T where T: ToTomlString + DeserializeOwned { }
+

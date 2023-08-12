@@ -1,7 +1,11 @@
+use std::fmt;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 use ad_trait::{AD};
 use nalgebra::{Matrix3, Quaternion, Rotation3, UnitQuaternion, Vector3};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde::de::{SeqAccess, Visitor};
+use serde::ser::SerializeTuple;
 use crate::optima_3d_vec::O3DVec;
 
 /// Point is the "native vector" type that serve as the native type that this rotation multiplies by
@@ -202,6 +206,48 @@ impl<T: AD> O3DRotation<T> for UnitQuaternion<T> {
     fn interpolate(&self, to: &Self, t: T) -> Self {
         self.slerp(to, t)
     }
+}
+
+pub fn o3d_rotation_custom_serialize<S, T: AD, R: O3DRotation<T>>(value: &R, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
+    let slice = value.scaled_axis_of_rotation();
+    let slice_as_f64 = [ slice[0].to_constant(), slice[1].to_constant(), slice[2].to_constant() ];
+    let mut tuple = serializer.serialize_tuple(3)?;
+    for element in &slice_as_f64 {
+        tuple.serialize_element(element)?;
+    }
+    tuple.end()
+}
+
+struct O3dRotationMyVisitor<T2: AD, R2: O3DRotation<T2>> {
+    _phantom_data: PhantomData<(T2, R2)>
+}
+
+impl<'de, T2: AD, R2: O3DRotation<T2>> Visitor<'de> for O3dRotationMyVisitor<T2, R2> {
+    type Value = R2;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a tuple of size 3")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let x: f64 = seq.next_element().expect("error").expect("error");
+        let y: f64 = seq.next_element().expect("error").expect("error");
+        let z: f64 = seq.next_element().expect("error").expect("error");
+        let xad = T2::constant(x);
+        let yad = T2::constant(y);
+        let zad = T2::constant(z);
+        Ok(R2::from_scaled_axis_of_rotation(&[xad, yad, zad]))
+    }
+}
+
+pub fn o3d_rotation_custom_deserialize<'de, D, T: AD, R: O3DRotation<T>>(deserializer: D) -> Result<R, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_tuple(3, O3dRotationMyVisitor::<T, R> { _phantom_data: PhantomData::default() })
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

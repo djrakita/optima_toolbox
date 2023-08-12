@@ -1,7 +1,11 @@
+use std::fmt;
 use std::fmt::{Debug};
+use std::marker::PhantomData;
 use ad_trait::{AD};
 use nalgebra::{Point3, Vector3};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use serde::de::{SeqAccess, Visitor};
+use serde::ser::SerializeTuple;
 
 pub trait O3DVec<T: AD> :
     Debug + Serialize + for<'a> Deserialize<'a>
@@ -218,4 +222,46 @@ impl<T: AD> O3DVec<T> for Point3<T> {
     fn dis(&self, other: &Self) -> T {
         (self - other).norm()
     }
+}
+
+pub fn o3d_vec_custom_serialize<S, T: AD, V: O3DVec<T>>(value: &V, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
+    let slice = value.as_slice();
+    let slice_as_f64 = [ slice[0].to_constant(), slice[1].to_constant(), slice[2].to_constant() ];
+    let mut tuple = serializer.serialize_tuple(3)?;
+    for element in &slice_as_f64 {
+        tuple.serialize_element(element)?;
+    }
+    tuple.end()
+}
+
+struct O3dVecMyVisitor<T2: AD, V2: O3DVec<T2>> {
+    _phantom_data: PhantomData<(T2, V2)>
+}
+
+impl<'de, T2: AD, V2: O3DVec<T2>> Visitor<'de> for O3dVecMyVisitor<T2, V2> {
+    type Value = V2;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a tuple of size 3")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
+        let x: f64 = seq.next_element().expect("error").expect("error");
+        let y: f64 = seq.next_element().expect("error").expect("error");
+        let z: f64 = seq.next_element().expect("error").expect("error");
+        let xad = T2::constant(x);
+        let yad = T2::constant(y);
+        let zad = T2::constant(z);
+        Ok(V2::from_slice(&[xad, yad, zad]))
+    }
+}
+
+pub fn o3d_vec_custom_deserialize<'de, D, T: AD, V: O3DVec<T>>(deserializer: D) -> Result<V, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    deserializer.deserialize_tuple(3, O3dVecMyVisitor::<T, V> { _phantom_data: PhantomData::default() })
 }

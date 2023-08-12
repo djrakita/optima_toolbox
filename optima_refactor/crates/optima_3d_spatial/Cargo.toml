@@ -8,5 +8,6 @@ edition = "2021"
 [dependencies]
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 ad_trait   = { path = "/Users/djrakita/Documents/ad_trait" }
+optima_file = { path = "../optima_file" }
 serde = { version="*", features = ["derive"] }
 serde_json = { version="*" }

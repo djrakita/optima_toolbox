@@ -8,7 +8,7 @@ use rust_embed::RustEmbed;
 use serde::{Serialize, Deserialize};
 use serde::de::DeserializeOwned;
 use walkdir::WalkDir;
-use crate::traits::ToAndFromJsonString;
+use crate::traits::{ToJsonString};
 use optima_console::output::{optima_print, PrintColor, PrintMode};
 use urdf_rs::Robot;
 
