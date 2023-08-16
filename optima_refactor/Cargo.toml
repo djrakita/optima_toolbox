@@ -17,7 +17,8 @@ members = [
     "crates/optima_console",
     "crates/optima_3d_spatial",
     "crates/optima_robotics",
-    "crates/optima_utils"
+    "crates/optima_utils",
+    "crates/optima_linalg"
 ]
 
 [dependencies]

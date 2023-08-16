@@ -8,11 +8,17 @@ use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeTuple;
 use crate::optima_3d_vec::O3DVec;
 
+#[derive(Clone, Debug, Copy, Eq, PartialEq)]
+pub enum O3DRotationType {
+    NalgebraRotation3, NalgebraUnitQuaternion
+}
+
 /// Point is the "native vector" type that serve as the native type that this rotation multiplies by
 pub trait O3DRotation<T: AD> :
     Debug + Serialize + for<'a> Deserialize<'a>{
     type Native3DVecType: O3DVec<T>;
 
+    fn type_identifier() -> O3DRotationType;
     fn mul(&self, other: &Self) -> Self;
     fn mul_by_point_native(&self, point: &Self::Native3DVecType) -> Self::Native3DVecType;
     fn mul_by_point_generic<V: O3DVec<T>>(&self, point: &V) -> V;
@@ -41,6 +47,11 @@ pub trait O3DRotation<T: AD> :
 
 impl<T: AD> O3DRotation<T> for Rotation3<T> {
     type Native3DVecType = Vector3<T>;
+
+    #[inline(always)]
+    fn type_identifier() -> O3DRotationType {
+        O3DRotationType::NalgebraRotation3
+    }
 
     fn mul(&self, other: &Self) -> Self {
         self * other
@@ -126,6 +137,11 @@ impl<T: AD> O3DRotation<T> for Rotation3<T> {
 
 impl<T: AD> O3DRotation<T> for UnitQuaternion<T> {
     type Native3DVecType = Vector3<T>;
+
+    #[inline(always)]
+    fn type_identifier() -> O3DRotationType {
+        O3DRotationType::NalgebraRotation3
+    }
 
     fn mul(&self, other: &Self) -> Self {
         self * other

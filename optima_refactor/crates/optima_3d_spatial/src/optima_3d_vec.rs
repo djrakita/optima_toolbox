@@ -7,9 +7,15 @@ use serde::{Deserialize, Deserializer, Serialize};
 use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeTuple;
 
+#[derive(Clone, Debug, Copy, Eq, PartialEq)]
+pub enum O3DVecType {
+    Arr, Vec, NalgebraVector3, NalgebraPoint3
+}
+
 pub trait O3DVec<T: AD> :
     Debug + Serialize + for<'a> Deserialize<'a>
 {
+    fn type_identifier() -> O3DVecType;
     fn x(&self) -> T;
     fn y(&self) -> T;
     fn z(&self) -> T;
@@ -19,10 +25,15 @@ pub trait O3DVec<T: AD> :
     fn sub(&self, other: &Self) -> Self;
     fn scalar_mul(&self, scalar: T) -> Self;
     fn norm(&self) -> T;
+    fn dot(&self, other: &Self) -> T;
+    fn cross(&self, other: &Self) -> Self;
     fn dis(&self, other: &Self) -> T;
 }
 
 impl<T: AD> O3DVec<T> for [T; 3] {
+    #[inline(always)]
+    fn type_identifier() -> O3DVecType { O3DVecType::Arr }
+
     #[inline(always)]
     fn x(&self) -> T {
         self[0]
@@ -69,12 +80,29 @@ impl<T: AD> O3DVec<T> for [T; 3] {
     }
 
     #[inline]
+    fn dot(&self, other: &Self) -> T {
+        self[0]*other[0] + self[1]*other[1] + self[2]*other[2]
+    }
+
+    #[inline]
+    fn cross(&self, other: &Self) -> Self {
+        [
+            self[1] * other[2] - self[2] * other[1],
+            self[2] * other[0] - self[0] * other[2],
+            self[0] * other[1] - self[1] * other[0]
+        ]
+    }
+
+    #[inline]
     fn dis(&self, other: &Self) -> T {
         self.sub(other).norm()
     }
 }
 
 impl<T: AD> O3DVec<T> for Vec<T> {
+    #[inline(always)]
+    fn type_identifier() -> O3DVecType { O3DVecType::Vec }
+
     #[inline(always)]
     fn x(&self) -> T {
         self[0]
@@ -120,6 +148,18 @@ impl<T: AD> O3DVec<T> for Vec<T> {
         (self[0].powi(2) + self[1].powi(2) + self[2].powi(2)).sqrt()
     }
 
+    fn dot(&self, other: &Self) -> T {
+        self[0]*other[0] + self[1]*other[1] + self[2]*other[2]
+    }
+
+    fn cross(&self, other: &Self) -> Self {
+        vec![
+            self[1] * other[2] - self[2] * other[1],
+            self[2] * other[0] - self[0] * other[2],
+            self[0] * other[1] - self[1] * other[0]
+        ]
+    }
+
     #[inline]
     fn dis(&self, other: &Self) -> T {
         self.sub(other).norm()
@@ -127,6 +167,10 @@ impl<T: AD> O3DVec<T> for Vec<T> {
 }
 
 impl<T: AD> O3DVec<T> for Vector3<T> {
+    fn type_identifier() -> O3DVecType {
+        O3DVecType::NalgebraVector3
+    }
+
     #[inline(always)]
     fn x(&self) -> T {
         self.x
@@ -177,12 +221,25 @@ impl<T: AD> O3DVec<T> for Vector3<T> {
     }
 
     #[inline]
+    fn dot(&self, other: &Self) -> T {
+        self.dot(other)
+    }
+
+    #[inline]
+    fn cross(&self, other: &Self) -> Self {
+        self.cross(other)
+    }
+
+    #[inline]
     fn dis(&self, other: &Self) -> T {
         (self - other).norm()
     }
 }
 
 impl<T: AD> O3DVec<T> for Point3<T> {
+    #[inline(always)]
+    fn type_identifier() -> O3DVecType { O3DVecType::NalgebraPoint3 }
+
     fn x(&self) -> T {
         self.x
     }
@@ -217,6 +274,14 @@ impl<T: AD> O3DVec<T> for Point3<T> {
 
     fn norm(&self) -> T {
         self.coords.norm()
+    }
+
+    fn dot(&self, other: &Self) -> T {
+        self.coords.dot(&other.coords)
+    }
+
+    fn cross(&self, other: &Self) -> Self {
+        self.coords.cross(&other.coords).into()
     }
 
     fn dis(&self, other: &Self) -> T {

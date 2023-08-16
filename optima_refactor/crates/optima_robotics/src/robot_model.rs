@@ -1,7 +1,10 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use ad_trait::AD;
 use urdf_rs::{Collision, Color, Dynamics, Geometry, Inertial, Joint, JointLimit, JointType, Link, Material, Mimic, Pose, SafetyController, Texture, Visual};
 use serde::{Serialize, Deserialize};
+use nalgebra::Isometry3;
+use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_utils::arr_storage::*;
 use crate::utils::get_urdf_path_from_robot_name;
 
@@ -11,34 +14,38 @@ pub const MAX_LEN_NAME_STRINGS: usize = 65;
 pub const MAX_LEN_FILE_STRINGS: usize = 100;
 pub const MAX_NUM_LINK_CONVEX_SUBCOMPONENTS: usize = 6;
 
-pub type ORobotModelDefault = ORobotModel<ArrayVecStor, 100, 100>;
+pub type ORobotModelDefault<T> = ORobotModel<T, Isometry3<T>, ArrayVecStor, 100, 100>;
 
 /// Make sure nothing in ORobotModel is stateful
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ORobotModel<L: ArrStorage, const MAX_NUM_LINKS: usize, const MAX_NUM_JOINTS: usize> {
+pub struct ORobotModel<T: AD, P: O3DPose<T>, L: ArrStorage, const MAX_NUM_LINKS: usize, const MAX_NUM_JOINTS: usize> {
     #[serde(deserialize_with = "L::ArrType::deserialize")]
     links: L::ArrType<OLink<L>, MAX_NUM_LINKS>,
     #[serde(deserialize_with = "L::ArrType::deserialize")]
-    joints: L::ArrType<OJoint<L>, MAX_NUM_JOINTS>
+    joints: L::ArrType<OJoint<L>, MAX_NUM_JOINTS>,
+    phantom_data: PhantomData<(T, P)>
 }
-impl<L: ArrStorage, const MAX_NUM_LINKS: usize, const MAX_NUM_JOINTS: usize> ORobotModel<L, MAX_NUM_LINKS, MAX_NUM_JOINTS> {
-    pub fn new_empty() -> Self {
-        Self {
-            links: Default::default(),
-            joints: Default::default()
-        }
-    }
-    pub fn add_from_urdf(&mut self, robot_name: &str) {
+impl<T: AD, P: O3DPose<T>, L: ArrStorage, const MAX_NUM_LINKS: usize, const MAX_NUM_JOINTS: usize> ORobotModel<T, P, L, MAX_NUM_LINKS, MAX_NUM_JOINTS> {
+    pub fn from_urdf(robot_name: &str) -> Self {
         let urdf_path = get_urdf_path_from_robot_name(robot_name);
         let urdf = urdf_path.load_urdf();
 
+        let mut links = vec![];
+        let mut joints = vec![];
+
         urdf.links.iter().for_each(|x| {
-            self.links.push(OLink::from_link(x) );
+            links.push(OLink::from_link(x) );
         });
 
         urdf.joints.iter().for_each(|x| {
-            self.joints.push(OJoint::from_joint(x) );
+            joints.push(OJoint::from_joint(x) );
         });
+
+        Self {
+            links: L::ArrType::from_slice(&links),
+            joints: L::ArrType::from_slice(&joints),
+            phantom_data: Default::default(),
+        }
     }
     pub fn links(&self) -> &L::ArrType<OLink<L>, MAX_NUM_LINKS> {
         &self.links
