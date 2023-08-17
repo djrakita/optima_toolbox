@@ -6,23 +6,25 @@ use arrayvec::ArrayVec;
 use nalgebra::{DMatrix, DVector, SVector};
 use ndarray::{Array, ArrayBase, Dim, Ix, Ix1, OwnedRepr};
 use serde::de::{SeqAccess, Visitor};
-use serde::{Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::ser::SerializeTuple;
+use serde_with::{DeserializeAs, SerializeAs};
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum OLinalgType {
     Nalgebra, NDarray
 }
 
-pub trait OVecMatTrait {
+pub trait OLinalgTrait : Clone + Debug + Serialize + for<'a> Deserialize<'a> {
     type VecType<T: AD>: OVec<T>;
     type MatType<T: AD>: OMat<T, VecMulInType=Self::VecType<T>, VecMulOutType=Self::VecType<T>, MatMulInType=Self::MatType<T>, MatMulOutType=Self::MatType<T>>;
 
     fn type_identifier() -> OLinalgType;
 }
 
-pub struct NalgebraVecMat;
-impl OVecMatTrait for NalgebraVecMat {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NalgebraLinalg;
+impl OLinalgTrait for NalgebraLinalg {
     type VecType<T: AD> = DVector<T>;
     type MatType<T: AD> = DMatrix<T>;
 
@@ -32,8 +34,9 @@ impl OVecMatTrait for NalgebraVecMat {
     }
 }
 
-pub struct NdarrayVecMat;
-impl OVecMatTrait for NdarrayVecMat {
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct NdarrayLinalg;
+impl OLinalgTrait for NdarrayLinalg {
     type VecType<T: AD> = ArrayBase<OwnedRepr<T>, Ix1>;
     type MatType<T: AD> = ArrayBase<OwnedRepr<T>, Dim<[Ix; 2]>>;
 
@@ -413,6 +416,19 @@ where
     deserializer.deserialize_seq(OVecVisitor::<T, V> { _phantom_data: PhantomData::default() })
 }
 
+pub struct SerdeOVec<T: AD, V: OVec<T>>(pub V, PhantomData<T>);
+
+impl<T: AD, V: OVec<T>> SerializeAs<V> for SerdeOVec<T, V> {
+    fn serialize_as<S>(source: &V, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        ovec_custom_serialize(source, serializer)
+    }
+}
+impl<'de, T: AD, V: OVec<T>> DeserializeAs<'de, V> for SerdeOVec<T, V> {
+    fn deserialize_as<D>(deserializer: D) -> Result<V, D::Error> where D: Deserializer<'de> {
+        ovec_custom_deserialize(deserializer)
+    }
+}
+
 /*
 impl<T: AD, R: Dim + Clone> OVec<T> for OMatrix<T, R, U1> where DefaultAllocator: Allocator<T, R, U1> {
     fn from_slice(slice: &[T]) -> Self {
@@ -666,6 +682,19 @@ where
     D: Deserializer<'de>,
 {
     deserializer.deserialize_tuple(2, OMatVisitor::<T, M> { _phantom_data: PhantomData::default() })
+}
+
+pub struct SerdeOMat<T: AD, M: OMat<T>>(pub M, PhantomData<T>);
+
+impl<T: AD, M: OMat<T>> SerializeAs<M> for SerdeOMat<T, M> {
+    fn serialize_as<S>(source: &M, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        omat_custom_serialize(source, serializer)
+    }
+}
+impl<'de, T: AD, M: OMat<T>> DeserializeAs<'de, M> for SerdeOMat<T, M> {
+    fn deserialize_as<D>(deserializer: D) -> Result<M, D::Error> where D: Deserializer<'de> {
+        omat_custom_deserialize(deserializer)
+    }
 }
 
 /*

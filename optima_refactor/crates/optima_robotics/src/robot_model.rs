@@ -10,20 +10,20 @@ use optima_utils::arr_storage::*;
 use crate::utils::get_urdf_path_from_robot_name;
 use serde_with::*;
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
+use optima_linalg::vecs_and_mats::{NalgebraLinalg, OLinalgTrait, OMat};
+use optima_linalg::vecs_and_mats::SerdeOMat;
 
-// pub type ORobotModelDefault<T> = ORobotModel<T, Isometry3<T>, ArrayVecStor<100>, 100, 100>;
-
-pub type ORobotModelDefault<T> = ORobotModel<T, Isometry3<T>, ORobotArrStorageArrayVec<100, 100, 65>>;
+pub type ORobotModelDefault<T> = ORobotModel<T, Isometry3<T>, NalgebraLinalg, ORobotArrStorageArrayVec<100, 100, 65>>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ORobotModel<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> {
+pub struct ORobotModel<T: AD, P: O3DPose<T>, L: OLinalgTrait, S: ORobotArrStorageTrait> {
     #[serde(deserialize_with = "<<S as ORobotArrStorageTrait>::LinksArrType as ArrStorageTrait>::ArrType::deserialize")]
-    links: <S::LinksArrType as ArrStorageTrait>::ArrType<OLink<T, P, S>>,
+    links: <S::LinksArrType as ArrStorageTrait>::ArrType<OLink<T, P, L, S>>,
     #[serde(deserialize_with = "<<S as ORobotArrStorageTrait>::JointsArrType as ArrStorageTrait>::ArrType::deserialize")]
     joints: <S::JointsArrType as ArrStorageTrait>::ArrType<OJoint<T, P, S>>,
     phantom_data: PhantomData<(T, P)>
 }
-impl<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> ORobotModel<T, P, S> {
+impl<T: AD, P: O3DPose<T>, L: OLinalgTrait, S: ORobotArrStorageTrait> ORobotModel<T, P, L, S> {
     pub fn from_urdf(robot_name: &str) -> Self {
         let urdf_path = get_urdf_path_from_robot_name(robot_name);
         let urdf = urdf_path.load_urdf();
@@ -107,7 +107,7 @@ impl<const NUM_LINKS: usize, const NUM_JOINTS: usize, const NAME_STRING_LEN: usi
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OLink<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> {
+pub struct OLink<T: AD, P: O3DPose<T>, L: OLinalgTrait, S: ORobotArrStorageTrait> {
     link_idx: usize,
     #[serde(deserialize_with = "<<S as ORobotArrStorageTrait>::LinkNameStrType as StrStorageTrait>::StrType::deserialize")]
     name: <S::LinkNameStrType as StrStorageTrait>::StrType,
@@ -115,10 +115,10 @@ pub struct OLink<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> {
     collision: <S::CollisionArrType as ArrStorageTrait>::ArrType<OCollision<T, P, S>>,
     #[serde(deserialize_with = "<<S as ORobotArrStorageTrait>::VisualArrType as ArrStorageTrait>::ArrType::deserialize")]
     visual: <S::VisualArrType as ArrStorageTrait>::ArrType<OVisual<T, P, S>>,
-    #[serde(deserialize_with = "OInertial::<T>::deserialize")]
-    inertial: OInertial<T>
+    #[serde(deserialize_with = "OInertial::<T, L>::deserialize")]
+    inertial: OInertial<T, L>
 }
-impl<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> OLink<T, P, S> {
+impl<T: AD, P: O3DPose<T>, L: OLinalgTrait, S: ORobotArrStorageTrait> OLink<T, P, L, S> {
     fn from_link(link: &Link) -> Self {
         Self {
             link_idx: 0,
@@ -185,7 +185,9 @@ impl<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> OJoint<T, P, S> {
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OInertial<T: AD> {
+pub struct OInertial<T: AD, L: OLinalgTrait> {
+    #[serde_as(as = "SerdeOMat<T, L::MatType<T>>")]
+    inertial_matrix: L::MatType<T>,
     #[serde_as(as = "SerdeAD<T>")]
     ixx: T,
     #[serde_as(as = "SerdeAD<T>")]
@@ -199,9 +201,24 @@ pub struct OInertial<T: AD> {
     #[serde_as(as = "SerdeAD<T>")]
     izz: T
 }
-impl<T: AD> OInertial<T> {
+impl<T: AD, L: OLinalgTrait> OInertial<T, L> {
     fn from_inertial(inertial: &Inertial) -> Self {
+        let mat_slice = [
+            T::constant(inertial.inertia.ixx),
+            T::constant(inertial.inertia.ixy),
+            T::constant(inertial.inertia.ixz),
+            T::constant(inertial.inertia.ixy),
+            T::constant(inertial.inertia.iyy),
+            T::constant(inertial.inertia.iyz),
+            T::constant(inertial.inertia.ixz),
+            T::constant(inertial.inertia.iyz),
+            T::constant(inertial.inertia.izz)
+        ];
+
+        let inertial_matrix = L::MatType::from_column_major_slice(&mat_slice, 3, 3);
+
         Self {
+            inertial_matrix,
             ixx: T::constant(inertial.inertia.ixx),
             ixy: T::constant(inertial.inertia.ixy),
             ixz: T::constant(inertial.inertia.ixz),
