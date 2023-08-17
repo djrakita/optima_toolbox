@@ -5,28 +5,43 @@ use arrayvec::{ArrayString, ArrayVec};
 use serde::{Serialize, Deserialize};
 use serde::de::DeserializeOwned;
 
-pub trait ArrStorage: Clone + Debug + Serialize + DeserializeOwned {
-    type ArrType<U: Serialize + DeserializeOwned + Clone + Debug, const N: usize> : MutArr<U, N>;
-    type StrType<const N: usize> : Str<N>;
-}
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VecStor;
-impl ArrStorage for VecStor {
-    type ArrType<U: Serialize + DeserializeOwned + Clone + Debug, const N: usize> = Vec<U>;
-    type StrType<const N: usize> = String;
+impl ArrStorageTrait for VecStor {
+    type ArrType<U: Serialize + DeserializeOwned + Clone + Debug> = Vec<U>;
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ArrayVecStor;
-impl ArrStorage for ArrayVecStor {
-    type ArrType<U: Serialize + DeserializeOwned + Clone + Debug, const N: usize> = ArrayVec<U, N>;
-    type StrType<const N: usize> = ArrayString<N>;
+pub struct ArrayVecStor<const M: usize>;
+impl<const M: usize> ArrStorageTrait for ArrayVecStor<M> {
+    type ArrType<U: Serialize + DeserializeOwned + Clone + Debug> = ArrayVec<U, M>;
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct StringStor;
+impl StrStorageTrait for StringStor {
+    type StrType = String;
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ArrayStringStor<const M: usize>;
+impl<const M: usize> StrStorageTrait for ArrayStringStor<M> {
+    type StrType = ArrayString<M>;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub trait ImmutArr<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> :
+pub trait ArrStorageTrait: Clone + Debug + Serialize + DeserializeOwned {
+    type ArrType<U: Serialize + DeserializeOwned + Clone + Debug> : MutArrTrait<U>;
+}
+
+pub trait StrStorageTrait: Clone + Debug + Serialize + DeserializeOwned {
+    type StrType : StrTrait;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pub trait ImmutArrTrait<T: Serialize + DeserializeOwned + Clone + Debug> :
     Serialize + DeserializeOwned + Default + Clone + Debug + FromIterator<T> + IntoIterator
 {
     fn from_slice(slice: &[T]) -> Self;
@@ -35,14 +50,14 @@ pub trait ImmutArr<T: Serialize + DeserializeOwned + Clone + Debug, const M: usi
     fn get_element(&self, i: usize) -> &T;
 }
 
-pub trait MutArr<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> :
-    ImmutArr<T, M>
+pub trait MutArrTrait<T: Serialize + DeserializeOwned + Clone + Debug> :
+    ImmutArrTrait<T>
 {
     fn get_mut_element(&mut self, i: usize) -> &mut T;
     fn push(&mut self, item: T);
 }
 
-impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> ImmutArr<T, M> for Vec<T> {
+impl<T: Serialize + DeserializeOwned + Clone + Debug> ImmutArrTrait<T> for Vec<T> {
     #[inline]
     fn from_slice(slice: &[T]) -> Self {
         Vec::from(slice)
@@ -63,7 +78,7 @@ impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> ImmutArr<T
         &self[i]
     }
 }
-impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> MutArr<T, M> for Vec<T> {
+impl<T: Serialize + DeserializeOwned + Clone + Debug> MutArrTrait<T> for Vec<T> {
     fn get_mut_element(&mut self, i: usize) -> &mut T {
         &mut self[i]
     }
@@ -73,7 +88,7 @@ impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> MutArr<T, 
     }
 }
 
-impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> ImmutArr<T, M> for ArrayVec<T, M> {
+impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> ImmutArrTrait<T> for ArrayVec<T, M> {
     #[inline]
     fn from_slice(slice: &[T]) -> Self {
         ArrayVec::try_from(slice).expect("error")
@@ -94,7 +109,7 @@ impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> ImmutArr<T
         &self[i]
     }
 }
-impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> MutArr<T, M> for ArrayVec<T, M> {
+impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> MutArrTrait<T> for ArrayVec<T, M> {
     fn get_mut_element(&mut self, i: usize) -> &mut T {
         &mut self[i]
     }
@@ -104,8 +119,7 @@ impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> MutArr<T, 
     }
 }
 
-pub trait Str<const M: usize> :
-    Serialize + DeserializeOwned + Clone + Debug + Default {
+pub trait StrTrait: Serialize + DeserializeOwned + Clone + Debug + Default {
     fn from_str(s: &str) -> Self;
     fn as_str(&self) -> &str;
     fn push(&mut self, c: char);
@@ -115,7 +129,7 @@ pub trait Str<const M: usize> :
     fn len(&self) -> usize;
 }
 
-impl<const M: usize> Str<M> for String {
+impl StrTrait for String {
     fn from_str(s: &str) -> Self {
         String::from(s)
     }
@@ -144,7 +158,7 @@ impl<const M: usize> Str<M> for String {
         self.len()
     }
 }
-impl<const M: usize> Str<M> for ArrayString<M> {
+impl<const M: usize> StrTrait for ArrayString<M> {
     fn from_str(s: &str) -> Self {
         Self::from(s).expect("error")
     }

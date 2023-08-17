@@ -3,9 +3,10 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use ad_trait::{AD};
 use nalgebra::{Matrix3, Quaternion, Rotation3, UnitQuaternion, Vector3};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeTuple;
+use serde_with::{DeserializeAs, SerializeAs};
 use crate::optima_3d_vec::O3DVec;
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
@@ -15,7 +16,7 @@ pub enum O3DRotationType {
 
 /// Point is the "native vector" type that serve as the native type that this rotation multiplies by
 pub trait O3DRotation<T: AD> :
-    Debug + Serialize + for<'a> Deserialize<'a>{
+    Clone + Debug + Serialize + for<'a> Deserialize<'a>{
     type Native3DVecType: O3DVec<T>;
 
     fn type_identifier() -> O3DRotationType;
@@ -266,6 +267,19 @@ where
     deserializer.deserialize_tuple(3, O3dRotationMyVisitor::<T, R> { _phantom_data: PhantomData::default() })
 }
 
+pub struct SerdeO3DRotation<T: AD, R: O3DRotation<T>>(pub R, PhantomData<T>);
+
+impl<T: AD, R: O3DRotation<T>> SerializeAs<R> for SerdeO3DRotation<T, R> {
+    fn serialize_as<S>(source: &R, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        o3d_rotation_custom_serialize(source, serializer)
+    }
+}
+impl<'de, T: AD, R: O3DRotation<T>> DeserializeAs<'de, R> for SerdeO3DRotation<T, R> {
+    fn deserialize_as<D>(deserializer: D) -> Result<R, D::Error> where D: Deserializer<'de> {
+        o3d_rotation_custom_deserialize(deserializer)
+    }
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 pub trait O3DRotationConstructor<T: AD, TargetRotationType: O3DRotation<T>> {
@@ -278,6 +292,17 @@ impl<T, TargetRotationType> O3DRotationConstructor<T, TargetRotationType> for [T
           TargetRotationType: O3DRotation<T>
 {
     fn construct(&self) -> TargetRotationType {
+        TargetRotationType::from_euler_angles(self)
+    }
+}
+
+/// This will be euler angles
+impl<T, TargetRotationType> O3DRotationConstructor<T, TargetRotationType> for Vec<T>
+    where T: AD,
+          TargetRotationType: O3DRotation<T>
+{
+    fn construct(&self) -> TargetRotationType {
+        assert_eq!(self.len(), 3);
         TargetRotationType::from_euler_angles(self)
     }
 }
@@ -309,3 +334,4 @@ impl<T, TargetRotationType> O3DRotationConstructor<T, TargetRotationType> for Un
         TargetRotationType::from_unit_quaternion_as_wxyz_slice(self.coords.as_slice())
     }
 }
+

@@ -1,11 +1,14 @@
-use optima_robotics::robot_model::{ORobotModel};
-use optima_utils::arr_storage::VecStor;
-use nalgebra::Isometry3;
+use ad_trait::forward_ad::adf::adf_f32x4;
+use ad_trait::forward_ad::adfn::adfn;
+use optima_file::traits::{FromJsonString, ToJsonString};
+use optima_robotics::robot_model::ORobotModelDefault;
 
 fn main() {
-    let r = ORobotModel::<f64, Isometry3<_>, VecStor, 100, 100>::from_urdf("ur5");
+    let r = ORobotModelDefault::<adfn<2>>::from_urdf("ur5");
+    println!("{:?}", r);
 
-    r.joints().iter().for_each(|x| {
-       println!("{:?}", x);
-    });
+    let s = r.to_json_string();
+
+    let r2 = ORobotModelDefault::<adf_f32x4>::from_json_string(&s);
+    println!("{:?}", r2);
 }

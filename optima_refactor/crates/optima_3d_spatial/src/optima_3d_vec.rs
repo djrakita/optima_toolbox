@@ -3,9 +3,10 @@ use std::fmt::{Debug};
 use std::marker::PhantomData;
 use ad_trait::{AD};
 use nalgebra::{Point3, Vector3};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeTuple;
+use serde_with::{DeserializeAs, SerializeAs};
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum O3DVecType {
@@ -13,7 +14,7 @@ pub enum O3DVecType {
 }
 
 pub trait O3DVec<T: AD> :
-    Debug + Serialize + for<'a> Deserialize<'a>
+    Clone + Debug + Serialize + for<'a> Deserialize<'a>
 {
     fn type_identifier() -> O3DVecType;
     fn x(&self) -> T;
@@ -329,4 +330,17 @@ where
     D: Deserializer<'de>,
 {
     deserializer.deserialize_tuple(3, O3dVecMyVisitor::<T, V> { _phantom_data: PhantomData::default() })
+}
+
+pub struct SerdeO3DVec<T: AD, V: O3DVec<T>>(pub V, PhantomData<T>);
+
+impl<T: AD, V: O3DVec<T>> SerializeAs<V> for SerdeO3DVec<T, V> {
+    fn serialize_as<S>(source: &V, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        o3d_vec_custom_serialize(source, serializer)
+    }
+}
+impl<'de, T: AD, V: O3DVec<T>> DeserializeAs<'de, V> for SerdeO3DVec<T, V> {
+    fn deserialize_as<D>(deserializer: D) -> Result<V, D::Error> where D: Deserializer<'de> {
+        o3d_vec_custom_deserialize(deserializer)
+    }
 }

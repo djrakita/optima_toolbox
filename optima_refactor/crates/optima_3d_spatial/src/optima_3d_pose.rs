@@ -3,9 +3,10 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use ad_trait::{AD};
 use nalgebra::{Isometry3, Quaternion, Translation3, UnitQuaternion, Vector3, Vector6};
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeTuple;
+use serde_with::{DeserializeAs, SerializeAs};
 use crate::optima_3d_vec::O3DVec;
 use crate::optima_3d_rotation::{O3DRotation, O3DRotationConstructor};
 
@@ -15,7 +16,7 @@ pub enum O3DPoseType {
 }
 
 pub trait O3DPose<T: AD> :
-    Debug + Serialize + for<'a> Deserialize<'a>
+    Clone + Debug + Serialize + for<'a> Deserialize<'a>
 {
     type RotationType: O3DRotation<T>;
 
@@ -42,7 +43,7 @@ pub trait O3DLieAlgebraPose<T: AD> : O3DPose<T> {
     fn exp(ln_vec: &Self::LnVecType) -> Self;
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ImplicitDualQuaternion<T: AD> {
     #[serde(deserialize_with = "Vector3::<T>::deserialize")]
     translation: Vector3<T>,
@@ -344,4 +345,17 @@ where
     D: Deserializer<'de>,
 {
     deserializer.deserialize_tuple(6, O3dPoseMyVisitor::<T, P> { _phantom_data: PhantomData::default() })
+}
+
+pub struct SerdeO3DPose<T: AD, P: O3DPose<T>>(pub P, PhantomData<T>);
+
+impl<T: AD, P: O3DPose<T>> SerializeAs<P> for SerdeO3DPose<T, P> {
+    fn serialize_as<S>(source: &P, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        o3d_pose_custom_serialize(source, serializer)
+    }
+}
+impl<'de, T: AD, P: O3DPose<T>> DeserializeAs<'de, P> for SerdeO3DPose<T, P> {
+    fn deserialize_as<D>(deserializer: D) -> Result<P, D::Error> where D: Deserializer<'de> {
+        o3d_pose_custom_deserialize(deserializer)
+    }
 }

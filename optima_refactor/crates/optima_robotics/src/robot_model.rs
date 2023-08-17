@@ -1,31 +1,29 @@
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use ad_trait::AD;
+use ad_trait::*;
+use nalgebra::Isometry3;
 use urdf_rs::{Collision, Color, Dynamics, Geometry, Inertial, Joint, JointLimit, JointType, Link, Material, Mimic, Pose, SafetyController, Texture, Visual};
 use serde::{Serialize, Deserialize};
-use nalgebra::Isometry3;
+use serde::de::DeserializeOwned;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_utils::arr_storage::*;
 use crate::utils::get_urdf_path_from_robot_name;
+use serde_with::*;
+use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
 
-pub const MAX_NUM_COLLISION: usize = 2;
-pub const MAX_NUM_VISUAL: usize = 2;
-pub const MAX_LEN_NAME_STRINGS: usize = 65;
-pub const MAX_LEN_FILE_STRINGS: usize = 100;
-pub const MAX_NUM_LINK_CONVEX_SUBCOMPONENTS: usize = 6;
+// pub type ORobotModelDefault<T> = ORobotModel<T, Isometry3<T>, ArrayVecStor<100>, 100, 100>;
 
-pub type ORobotModelDefault<T> = ORobotModel<T, Isometry3<T>, ArrayVecStor, 100, 100>;
+pub type ORobotModelDefault<T> = ORobotModel<T, Isometry3<T>, ORobotArrStorageArrayVec<100, 100, 65>>;
 
-/// Make sure nothing in ORobotModel is stateful
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ORobotModel<T: AD, P: O3DPose<T>, L: ArrStorage, const MAX_NUM_LINKS: usize, const MAX_NUM_JOINTS: usize> {
-    #[serde(deserialize_with = "L::ArrType::deserialize")]
-    links: L::ArrType<OLink<L>, MAX_NUM_LINKS>,
-    #[serde(deserialize_with = "L::ArrType::deserialize")]
-    joints: L::ArrType<OJoint<L>, MAX_NUM_JOINTS>,
+pub struct ORobotModel<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> {
+    #[serde(deserialize_with = "<<S as ORobotArrStorageTrait>::LinksArrType as ArrStorageTrait>::ArrType::deserialize")]
+    links: <S::LinksArrType as ArrStorageTrait>::ArrType<OLink<T, P, S>>,
+    #[serde(deserialize_with = "<<S as ORobotArrStorageTrait>::JointsArrType as ArrStorageTrait>::ArrType::deserialize")]
+    joints: <S::JointsArrType as ArrStorageTrait>::ArrType<OJoint<T, P, S>>,
     phantom_data: PhantomData<(T, P)>
 }
-impl<T: AD, P: O3DPose<T>, L: ArrStorage, const MAX_NUM_LINKS: usize, const MAX_NUM_JOINTS: usize> ORobotModel<T, P, L, MAX_NUM_LINKS, MAX_NUM_JOINTS> {
+impl<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> ORobotModel<T, P, S> {
     pub fn from_urdf(robot_name: &str) -> Self {
         let urdf_path = get_urdf_path_from_robot_name(robot_name);
         let urdf = urdf_path.load_urdf();
@@ -34,93 +32,140 @@ impl<T: AD, P: O3DPose<T>, L: ArrStorage, const MAX_NUM_LINKS: usize, const MAX_
         let mut joints = vec![];
 
         urdf.links.iter().for_each(|x| {
-            links.push(OLink::from_link(x) );
+            links.push(OLink::from_link(x));
         });
 
         urdf.joints.iter().for_each(|x| {
-            joints.push(OJoint::from_joint(x) );
+            joints.push(OJoint::from_joint(x));
         });
 
         Self {
-            links: L::ArrType::from_slice(&links),
-            joints: L::ArrType::from_slice(&joints),
+            links: <S::LinksArrType as ArrStorageTrait>::ArrType::from_slice(&links),
+            joints: <S::JointsArrType as ArrStorageTrait>::ArrType::from_slice(&joints),
             phantom_data: Default::default(),
         }
     }
-    pub fn links(&self) -> &L::ArrType<OLink<L>, MAX_NUM_LINKS> {
-        &self.links
-    }
-    pub fn joints(&self) -> &L::ArrType<OJoint<L>, MAX_NUM_JOINTS> {
-        &self.joints
-    }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OLink<L: ArrStorage> {
-    link_idx: usize,
-    #[serde(deserialize_with = "L::StrType::deserialize")]
-    name: L::StrType<MAX_LEN_NAME_STRINGS>,
-    #[serde(deserialize_with = "L::ArrType::deserialize")]
-    collision: L::ArrType<OCollision<L>, MAX_NUM_COLLISION>,
-    #[serde(deserialize_with = "L::ArrType::deserialize")]
-    visual: L::ArrType<OVisual<L>, MAX_NUM_VISUAL>,
-    inertial: OInertial
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pub trait ORobotArrStorageTrait: Clone + Debug + DeserializeOwned + Serialize {
+    type LinksArrType: ArrStorageTrait;
+    type JointsArrType: ArrStorageTrait;
+    type LinkNameStrType: StrStorageTrait;
+    type CollisionArrType: ArrStorageTrait;
+    type VisualArrType: ArrStorageTrait;
+    type JointNameStrType: StrStorageTrait;
+    type ParentLinkStrType: StrStorageTrait;
+    type ChildLinkStrType: StrStorageTrait;
+    type CollisionNameStrType: StrStorageTrait;
+    type VisualNameStrType: StrStorageTrait;
+    type MaterialNameStrType: StrStorageTrait;
+    type TextureFilenameStrType: StrStorageTrait;
+    type GeometryFilenameStrType: StrStorageTrait;
+    type MimicJointNameStrType: StrStorageTrait;
 }
-impl<L: ArrStorage> OLink<L> {
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ORobotArrStorageVec;
+impl ORobotArrStorageTrait for ORobotArrStorageVec {
+    type LinksArrType = VecStor;
+    type JointsArrType = VecStor;
+    type LinkNameStrType = StringStor;
+    type CollisionArrType = VecStor;
+    type VisualArrType = VecStor;
+    type JointNameStrType = StringStor;
+    type ParentLinkStrType = StringStor;
+    type ChildLinkStrType = StringStor;
+    type CollisionNameStrType = StringStor;
+    type VisualNameStrType = StringStor;
+    type MaterialNameStrType = StringStor;
+    type TextureFilenameStrType = StringStor;
+    type GeometryFilenameStrType = StringStor;
+    type MimicJointNameStrType = StringStor;
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct ORobotArrStorageArrayVec<const NUM_LINKS: usize, const NUM_JOINTS: usize, const NAME_STRING_LEN: usize>;
+impl<const NUM_LINKS: usize, const NUM_JOINTS: usize, const NAME_STRING_LEN: usize> ORobotArrStorageTrait for ORobotArrStorageArrayVec<NUM_LINKS, NUM_JOINTS, NAME_STRING_LEN> {
+    type LinksArrType = ArrayVecStor<NUM_LINKS>;
+    type JointsArrType = ArrayVecStor<NUM_JOINTS>;
+    type LinkNameStrType = ArrayStringStor<NAME_STRING_LEN>;
+    type CollisionArrType = ArrayVecStor<2>;
+    type VisualArrType = ArrayVecStor<2>;
+    type JointNameStrType = ArrayStringStor<NAME_STRING_LEN>;
+    type ParentLinkStrType = ArrayStringStor<NAME_STRING_LEN>;
+    type ChildLinkStrType = ArrayStringStor<NAME_STRING_LEN>;
+    type CollisionNameStrType = ArrayStringStor<NAME_STRING_LEN>;
+    type VisualNameStrType = ArrayStringStor<NAME_STRING_LEN>;
+    type MaterialNameStrType = ArrayStringStor<NAME_STRING_LEN>;
+    type TextureFilenameStrType = ArrayStringStor<NAME_STRING_LEN>;
+    type GeometryFilenameStrType = ArrayStringStor<NAME_STRING_LEN>;
+    type MimicJointNameStrType = ArrayStringStor<NAME_STRING_LEN>;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct OLink<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> {
+    link_idx: usize,
+    #[serde(deserialize_with = "<<S as ORobotArrStorageTrait>::LinkNameStrType as StrStorageTrait>::StrType::deserialize")]
+    name: <S::LinkNameStrType as StrStorageTrait>::StrType,
+    #[serde(deserialize_with = "<<S as ORobotArrStorageTrait>::CollisionArrType as ArrStorageTrait>::ArrType::deserialize")]
+    collision: <S::CollisionArrType as ArrStorageTrait>::ArrType<OCollision<T, P, S>>,
+    #[serde(deserialize_with = "<<S as ORobotArrStorageTrait>::VisualArrType as ArrStorageTrait>::ArrType::deserialize")]
+    visual: <S::VisualArrType as ArrStorageTrait>::ArrType<OVisual<T, P, S>>,
+    #[serde(deserialize_with = "OInertial::<T>::deserialize")]
+    inertial: OInertial<T>
+}
+impl<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> OLink<T, P, S> {
     fn from_link(link: &Link) -> Self {
         Self {
             link_idx: 0,
-            name: L::StrType::from_str(&link.name),
-            collision: link.collision.iter().map(|x| OCollision::from_collision(x) ).collect(),
-            visual: link.visual.iter().map(|x| OVisual::from_visual(x) ).collect(),
+            name: <S::LinkNameStrType as StrStorageTrait>::StrType::from_str(&link.name),
+            collision: link.collision.iter().map(|x| OCollision::from_collision(x)).collect(),
+            visual: link.visual.iter().map(|x| OVisual::from_visual(x)).collect(),
             inertial: OInertial::from_inertial(&link.inertial)
         }
     }
-    pub fn inertial(&self) -> &OInertial {
-        &self.inertial
-    }
-    pub fn link_idx(&self) -> usize {
-        self.link_idx
-    }
-    pub fn name(&self) -> &L::StrType<MAX_LEN_NAME_STRINGS> {
-        &self.name
-    }
-    pub fn collision(&self) -> &L::ArrType<OCollision<L>, MAX_NUM_COLLISION> {
-        &self.collision
-    }
-    pub fn visual(&self) -> &L::ArrType<OVisual<L>, MAX_NUM_VISUAL> {
-        &self.visual
-    }
 }
 
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OJoint<L: ArrStorage> {
+pub struct OJoint<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> {
     joint_idx: usize,
-    #[serde(deserialize_with = "L::StrType::deserialize")]
-    name: L::StrType<MAX_LEN_NAME_STRINGS>,
+    #[serde(deserialize_with = "<<S as ORobotArrStorageTrait>::JointNameStrType as StrStorageTrait>::StrType::deserialize")]
+    name: <S::JointNameStrType as StrStorageTrait>::StrType,
     joint_type: OJointType,
-    origin: OPose,
-    axis: [f64; 3],
-    #[serde(deserialize_with = "L::StrType::deserialize")]
-    parent_link: L::StrType<MAX_LEN_NAME_STRINGS>,
-    #[serde(deserialize_with = "L::StrType::deserialize")]
-    child_link: L::StrType<MAX_LEN_NAME_STRINGS>,
-    limit: OJointLimit,
-    dynamics: Option<ODynamics>,
-    #[serde(deserialize_with = "Option::<OMimic<_>>::deserialize")]
-    mimic: Option<OMimic<L>>,
-    safety_controller: Option<OSafetyController>
+    #[serde(deserialize_with = "OPose::<T, P>::deserialize")]
+    origin: OPose<T, P>,
+    #[serde_as(as = "[SerdeAD<T>; 3]")]
+    axis: [T; 3],
+    #[serde(deserialize_with = "<<S as ORobotArrStorageTrait>::ParentLinkStrType as StrStorageTrait>::StrType::deserialize")]
+    parent_link: <S::ParentLinkStrType as StrStorageTrait>::StrType,
+    #[serde(deserialize_with = "<<S as ORobotArrStorageTrait>::ChildLinkStrType as StrStorageTrait>::StrType::deserialize")]
+    child_link: <S::ChildLinkStrType as StrStorageTrait>::StrType,
+    #[serde(deserialize_with = "OJointLimit::<T>::deserialize")]
+    limit: OJointLimit<T>,
+    #[serde(deserialize_with = "Option::<ODynamics::<T>>::deserialize")]
+    dynamics: Option<ODynamics<T>>,
+    #[serde(deserialize_with = "Option::<OMimic<T, _>>::deserialize")]
+    mimic: Option<OMimic<T, S>>,
+    #[serde(deserialize_with = "Option::<OSafetyController<T>>::deserialize")]
+    safety_controller: Option<OSafetyController<T>>
 }
-impl<L: ArrStorage> OJoint<L> {
+impl<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> OJoint<T, P, S> {
     fn from_joint(joint: &Joint) -> Self {
+        let axis: Vec<T> = joint.axis.xyz.0.iter().map(|x| T::constant(*x)).collect();
+
         Self {
             joint_idx: 0,
-            name: L::StrType::from_str(&joint.name),
+            name: <S::JointNameStrType as StrStorageTrait>::StrType::from_str(&joint.name),
             joint_type: OJointType::from_joint_type(&joint.joint_type),
             origin: OPose::from_pose(&joint.origin),
-            axis: joint.axis.xyz.0,
-            parent_link: L::StrType::from_str(&joint.parent.link),
-            child_link: L::StrType::from_str(&joint.child.link),
+            axis: [axis[0], axis[1], axis[2]],
+            parent_link: <S::ParentLinkStrType as StrStorageTrait>::StrType::from_str(&joint.parent.link),
+            child_link: <S::ChildLinkStrType as StrStorageTrait>::StrType::from_str(&joint.child.link),
             limit: OJointLimit::from_joint_limit(&joint.limit),
             dynamics: match &joint.dynamics {
                 None => { None }
@@ -136,127 +181,76 @@ impl<L: ArrStorage> OJoint<L> {
             }
         }
     }
-    pub fn joint_idx(&self) -> usize {
-        self.joint_idx
-    }
-    pub fn name(&self) -> &L::StrType<MAX_LEN_NAME_STRINGS> {
-        &self.name
-    }
-    pub fn joint_type(&self) -> &OJointType {
-        &self.joint_type
-    }
-    pub fn origin(&self) -> &OPose {
-        &self.origin
-    }
-    pub fn axis(&self) -> &[f64; 3] {
-        &self.axis
-    }
-    pub fn parent_link(&self) -> &L::StrType<MAX_LEN_NAME_STRINGS> {
-        &self.parent_link
-    }
-    pub fn child_link(&self) -> &L::StrType<MAX_LEN_NAME_STRINGS> {
-        &self.child_link
-    }
-    pub fn limit(&self) -> &OJointLimit {
-        &self.limit
-    }
-    pub fn dynamics(&self) -> &Option<ODynamics> {
-        &self.dynamics
-    }
-    pub fn mimic(&self) -> &Option<OMimic<L>> {
-        &self.mimic
-    }
-    pub fn safety_controller(&self) -> &Option<OSafetyController> {
-        &self.safety_controller
-    }
 }
 
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OInertial {
-    ixx: f64,
-    ixy: f64,
-    ixz: f64,
-    iyy: f64,
-    iyz: f64,
-    izz: f64
+pub struct OInertial<T: AD> {
+    #[serde_as(as = "SerdeAD<T>")]
+    ixx: T,
+    #[serde_as(as = "SerdeAD<T>")]
+    ixy: T,
+    #[serde_as(as = "SerdeAD<T>")]
+    ixz: T,
+    #[serde_as(as = "SerdeAD<T>")]
+    iyy: T,
+    #[serde_as(as = "SerdeAD<T>")]
+    iyz: T,
+    #[serde_as(as = "SerdeAD<T>")]
+    izz: T
 }
-impl OInertial {
+impl<T: AD> OInertial<T> {
     fn from_inertial(inertial: &Inertial) -> Self {
         Self {
-            ixx: inertial.inertia.ixx,
-            ixy: inertial.inertia.ixy,
-            ixz: inertial.inertia.ixz,
-            iyy: inertial.inertia.iyy,
-            iyz: inertial.inertia.iyz,
-            izz: inertial.inertia.izz
+            ixx: T::constant(inertial.inertia.ixx),
+            ixy: T::constant(inertial.inertia.ixy),
+            ixz: T::constant(inertial.inertia.ixz),
+            iyy: T::constant(inertial.inertia.iyy),
+            iyz: T::constant(inertial.inertia.iyz),
+            izz: T::constant(inertial.inertia.izz)
         }
-    }
-    pub fn ixx(&self) -> f64 {
-        self.ixx
-    }
-    pub fn ixy(&self) -> f64 {
-        self.ixy
-    }
-    pub fn ixz(&self) -> f64 {
-        self.ixz
-    }
-    pub fn iyy(&self) -> f64 {
-        self.iyy
-    }
-    pub fn iyz(&self) -> f64 {
-        self.iyz
-    }
-    pub fn izz(&self) -> f64 {
-        self.izz
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OCollision<L: ArrStorage> {
-    #[serde(deserialize_with = "OGeometry::deserialize")]
-    geometry: OGeometry<L>,
-    #[serde(deserialize_with = "Option::<L::StrType<MAX_LEN_NAME_STRINGS>>::deserialize")]
-    name: Option<L::StrType<MAX_LEN_NAME_STRINGS>>,
-    origin: OPose
+pub struct OCollision<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> {
+    #[serde(deserialize_with = "OGeometry::<S>::deserialize")]
+    geometry: OGeometry<S>,
+    #[serde(deserialize_with = "Option::<<<S as ORobotArrStorageTrait>::CollisionNameStrType as StrStorageTrait>::StrType>::deserialize")]
+    name: Option<<S::CollisionNameStrType as StrStorageTrait>::StrType>,
+    #[serde(deserialize_with = "OPose::<T, P>::deserialize")]
+    origin: OPose<T, P>
 }
-impl<L: ArrStorage> OCollision<L> {
+impl<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> OCollision<T, P, S> {
     fn from_collision(collision: &Collision) -> Self {
         Self {
             geometry: OGeometry::from_geometry(&collision.geometry),
             name: match &collision.name {
                 None => { None }
-                Some(name) => { Some(L::StrType::from_str(name)) }
+                Some(name) => { Some(<S::CollisionNameStrType as StrStorageTrait>::StrType::from_str(name)) }
             },
             origin: OPose::from_pose(&collision.origin)
         }
     }
-    pub fn geometry(&self) -> &OGeometry<L> {
-        &self.geometry
-    }
-    pub fn name(&self) -> &Option<L::StrType<MAX_LEN_NAME_STRINGS>> {
-        &self.name
-    }
-    pub fn origin(&self) -> &OPose {
-        &self.origin
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OVisual<L: ArrStorage> {
-    #[serde(deserialize_with = "Option::<L::StrType<MAX_LEN_NAME_STRINGS>>::deserialize")]
-    name: Option<L::StrType<MAX_LEN_NAME_STRINGS>>,
-    #[serde(deserialize_with = "Option::<OMaterial<L>>::deserialize")]
-    material: Option<OMaterial<L>>,
-    origin: OPose,
-    #[serde(deserialize_with = "OGeometry::deserialize")]
-    geometry: OGeometry<L>
+pub struct OVisual<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> {
+    #[serde(deserialize_with = "Option::<<<S as ORobotArrStorageTrait>::VisualNameStrType as StrStorageTrait>::StrType>::deserialize")]
+    name: Option<<S::VisualNameStrType as StrStorageTrait>::StrType>,
+    #[serde(deserialize_with = "Option::<OMaterial<S>>::deserialize")]
+    material: Option<OMaterial<S>>,
+    #[serde(deserialize_with = "OPose::<T, P>::deserialize")]
+    origin: OPose<T, P>,
+    #[serde(deserialize_with = "OGeometry::<S>::deserialize")]
+    geometry: OGeometry<S>
 }
-impl<L: ArrStorage> OVisual<L> {
+impl<T: AD, P: O3DPose<T>, S: ORobotArrStorageTrait> OVisual<T, P, S> {
     fn from_visual(visual: &Visual) -> Self {
         Self {
             name: match &visual.name {
                 None => { None }
-                Some(name) => { Some(L::StrType::from_str(name)) }
+                Some(name) => { Some(<S::VisualNameStrType as StrStorageTrait>::StrType::from_str(name)) }
             },
             material: match &visual.material {
                 None => { None }
@@ -266,36 +260,25 @@ impl<L: ArrStorage> OVisual<L> {
             geometry: OGeometry::from_geometry(&visual.geometry)
         }
     }
-    pub fn name(&self) -> &Option<L::StrType<MAX_LEN_NAME_STRINGS>> {
-        &self.name
-    }
-    pub fn material(&self) -> &Option<OMaterial<L>> {
-        &self.material
-    }
-    pub fn origin(&self) -> &OPose {
-        &self.origin
-    }
-    pub fn geometry(&self) -> &OGeometry<L> {
-        &self.geometry
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OMaterial<L: ArrStorage> {
-    #[serde(deserialize_with = "Option::<OTexture<L>>::deserialize")]
-    texture: Option<OTexture<L>>,
-    name: String,
+pub struct OMaterial<S: ORobotArrStorageTrait> {
+    #[serde(deserialize_with = "Option::<OTexture<S>>::deserialize")]
+    texture: Option<OTexture<S>>,
+    #[serde(deserialize_with = "<<S as ORobotArrStorageTrait>::MaterialNameStrType as StrStorageTrait>::StrType::deserialize")]
+    name: <S::MaterialNameStrType as StrStorageTrait>::StrType,
     color: Option<OColor>,
-    _phantom_data: PhantomData<L>
+    _phantom_data: PhantomData<S>
 }
-impl<L: ArrStorage> OMaterial<L> {
+impl<S: ORobotArrStorageTrait> OMaterial<S> {
     fn from_material(material: &Material) -> Self {
         Self {
             texture: match &material.texture {
                 None => { None }
                 Some(texture) => { Some(OTexture::from_texture(texture)) }
             },
-            name: material.name.clone(),
+            name: <S::MaterialNameStrType as StrStorageTrait>::StrType::from_str(&material.name),
             color: match &material.color {
                 None => { None }
                 Some(color) => { Some(OColor::from_color(color)) }
@@ -303,31 +286,19 @@ impl<L: ArrStorage> OMaterial<L> {
             _phantom_data: Default::default()
         }
     }
-    pub fn texture(&self) -> &Option<OTexture<L>> {
-        &self.texture
-    }
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-    pub fn color(&self) -> &Option<OColor> {
-        &self.color
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OTexture<L: ArrStorage> {
-    filename: L::StrType<MAX_LEN_FILE_STRINGS>,
-    _phantom_data: PhantomData<L>
+pub struct OTexture<S: ORobotArrStorageTrait> {
+    filename: <S::TextureFilenameStrType as StrStorageTrait>::StrType,
+    _phantom_data: PhantomData<S>
 }
-impl<L: ArrStorage> OTexture<L> {
+impl<S: ORobotArrStorageTrait> OTexture<S> {
     fn from_texture(texture: &Texture) -> Self {
         Self {
-            filename: L::StrType::from_str(&texture.filename),
+            filename: <S::TextureFilenameStrType as StrStorageTrait>::StrType::from_str(&texture.filename),
             _phantom_data: Default::default()
         }
-    }
-    pub fn filename(&self) -> &L::StrType<MAX_LEN_FILE_STRINGS> {
-        &self.filename
     }
 }
 
@@ -341,49 +312,54 @@ impl OColor {
             rgba: color.rgba.0
         }
     }
+
     pub fn rgba(&self) -> &[f64; 4] {
         &self.rgba
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum OGeometry<L: ArrStorage> {
+pub enum OGeometry<S: ORobotArrStorageTrait> {
     Box { size: [f64; 3] },
     Cylinder { radius: f64, length: f64 },
     Capsule { radius: f64, length: f64 },
     Sphere { radius: f64 },
-    // #[serde(deserialize_with = "L::StrType::deserialize")]
-    Mesh { filename: L::StrType<MAX_LEN_FILE_STRINGS>, scale: Option<[f64; 3]> }
+    Mesh { filename: <S::GeometryFilenameStrType as StrStorageTrait>::StrType, scale: Option<[f64; 3]> }
 }
-impl<L: ArrStorage> OGeometry<L> {
+impl<S: ORobotArrStorageTrait> OGeometry<S> {
     fn from_geometry(geometry: &Geometry) -> Self {
         return match &geometry {
             Geometry::Box { size } => { OGeometry::Box { size: size.0 } }
             Geometry::Cylinder { radius, length } => { OGeometry::Cylinder { radius: *radius, length: *length } }
             Geometry::Capsule { radius, length } => { OGeometry::Capsule { radius: *radius, length: *length } }
             Geometry::Sphere { radius } => { OGeometry::Sphere { radius: *radius } }
-            Geometry::Mesh { filename, scale } => { OGeometry::Mesh { filename: L::StrType::from_str(filename), scale: match scale { None => { None } Some(scale) => { Some(scale.0) } } } }
+            Geometry::Mesh { filename, scale } => { OGeometry::Mesh { filename: <S::GeometryFilenameStrType as StrStorageTrait>::StrType::from_str(filename), scale: match scale { None => { None } Some(scale) => { Some(scale.0) } } } }
         }
     }
 }
 
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OPose {
-    rpy: [f64; 3],
-    xyz: [f64; 3]
+pub struct OPose<T: AD, P: O3DPose<T>> {
+    #[serde_as(as = "SerdeO3DPose<T, P>")]
+    pose: P,
+    #[serde_as(as = "[SerdeAD<T>; 3]")]
+    rpy: [T; 3],
+    #[serde_as(as = "[SerdeAD<T>; 3]")]
+    xyz: [T; 3]
 }
-impl OPose {
+impl<T: AD, P: O3DPose<T>> OPose<T, P> {
     fn from_pose(pose: &Pose) -> Self {
+        let rpy: Vec<T> = pose.rpy.0.iter().map(|x| T::constant(*x)).collect();
+        let xyz: Vec<T> = pose.xyz.0.iter().map(|x| T::constant(*x)).collect();
+
+        let pose = P::from_translation_and_rotation_constructor(&xyz, &rpy);
+
         Self {
-            rpy: pose.rpy.0,
-            xyz: pose.xyz.0
+            pose,
+            rpy: [rpy[0], rpy[1], rpy[2]],
+            xyz: [xyz[0], xyz[1], xyz[2]]
         }
-    }
-    pub fn rpy(&self) -> &[f64; 3] {
-        &self.rpy
-    }
-    pub fn xyz(&self) -> &[f64; 3] {
-        &self.xyz
     }
 }
 
@@ -411,108 +387,90 @@ impl OJointType {
     }
 }
 
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OMimic<L: ArrStorage> {
-    joint: L::StrType<MAX_LEN_NAME_STRINGS>,
-    multiplier: Option<f64>,
-    offset: Option<f64>
+pub struct OMimic<T: AD, S: ORobotArrStorageTrait> {
+    joint: <S::MimicJointNameStrType as StrStorageTrait>::StrType,
+    #[serde_as(as = "Option<SerdeAD<T>>")]
+    multiplier: Option<T>,
+    #[serde_as(as = "Option<SerdeAD<T>>")]
+    offset: Option<T>
 }
-impl<L: ArrStorage> OMimic<L> {
+impl<T: AD, S: ORobotArrStorageTrait> OMimic<T, S> {
     fn from_mimic(mimic: &Mimic) -> Self {
         Self {
-            joint: L::StrType::from_str(&mimic.joint),
-            multiplier: mimic.multiplier.clone(),
-            offset: mimic.offset.clone()
+            joint: <S::MimicJointNameStrType as StrStorageTrait>::StrType::from_str(&mimic.joint),
+            multiplier: match &mimic.multiplier {
+                None => { None }
+                Some(multiplier) => { Some(T::constant(*multiplier)) }
+            },
+            offset: match &mimic.offset {
+                None => { None }
+                Some(offset) => { Some(T::constant(*offset)) }
+            }
         }
-    }
-    pub fn multiplier(&self) -> &Option<f64> {
-        &self.multiplier
-    }
-    pub fn offset(&self) -> &Option<f64> {
-        &self.offset
-    }
-    pub fn joint(&self) -> &L::StrType<MAX_LEN_NAME_STRINGS> {
-        &self.joint
     }
 }
 
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ODynamics {
-    damping: f64,
-    friction: f64
+pub struct ODynamics<T: AD> {
+    #[serde_as(as = "SerdeAD<T>")]
+    damping: T,
+    #[serde_as(as = "SerdeAD<T>")]
+    friction: T
 }
-impl ODynamics {
+impl<T: AD> ODynamics<T> {
     fn from_dynamics(dynamics: &Dynamics) -> Self {
         Self {
-            damping: dynamics.damping,
-            friction: dynamics.friction
+            damping: T::constant(dynamics.damping),
+            friction: T::constant(dynamics.friction)
         }
-    }
-    pub fn damping(&self) -> f64 {
-        self.damping
-    }
-    pub fn friction(&self) -> f64 {
-        self.friction
     }
 }
 
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OJointLimit {
-    effort: f64,
-    lower: f64,
-    upper: f64,
-    velocity: f64
+pub struct OJointLimit<T: AD> {
+    #[serde_as(as = "SerdeAD<T>")]
+    effort: T,
+    #[serde_as(as = "SerdeAD<T>")]
+    lower: T,
+    #[serde_as(as = "SerdeAD<T>")]
+    upper: T,
+    #[serde_as(as = "SerdeAD<T>")]
+    velocity: T
 }
-impl OJointLimit {
+impl<T: AD> OJointLimit<T> {
     fn from_joint_limit(joint_limit: &JointLimit) -> Self {
         Self {
-            effort: joint_limit.effort,
-            lower: joint_limit.lower,
-            upper: joint_limit.upper,
-            velocity: joint_limit.velocity
+            effort:   T::constant(joint_limit.effort),
+            lower:    T::constant(joint_limit.lower),
+            upper:    T::constant(joint_limit.upper),
+            velocity: T::constant(joint_limit.velocity)
         }
-    }
-    pub fn effort(&self) -> f64 {
-        self.effort
-    }
-    pub fn lower(&self) -> f64 {
-        self.lower
-    }
-    pub fn upper(&self) -> f64 {
-        self.upper
-    }
-    pub fn velocity(&self) -> f64 {
-        self.velocity
     }
 }
 
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OSafetyController {
-    k_position: f64,
-    k_velocity: f64,
-    soft_lower_limit: f64,
-    soft_upper_limit: f64
+pub struct OSafetyController<T: AD> {
+    #[serde_as(as = "SerdeAD<T>")]
+    k_position: T,
+    #[serde_as(as = "SerdeAD<T>")]
+    k_velocity: T,
+    #[serde_as(as = "SerdeAD<T>")]
+    soft_lower_limit: T,
+    #[serde_as(as = "SerdeAD<T>")]
+    soft_upper_limit: T
 }
-impl OSafetyController {
+impl<T: AD> OSafetyController<T> {
     fn from_safety_controller(safety_controller: &SafetyController) -> Self {
         Self {
-            k_position: safety_controller.k_position,
-            k_velocity: safety_controller.k_velocity,
-            soft_lower_limit: safety_controller.soft_lower_limit,
-            soft_upper_limit: safety_controller.soft_upper_limit
+            k_position:       T::constant(safety_controller.k_position),
+            k_velocity:       T::constant(safety_controller.k_velocity),
+            soft_lower_limit: T::constant(safety_controller.soft_lower_limit),
+            soft_upper_limit: T::constant(safety_controller.soft_upper_limit)
         }
     }
-    pub fn k_position(&self) -> f64 {
-        self.k_position
-    }
-    pub fn k_velocity(&self) -> f64 {
-        self.k_velocity
-    }
-    pub fn soft_lower_limit(&self) -> f64 {
-        self.soft_lower_limit
-    }
-    pub fn soft_upper_limit(&self) -> f64 {
-        self.soft_upper_limit
-    }
 }
-
