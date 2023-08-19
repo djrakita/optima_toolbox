@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::hash::Hash;
 use std::str::{Chars, Split};
 use std::str::pattern::Pattern;
 use arrayvec::{ArrayString, ArrayVec};
@@ -46,14 +47,16 @@ pub trait ImmutArrTrait<T: Serialize + DeserializeOwned + Clone + Debug> :
 {
     fn from_slice(slice: &[T]) -> Self;
     fn as_slice(&self) -> &[T];
+    fn contains_element(&self, element: &T) -> bool where T: PartialEq;
     fn len(&self) -> usize;
     fn get_element(&self, i: usize) -> &T;
 }
 
-pub trait MutArrTrait<T: Serialize + DeserializeOwned + Clone + Debug> :
+pub trait MutArrTrait<T: Serialize + DeserializeOwned + Clone + Debug > :
     ImmutArrTrait<T>
 {
-    fn get_mut_element(&mut self, i: usize) -> &mut T;
+    fn as_mut_slice(&mut self) -> &mut [T];
+    fn get_element_mut(&mut self, i: usize) -> &mut T;
     fn push(&mut self, item: T);
 }
 
@@ -69,6 +72,11 @@ impl<T: Serialize + DeserializeOwned + Clone + Debug> ImmutArrTrait<T> for Vec<T
     }
 
     #[inline]
+    fn contains_element(&self, element: &T) -> bool where T: PartialEq {
+        self.contains(element)
+    }
+
+    #[inline]
     fn len(&self) -> usize {
         self.len()
     }
@@ -79,7 +87,11 @@ impl<T: Serialize + DeserializeOwned + Clone + Debug> ImmutArrTrait<T> for Vec<T
     }
 }
 impl<T: Serialize + DeserializeOwned + Clone + Debug> MutArrTrait<T> for Vec<T> {
-    fn get_mut_element(&mut self, i: usize) -> &mut T {
+    fn as_mut_slice(&mut self) -> &mut [T] {
+        self.as_mut_slice()
+    }
+
+    fn get_element_mut(&mut self, i: usize) -> &mut T {
         &mut self[i]
     }
 
@@ -100,6 +112,11 @@ impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> ImmutArrTr
     }
 
     #[inline]
+    fn contains_element(&self, element: &T) -> bool where T: PartialEq {
+        self.contains(element)
+    }
+
+    #[inline]
     fn len(&self) -> usize {
         self.len()
     }
@@ -110,7 +127,11 @@ impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> ImmutArrTr
     }
 }
 impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> MutArrTrait<T> for ArrayVec<T, M> {
-    fn get_mut_element(&mut self, i: usize) -> &mut T {
+    fn as_mut_slice(&mut self) -> &mut [T] {
+        self.as_mut_slice()
+    }
+
+    fn get_element_mut(&mut self, i: usize) -> &mut T {
         &mut self[i]
     }
 
@@ -119,7 +140,7 @@ impl<T: Serialize + DeserializeOwned + Clone + Debug, const M: usize> MutArrTrai
     }
 }
 
-pub trait StrTrait: Serialize + DeserializeOwned + Clone + Debug + Default {
+pub trait StrTrait: Serialize + DeserializeOwned + Clone + Debug + Default + PartialEq + Eq + Hash {
     fn from_str(s: &str) -> Self;
     fn as_str(&self) -> &str;
     fn push(&mut self, c: char);
