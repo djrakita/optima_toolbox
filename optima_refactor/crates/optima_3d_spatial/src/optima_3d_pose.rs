@@ -21,6 +21,7 @@ pub trait O3DPose<T: AD> :
     type RotationType: O3DRotation<T>;
 
     fn type_identifier() -> O3DPoseType;
+    fn identity() -> Self;
     fn from_translation_and_rotation<V: O3DVec<T>, R: O3DRotation<T>>(translation: &V, rotation: &R) -> Self;
     fn from_translation_and_rotation_constructor<V: O3DVec<T>, RC: O3DRotationConstructor<T, Self::RotationType>>(translation: &V, rotation_constructor: &RC) -> Self;
     fn translation(&self) -> &<Self::RotationType as O3DRotation<T>>::Native3DVecType;
@@ -136,6 +137,10 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
         O3DPoseType::ImplicitDualQuaternion
     }
 
+    fn identity() -> Self {
+        Self::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &[T::zero(), T::zero(), T::zero()])
+    }
+
     fn from_translation_and_rotation<V: O3DVec<T>, R: O3DRotation<T>>(location: &V, orientation: &R) -> Self {
         let location = Vector3::from_column_slice(location.as_slice());
         let orientation = UnitQuaternion::from_scaled_axis(Vector3::from_column_slice(&orientation.scaled_axis_of_rotation()));
@@ -224,6 +229,10 @@ impl<T: AD> O3DPose<T> for Isometry3<T> {
 
     fn type_identifier() -> O3DPoseType {
         O3DPoseType::NalgebraIsometry3
+    }
+
+    fn identity() -> Self {
+        Self::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &[T::zero(), T::zero(), T::zero()])
     }
 
     fn from_translation_and_rotation<V: O3DVec<T>, R: O3DRotation<T>>(translation: &V, rotation: &R) -> Self {

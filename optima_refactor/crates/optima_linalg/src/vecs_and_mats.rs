@@ -57,6 +57,8 @@ pub trait OVec<T: AD> : Debug + Clone {
     fn type_identifier() -> OVecType;
     fn from_slice(slice: &[T]) -> Self;
     fn as_slice(&self) -> &[T];
+    /// start idx is inclusive, end idx is exclusive
+    fn subslice(&self, start: usize, end: usize) -> &[T] { &self.as_slice()[start..end]  }
     fn dot(&self, other: &Self) -> T;
     fn add(&self, other: &Self) -> Self;
     fn sub(&self, other: &Self) -> Self;

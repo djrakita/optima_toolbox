@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use ad_trait::*;
+use arrayvec::ArrayVec;
 use nalgebra::Isometry3;
 use urdf_rs::{Collision, Color, Dynamics, Geometry, Inertial, Joint, JointLimit, JointType, Link, Material, Mimic, Pose, SafetyController, Texture, Visual};
 use serde::{Serialize, Deserialize};
@@ -10,9 +11,10 @@ use optima_utils::arr_storage::*;
 use crate::utils::get_urdf_path_from_robot_name;
 use serde_with::*;
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
-use optima_linalg::vecs_and_mats::{NalgebraLinalg, OLinalgTrait, OMat};
+use optima_3d_spatial::optima_3d_rotation::ScaledAxis;
+use optima_linalg::vecs_and_mats::{NalgebraLinalg, OLinalgTrait, OMat, OVec};
 use optima_linalg::vecs_and_mats::SerdeOMat;
-use optima_utils::arr_storage::ImmutArrTrait;
+use crate::robotics_traits::OForwardKinematicsTrait;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -22,10 +24,10 @@ use optima_utils::arr_storage::ImmutArrTrait;
 
 // Robot Model //
 
-pub type ORobotModelDefault<T> = ORobotModel<T, Isometry3<T>, NalgebraLinalg>;
+pub type ORobotDefault<T> = ORobot<T, Isometry3<T>, NalgebraLinalg>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ORobotModel<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
+pub struct ORobot<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     #[serde(deserialize_with = "Vec::<OLink<T, P, L>>::deserialize")]
     links: Vec<OLink<T, P, L>>,
     #[serde(deserialize_with = "Vec::<OJoint<T, P>>::deserialize")]
@@ -34,9 +36,10 @@ pub struct ORobotModel<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     joint_name_to_joint_idx_map: HashMap<String, usize>,
     link_kinematic_hierarchy: Vec<Vec<usize>>,
     base_link_idx: usize,
+    num_dofs: usize,
     phantom_data: PhantomData<(T, P)>
 }
-impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobotModel<T, P, L> {
+impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
     pub fn from_urdf(robot_name: &str) -> Self {
         let urdf_path = get_urdf_path_from_robot_name(robot_name);
         let urdf = urdf_path.load_urdf();
@@ -65,6 +68,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobotModel<T, P, L> {
             joint_name_to_joint_idx_map,
             link_kinematic_hierarchy: Vec::default(),
             base_link_idx: usize::default(),
+            num_dofs: usize::default(),
             phantom_data: Default::default(),
         };
 
@@ -72,23 +76,104 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobotModel<T, P, L> {
 
         out
     }
+    #[inline(always)]
     pub fn get_link_idx_from_link_name(&self, link_name: &str) -> usize {
         *self.link_name_to_link_idx_map.get(link_name).expect("error")
     }
+    #[inline(always)]
     pub fn get_joint_idx_from_joint_name(&self, joint_name: &str) -> usize {
         *self.joint_name_to_joint_idx_map.get(joint_name).expect("error")
     }
+    #[inline(always)]
     pub fn base_link_idx(&self) -> usize {
         self.base_link_idx
     }
+    #[inline(always)]
     pub fn links(&self) -> &Vec<OLink<T, P, L>> {
         &self.links
     }
+    #[inline(always)]
     pub fn joints(&self) -> &Vec<OJoint<T, P>> {
         &self.joints
     }
+    #[inline(always)]
     pub fn link_kinematic_hierarchy(&self) -> &Vec<Vec<usize>> {
         &self.link_kinematic_hierarchy
+    }
+    #[inline(always)]
+    pub fn num_dofs(&self) -> usize {
+        self.num_dofs
+    }
+    pub fn set_joint_as_fixed(&mut self, joint_idx: usize, fixed_values: &[T]) {
+        let joint = self.joints.get_element_mut(joint_idx);
+
+        if joint.mimic.is_some() { panic!("cannot fix joint values on a mimic joint.") }
+
+        assert_eq!(fixed_values.len(), joint.joint_type.num_dofs());
+
+        joint.fixed_values = Some(fixed_values.into());
+
+        self.set_num_dofs();
+        self.set_all_sub_dof_idxs();
+    }
+    pub fn set_dead_end_link(&mut self, link_idx: usize) {
+        self.links[link_idx].is_present_in_model = false;
+
+        let mut link_idx_stack = vec![ link_idx ];
+
+        while !link_idx_stack.is_empty() {
+            let link_idx = link_idx_stack.pop().unwrap();
+            self.links.get_element_mut(link_idx).is_present_in_model = false;
+            let parent_joint_idx = self.links.get_element(link_idx).parent_joint_idx;
+            if let Some(parent_joint_idx) = parent_joint_idx {
+                self.joints[parent_joint_idx].is_present_in_model = false;
+            }
+            self.links.get_element(link_idx).children_link_idxs.iter().for_each(|x| link_idx_stack.push(*x));
+        }
+
+        self.set_num_dofs();
+        self.set_all_sub_dof_idxs();
+    }
+    #[inline]
+    pub fn get_joint_transform<V: OVec<T>>(&self, state: &V, joint_idx: usize) -> P {
+        self.get_joint_fixed_offset_transform(joint_idx).mul(&self.get_joint_variable_transform(state, joint_idx))
+    }
+    #[inline(always)]
+    pub fn get_joint_fixed_offset_transform(&self, joint_idx: usize) -> &P {
+        self.joints[joint_idx].origin.pose()
+    }
+    #[inline]
+    pub fn get_joint_variable_transform<V: OVec<T>>(&self, state: &V, joint_idx: usize) -> P {
+        let joint = &self.joints[joint_idx];
+        if let Some(mimic) = &joint.mimic {
+            let mimic_joint_idx = mimic.joint_idx;
+            let range = &self.joints[mimic_joint_idx].sub_dof_idxs_range;
+            match range {
+                None => { panic!("mimicked joint must have exactly one dof.") }
+                Some(range) => {
+                    let subslice = state.subslice(range.0, range.1);
+                    assert_eq!(subslice.len(), 1, "mimicked joint must have exactly one dof.");
+                    let value = match (&mimic.offset, &mimic.multiplier) {
+                        (Some(offset), Some(multiplier)) => { (subslice[0] + *offset) * *multiplier }
+                        (None, Some(multiplier)) => { subslice[0] * *multiplier }
+                        (Some(offset), None) => { subslice[0] + *offset }
+                        (None, None) => { subslice[0] }
+                    };
+                    return self.joints.get_element(mimic_joint_idx).get_variable_transform_from_joint_values(&[value]);
+                }
+            }
+        } else if let Some(fixed_values) = &joint.fixed_values {
+            joint.get_variable_transform_from_joint_values(fixed_values)
+        } else {
+            let range = joint.sub_dof_idxs_range();
+            return match range {
+                None => { P::identity() }
+                Some(range) => {
+                    let subslice = state.subslice(range.0, range.1);
+                    joint.get_variable_transform_from_joint_values(subslice)
+                }
+            }
+        }
     }
     fn setup(&mut self) {
         self.assign_joint_connection_indices();
@@ -98,10 +183,15 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobotModel<T, P, L> {
         self.assign_layer_idxs_in_kin_hierarchy();
         self.assign_base_link_idx();
         self.create_link_idx_paths_between_all_links();
+        self.set_all_predecessor_and_successor_links();
+        self.set_mimic_joint_idxs();
+        self.set_num_dofs();
+        self.set_all_sub_dof_idxs();
     }
 }
+
 /// All setup functions
-impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobotModel<T, P, L> {
+impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
     fn assign_joint_connection_indices(&mut self) {
         for joint_idx in 0..self.joints.len() {
             self.joints.get_element_mut(joint_idx).parent_link_idx = self.get_link_idx_from_link_name(&self.joints.get_element(joint_idx).parent_link.as_str());
@@ -225,7 +315,91 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobotModel<T, P, L> {
         }
         self.links[link_idx].link_idx_paths_to_other_links = link_idx_paths_to_other_links;
     }
+    fn set_all_predecessor_and_successor_links(&mut self) {
+        for link_idx1 in 0..self.links.len() {
+            for link_idx2 in 0..self.links.len() {
+                if self.links.get_element(link_idx1).does_link_path_exist_to_other_link(link_idx2) {
+                    self.links.get_element_mut(link_idx1).all_successor_links.push(link_idx2);
+                    self.links.get_element_mut(link_idx2).all_predecessor_links.push(link_idx1);
+                }
+            }
+        }
+    }
+    fn set_mimic_joint_idxs(&mut self) {
+        for joint_idx in 0..self.joints.len() {
+            if let Some(mimic) = &self.joints[joint_idx].mimic {
+                let idx = self.get_joint_idx_from_joint_name(&mimic.joint);
+                self.joints[joint_idx].mimic.as_mut().unwrap().joint_idx = idx;
+            }
+        }
+    }
+    fn set_num_dofs(&mut self) {
+        let mut num_dofs = 0;
+        self.joints.iter().for_each(|x| num_dofs += x.get_num_dofs());
+        self.num_dofs = num_dofs;
+    }
+    fn set_all_sub_dof_idxs(&mut self) {
+        let mut count = 0;
+        for joint_idx in 0..self.joints().len() {
+            let num_dofs = self.joints().get_element(joint_idx).get_num_dofs();
+            let joint = self.joints.get_element_mut(joint_idx);
+            joint.sub_dof_idxs = ArrayVec::new();
+            for _ in 0..num_dofs {
+                joint.sub_dof_idxs.push(count);
+                count += 1;
+            }
+        }
+
+        for joint_idx in 0..self.joints().len() {
+            let joint = self.joints.get_element_mut(joint_idx);
+            joint.sub_dof_idxs_range = None;
+            if joint.sub_dof_idxs.len() > 0 {
+                let range_start = joint.sub_dof_idxs.get_element(0);
+                let range_end = joint.sub_dof_idxs.get_element(joint.sub_dof_idxs.len()-1);
+                joint.sub_dof_idxs_range = Some( (*range_start, *range_end + 1) );
+            }
+        }
+    }
 }
+
+
+impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OForwardKinematicsTrait<T, P> for ORobot<T, P, L> {
+    fn forward_kinematics<V: OVec<T>>(&self, state: &V, base_offset: Option<&P>) -> Vec<Option<P>> {
+        assert_eq!(state.len(), self.num_dofs);
+
+        let mut out = vec![ None; self.links.len() ];
+
+        let base_pose = match base_offset {
+            None => { P::identity() }
+            Some(base_offset) => { base_offset.clone() }
+        };
+
+        for (layer_idx, link_kinematic_hierarchy_layer) in self.link_kinematic_hierarchy().iter().enumerate() {
+            'l: for link_idx in link_kinematic_hierarchy_layer {
+                let link = self.links().get_element(*link_idx);
+                if !link.is_present_in_model { continue 'l; }
+
+                if layer_idx == 0 {
+                    out[*link_idx] = Some( base_pose.clone() )
+                } else {
+                    let parent_link_idx = link.parent_link_idx.unwrap();
+                    let parent_joint_idx = link.parent_joint_idx.unwrap();
+
+                    let joint_transform = self.get_joint_transform(state, parent_joint_idx);
+                    let link_pose = out[parent_link_idx].as_ref().unwrap().mul(&joint_transform);
+                    out[*link_idx] = Some(link_pose);
+                }
+            }
+        }
+
+        out
+    }
+
+    fn forward_kinematics_floating_chain<V: OVec<T>>(&self, state: &V, base_offset: Option<&P>) -> Vec<Option<P>> {
+        todo!()
+    }
+}
+
 
 /*
 // Robot Storage Trait //
@@ -331,7 +505,7 @@ ORobotArrStorageArrayVec<
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OLink<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
-    present_in_model: bool,
+    is_present_in_model: bool,
     link_idx: usize,
     name: String,
     layer_idx_in_kinematic_hierarchy: usize,
@@ -340,6 +514,8 @@ pub struct OLink<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     parent_link_idx: Option<usize>,
     children_link_idxs: Vec<usize>,
     link_idx_paths_to_other_links: Vec<Option<Vec<usize>>>,
+    all_predecessor_links: Vec<usize>,
+    all_successor_links: Vec<usize>,
     #[serde(deserialize_with = "Vec::<OCollision<T, P>>::deserialize")]
     collision: Vec<OCollision<T, P>>,
     #[serde(deserialize_with = "Vec::<OVisual<T, P>>::deserialize")]
@@ -350,7 +526,7 @@ pub struct OLink<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
     fn from_link(link: &Link, link_idx: usize) -> Self {
         Self {
-            present_in_model: true,
+            is_present_in_model: true,
             link_idx,
             name: String::from(&link.name),
             layer_idx_in_kinematic_hierarchy: usize::default(),
@@ -359,22 +535,33 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
             parent_link_idx: None,
             children_link_idxs: Vec::default(),
             link_idx_paths_to_other_links: Vec::default(),
+            all_predecessor_links: Vec::default(),
+            all_successor_links: Vec::default(),
             collision: link.collision.iter().map(|x| OCollision::from_collision(x)).collect(),
             visual: link.visual.iter().map(|x| OVisual::from_visual(x)).collect(),
             inertial: OInertial::from_inertial(&link.inertial)
         }
     }
-    pub fn present_in_model(&self) -> bool {
-        self.present_in_model
+    #[inline(always)]
+    pub fn is_present_in_model(&self) -> bool {
+        self.is_present_in_model
     }
+    #[inline(always)]
     pub fn link_idx(&self) -> usize {
         self.link_idx
     }
+    #[inline(always)]
     pub fn name(&self) -> &str {
         &self.name
     }
     pub fn layer_idx_in_kinematic_hierarchy(&self) -> usize {
         self.layer_idx_in_kinematic_hierarchy
+    }
+    pub fn link_idx_path_to_other_link(&self, other_link_idx: usize) -> &Option<Vec<usize>> {
+        self.link_idx_paths_to_other_links.get_element(other_link_idx)
+    }
+    pub fn does_link_path_exist_to_other_link(&self, other_link_idx: usize) -> bool {
+        return self.link_idx_path_to_other_link(other_link_idx).is_some()
     }
     pub fn parent_joint_idx(&self) -> &Option<usize> {
         &self.parent_joint_idx
@@ -397,17 +584,23 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
     pub fn inertial(&self) -> &OInertial<T, L> {
         &self.inertial
     }
-    pub fn link_idx_paths_to_other_links(&self) -> &Vec<Option<Vec<usize>>> {
-        &self.link_idx_paths_to_other_links
+    pub fn all_predecessor_links(&self) -> &Vec<usize> {
+        &self.all_predecessor_links
+    }
+    pub fn all_successor_links(&self) -> &Vec<usize> {
+        &self.all_successor_links
     }
 }
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OJoint<T: AD, P: O3DPose<T>> {
+    is_present_in_model: bool,
     joint_idx: usize,
     name: String,
     joint_type: OJointType,
+    #[serde_as(as = "Option::<Vec<SerdeAD<T>>>")]
+    fixed_values: Option<Vec<T>>,
     #[serde(deserialize_with = "OPose::<T, P>::deserialize")]
     origin: OPose<T, P>,
     #[serde_as(as = "[SerdeAD<T>; 3]")]
@@ -416,6 +609,8 @@ pub struct OJoint<T: AD, P: O3DPose<T>> {
     parent_link_idx: usize,
     child_link: String,
     child_link_idx: usize,
+    sub_dof_idxs: ArrayVec<usize, 6>,
+    sub_dof_idxs_range: Option<(usize, usize)>,
     #[serde(deserialize_with = "OJointLimit::<T>::deserialize")]
     limit: OJointLimit<T>,
     #[serde(deserialize_with = "Option::<ODynamics::<T>>::deserialize")]
@@ -430,15 +625,19 @@ impl<T: AD, P: O3DPose<T>> OJoint<T, P> {
         let axis: Vec<T> = joint.axis.xyz.0.iter().map(|x| T::constant(*x)).collect();
 
         Self {
+            is_present_in_model: true,
             joint_idx,
             name: String::from(&joint.name),
             joint_type: OJointType::from_joint_type(&joint.joint_type),
+            fixed_values: None,
             origin: OPose::from_pose(&joint.origin),
             axis: [axis[0], axis[1], axis[2]],
             parent_link: String::from(&joint.parent.link),
             parent_link_idx: usize::default(),
             child_link: String::from(&joint.child.link),
             child_link_idx: usize::default(),
+            sub_dof_idxs: Default::default(),
+            sub_dof_idxs_range: Default::default(),
             limit: OJointLimit::from_joint_limit(&joint.limit),
             dynamics: match &joint.dynamics {
                 None => { None }
@@ -454,12 +653,19 @@ impl<T: AD, P: O3DPose<T>> OJoint<T, P> {
             }
         }
     }
+    #[inline(always)]
+    pub fn is_present_in_model(&self) -> bool {
+        self.is_present_in_model
+    }
+    #[inline(always)]
     pub fn joint_idx(&self) -> usize {
         self.joint_idx
     }
+    #[inline(always)]
     pub fn name(&self) -> &str {
         &self.name
     }
+    #[inline(always)]
     pub fn joint_type(&self) -> &OJointType {
         &self.joint_type
     }
@@ -492,6 +698,58 @@ impl<T: AD, P: O3DPose<T>> OJoint<T, P> {
     }
     pub fn safety_controller(&self) -> &Option<OSafetyController<T>> {
         &self.safety_controller
+    }
+    #[inline(always)]
+    pub fn sub_dof_idxs(&self) -> &ArrayVec<usize, 6> {
+        &self.sub_dof_idxs
+    }
+    #[inline(always)]
+    pub fn sub_dof_idxs_range(&self) -> &Option<(usize, usize)> {
+        &self.sub_dof_idxs_range
+    }
+    pub fn fixed_values(&self) -> &Option<Vec<T>> {
+        &self.fixed_values
+    }
+    #[inline(always)]
+    pub fn get_num_dofs(&self) -> usize {
+        return if !self.is_present_in_model { 0 } else if self.mimic.is_some() { 0 } else if self.fixed_values.is_some() { 0 } else { self.joint_type.num_dofs() }
+    }
+    pub (crate) fn get_variable_transform_from_joint_values(&self, joint_values: &[T]) -> P {
+        match &self.joint_type {
+            OJointType::Revolute => {
+                assert_eq!(joint_values.len(), 1);
+                let axis = self.axis();
+                let axis = axis.scalar_mul(&joint_values[0]);
+                return P::from_translation_and_rotation_constructor( &[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis) );
+            }
+            OJointType::Continuous => {
+                assert_eq!(joint_values.len(), 1);
+                let axis = self.axis();
+                let axis = axis.scalar_mul(&joint_values[0]);
+                return P::from_translation_and_rotation_constructor( &[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis) );
+            }
+            OJointType::Prismatic => {
+                assert_eq!(joint_values.len(), 1);
+                let axis = self.axis();
+                let axis = axis.scalar_mul(&joint_values[0]);
+                return P::from_translation_and_rotation_constructor(&axis, &[T::zero(), T::zero(), T::zero()] );
+            }
+            OJointType::Fixed => {
+                return P::identity();
+            }
+            OJointType::Floating => {
+                assert_eq!(joint_values.len(), 6);
+                return P::from_translation_and_rotation_constructor(&[joint_values[0], joint_values[1], joint_values[2]], &ScaledAxis([joint_values[3], joint_values[4], joint_values[5]]) );
+            }
+            OJointType::Planar => {
+                assert_eq!(joint_values.len(), 2);
+                return P::from_translation_and_rotation_constructor(&[joint_values[0], joint_values[1], T::zero()], &[T::zero(), T::zero(), T::zero()] );
+            }
+            OJointType::Spherical => {
+                assert_eq!(joint_values.len(), 3);
+                return P::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &ScaledAxis([joint_values[0], joint_values[1], joint_values[2]]) );
+            }
+        }
     }
 }
 
@@ -762,6 +1020,7 @@ impl OJointType {
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OMimic<T: AD> {
+    joint_idx: usize,
     joint: String,
     #[serde_as(as = "Option<SerdeAD<T>>")]
     multiplier: Option<T>,
@@ -771,6 +1030,7 @@ pub struct OMimic<T: AD> {
 impl<T: AD> OMimic<T> {
     fn from_mimic(mimic: &Mimic) -> Self {
         Self {
+            joint_idx: usize::default(),
             joint: String::from(&mimic.joint),
             multiplier: match &mimic.multiplier {
                 None => { None }

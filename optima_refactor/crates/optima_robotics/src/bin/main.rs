@@ -1,11 +1,12 @@
-use optima_robotics::robot_model::ORobotModelDefault;
+use ad_trait::AD;
+use optima_3d_spatial::optima_3d_pose::ImplicitDualQuaternion;
+use optima_file::traits::ToJsonString;
+use optima_linalg::vecs_and_mats::NalgebraLinalg;
+use optima_robotics::robot::{ORobot, ORobotDefault};
+use optima_robotics::robotics_traits::OForwardKinematicsTrait;
 
 fn main() {
-    let r = ORobotModelDefault::<f64>::from_urdf("ur5");
-    println!("{:?}", r.link_kinematic_hierarchy());
-    println!("{:?}", r.base_link_idx());
-
-    r.links().iter().for_each(|x| {
-       println!("{:?}", x.link_idx_paths_to_other_links());
-    });
+    let r = ORobot::<f32, ImplicitDualQuaternion<_>, NalgebraLinalg>::from_urdf("ur5");
+    let res = r.forward_kinematics(&[1.; 6], None);
+    println!("{:?}", res);
 }
