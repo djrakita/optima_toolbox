@@ -362,7 +362,6 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
     }
 }
 
-
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OForwardKinematicsTrait<T, P> for ORobot<T, P, L> {
     fn forward_kinematics<V: OVec<T>>(&self, state: &V, base_offset: Option<&P>) -> Vec<Option<P>> {
         assert_eq!(state.len(), self.num_dofs);
@@ -395,11 +394,39 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OForwardKinematicsTrait<T, P> for OR
         out
     }
 
-    fn forward_kinematics_floating_chain<V: OVec<T>>(&self, state: &V, base_offset: Option<&P>) -> Vec<Option<P>> {
-        todo!()
+    fn forward_kinematics_floating_chain<V: OVec<T>>(&self, state: &V, start_link_idx: usize, end_link_idx: usize, base_offset: Option<&P>) -> Vec<Option<P>> {
+        let link_path = self.links[start_link_idx].link_idx_path_to_other_link(end_link_idx);
+        assert!(link_path.is_some());
+        let link_path = link_path.as_ref().unwrap();
+
+        assert_eq!(state.len(), self.num_dofs);
+
+        let mut out = vec![ None; self.links.len() ];
+
+        let base_pose = match base_offset {
+            None => { P::identity() }
+            Some(base_offset) => { base_offset.clone() }
+        };
+
+        'l: for (i, link_idx) in link_path.iter().enumerate() {
+            let link = self.links().get_element(*link_idx);
+            if !link.is_present_in_model { continue 'l; }
+
+            if i == 0 {
+                out[*link_idx] = Some( base_pose.clone() )
+            } else {
+                let parent_link_idx = link.parent_link_idx.unwrap();
+                let parent_joint_idx = link.parent_joint_idx.unwrap();
+
+                let joint_transform = self.get_joint_transform(state, parent_joint_idx);
+                let link_pose = out[parent_link_idx].as_ref().unwrap().mul(&joint_transform);
+                out[*link_idx] = Some(link_pose);
+            }
+        }
+
+        out
     }
 }
-
 
 /*
 // Robot Storage Trait //

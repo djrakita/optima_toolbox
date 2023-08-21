@@ -50,15 +50,15 @@ impl OLinalgTrait for NdarrayLinalg {
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum OVecType {
-    Arr, ArrayVec, DVector, SVector, NDarray,
+    Arr, Vec, ArrayVec, DVector, SVector, NDarray,
 }
 
 pub trait OVec<T: AD> : Debug + Clone {
     fn type_identifier() -> OVecType;
-    fn from_slice(slice: &[T]) -> Self;
-    fn as_slice(&self) -> &[T];
+    fn from_slice_ovec(slice: &[T]) -> Self;
+    fn as_slice_ovec(&self) -> &[T];
     /// start idx is inclusive, end idx is exclusive
-    fn subslice(&self, start: usize, end: usize) -> &[T] { &self.as_slice()[start..end]  }
+    fn subslice(&self, start: usize, end: usize) -> &[T] { &self.as_slice_ovec()[start..end]  }
     fn dot(&self, other: &Self) -> T;
     fn add(&self, other: &Self) -> Self;
     fn sub(&self, other: &Self) -> Self;
@@ -76,7 +76,7 @@ impl<T: AD, const N: usize> OVec<T> for [T; N] {
     }
 
     #[inline]
-    fn from_slice(slice: &[T]) -> Self {
+    fn from_slice_ovec(slice: &[T]) -> Self {
         assert_eq!(slice.len(), N);
         let mut out = [T::zero(); N];
         out.iter_mut().zip(slice.iter()).for_each(|(x,y)| *x = *y );
@@ -84,7 +84,7 @@ impl<T: AD, const N: usize> OVec<T> for [T; N] {
     }
 
     #[inline]
-    fn as_slice(&self) -> &[T] {
+    fn as_slice_ovec(&self) -> &[T] {
         self
     }
 
@@ -137,6 +137,73 @@ impl<T: AD, const N: usize> OVec<T> for [T; N] {
     }
 }
 
+impl<T: AD> OVec<T> for Vec<T> {
+    #[inline]
+    fn type_identifier() -> OVecType {
+        OVecType::Vec
+    }
+
+    #[inline]
+    fn from_slice_ovec(slice: &[T]) -> Self {
+        slice.into()
+    }
+
+    #[inline]
+    fn as_slice_ovec(&self) -> &[T] {
+        self.as_slice()
+    }
+
+    #[inline]
+    fn dot(&self, other: &Self) -> T {
+        let mut out = T::zero();
+        self.iter().zip(other.iter()).for_each(|(x, y)| out +=  *x * *y);
+        out
+    }
+
+    #[inline]
+    fn add(&self, other: &Self) -> Self {
+        assert_eq!(self.len(), other.len());
+        let mut out = Vec::with_capacity(self.len());
+        out.iter_mut().enumerate().for_each(|(i, x)| *x = self[i]+other[i]);
+        out
+    }
+
+    #[inline]
+    fn sub(&self, other: &Self) -> Self {
+        assert_eq!(self.len(), other.len());
+        let mut out = Vec::with_capacity(self.len());
+        out.iter_mut().enumerate().for_each(|(i, x)| *x = self[i]-other[i]);
+        out
+    }
+
+    #[inline]
+    fn scalar_mul(&self, scalar: &T) -> Self {
+        let mut out = self.clone();
+        out.iter_mut().for_each(|x| *x *= *scalar);
+        out
+    }
+
+    #[inline]
+    fn get_element(&self, i: usize) -> &T {
+        &self[i]
+    }
+
+    #[inline]
+    fn get_element_mut(&mut self, i: usize) -> &mut T {
+        &mut self[i]
+    }
+
+    #[inline]
+    fn set_element(&mut self, i: usize, element: T) {
+        self[i] = element
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        self.len()
+    }
+}
+
 impl<T: AD, const M: usize> OVec<T> for ArrayVec<T, M> {
     #[inline]
     fn type_identifier() -> OVecType {
@@ -144,12 +211,12 @@ impl<T: AD, const M: usize> OVec<T> for ArrayVec<T, M> {
     }
 
     #[inline]
-    fn from_slice(slice: &[T]) -> Self {
+    fn from_slice_ovec(slice: &[T]) -> Self {
         ArrayVec::try_from(slice).expect("error")
     }
 
     #[inline]
-    fn as_slice(&self) -> &[T] {
+    fn as_slice_ovec(&self) -> &[T] {
         self.as_slice()
     }
 
@@ -209,12 +276,12 @@ impl<T: AD> OVec<T> for DVector<T> {
     }
 
     #[inline]
-    fn from_slice(slice: &[T]) -> Self {
+    fn from_slice_ovec(slice: &[T]) -> Self {
         DVector::from_column_slice(slice)
     }
 
     #[inline]
-    fn as_slice(&self) -> &[T] {
+    fn as_slice_ovec(&self) -> &[T] {
         self.as_slice()
     }
 
@@ -266,12 +333,12 @@ impl<T: AD, const N: usize> OVec<T> for SVector<T, N> {
     }
 
     #[inline]
-    fn from_slice(slice: &[T]) -> Self {
+    fn from_slice_ovec(slice: &[T]) -> Self {
         SVector::from_column_slice(slice)
     }
 
     #[inline]
-    fn as_slice(&self) -> &[T] {
+    fn as_slice_ovec(&self) -> &[T] {
         self.as_slice()
     }
 
@@ -323,12 +390,12 @@ impl<T: AD> OVec<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     }
 
     #[inline]
-    fn from_slice(slice: &[T]) -> Self {
+    fn from_slice_ovec(slice: &[T]) -> Self {
         ArrayBase::from_vec(slice.to_vec())
     }
 
     #[inline]
-    fn as_slice(&self) -> &[T] {
+    fn as_slice_ovec(&self) -> &[T] {
         self.as_slice().unwrap()
     }
 
@@ -378,7 +445,7 @@ pub fn ovec_custom_serialize<S, T: AD, V: OVec<T>>(value: &V, serializer: S) -> 
 where
     S: serde::Serializer
 {
-    let slice = value.as_slice();
+    let slice = value.as_slice_ovec();
     let slice_as_f64: Vec<f64> = slice.iter().map(|x| x.to_constant()).collect();
     let mut tuple = serializer.serialize_tuple(slice_as_f64.len())?;
     for element in &slice_as_f64 {
@@ -407,7 +474,7 @@ impl<'de, T2: AD, V2: OVec<T2>> Visitor<'de> for OVecVisitor<T2, V2> {
         while let Some(val) = seq.next_element()? {
             values.push(T2::constant(val));
         }
-        Ok(V2::from_slice(&values))
+        Ok(V2::from_slice_ovec(&values))
     }
 }
 
