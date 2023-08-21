@@ -1,4 +1,5 @@
 pub mod robotics_traits;
+pub mod chain;
 pub mod robot;
-pub mod robot_set;
+pub mod robotics_components;
 pub mod utils;

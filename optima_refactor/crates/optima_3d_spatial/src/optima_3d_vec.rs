@@ -22,9 +22,10 @@ pub trait O3DVec<T: AD> :
     fn z(&self) -> T;
     fn from_slice(slice: &[T]) -> Self;
     fn as_slice(&self) -> &[T];
+    fn to_arr(&self) -> [T; 3] { [self.x(), self.y(), self.z()] }
     fn add(&self, other: &Self) -> Self;
     fn sub(&self, other: &Self) -> Self;
-    fn scalar_mul(&self, scalar: T) -> Self;
+    fn scalar_mul_o3dvec(&self, scalar: T) -> Self;
     fn norm(&self) -> T;
     fn dot(&self, other: &Self) -> T;
     fn cross(&self, other: &Self) -> Self;
@@ -60,6 +61,10 @@ impl<T: AD> O3DVec<T> for [T; 3] {
         self
     }
 
+    fn to_arr(&self) -> [T; 3] {
+        *self
+    }
+
     #[inline]
     fn add(&self, other: &Self) -> Self {
         [ self[0] + other[0], self[1] + other[1], self[2] + other[2] ]
@@ -71,7 +76,7 @@ impl<T: AD> O3DVec<T> for [T; 3] {
     }
 
     #[inline]
-    fn scalar_mul(&self, scalar: T) -> Self {
+    fn scalar_mul_o3dvec(&self, scalar: T) -> Self {
         [ scalar * self[0], scalar * self[1], scalar * self[2] ]
     }
 
@@ -140,7 +145,7 @@ impl<T: AD> O3DVec<T> for Vec<T> {
     }
 
     #[inline]
-    fn scalar_mul(&self, scalar: T) -> Self {
+    fn scalar_mul_o3dvec(&self, scalar: T) -> Self {
         vec![ scalar * self[0], scalar * self[1], scalar * self[2] ]
     }
 
@@ -208,7 +213,7 @@ impl<T: AD> O3DVec<T> for Vector3<T> {
     }
 
     #[inline]
-    fn scalar_mul(&self, scalar: T) -> Self {
+    fn scalar_mul_o3dvec(&self, scalar: T) -> Self {
         scalar.mul_by_nalgebra_matrix_ref(self)
         // scalar * self
         // let mut v = [T::zero(); 3];
@@ -269,7 +274,7 @@ impl<T: AD> O3DVec<T> for Point3<T> {
         (&self.coords - &other.coords).into()
     }
 
-    fn scalar_mul(&self, scalar: T) -> Self {
+    fn scalar_mul_o3dvec(&self, scalar: T) -> Self {
         scalar.mul_by_nalgebra_matrix_ref(&self.coords).into()
     }
 

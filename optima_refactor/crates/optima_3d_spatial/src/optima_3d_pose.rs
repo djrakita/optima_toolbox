@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use ad_trait::{AD};
+use ad_trait::AD;
 use nalgebra::{Isometry3, Quaternion, Translation3, UnitQuaternion, Vector3, Vector6};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{SeqAccess, Visitor};
@@ -35,98 +35,6 @@ pub trait O3DPose<T: AD> :
     fn displacement(&self, other: &Self) -> Self;
     fn dis(&self, other: &Self) -> T;
     fn interpolate(&self, to: &Self, t: T) -> Self;
-}
-
-pub trait O3DLieAlgebraPose<T: AD> : O3DPose<T> {
-    type LnVecType;
-
-    fn ln(&self) -> Self::LnVecType;
-    fn exp(ln_vec: &Self::LnVecType) -> Self;
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ImplicitDualQuaternion<T: AD> {
-    #[serde(deserialize_with = "Vector3::<T>::deserialize")]
-    translation: Vector3<T>,
-    #[serde(deserialize_with = "UnitQuaternion::<T>::deserialize")]
-    rotation: UnitQuaternion<T>
-}
-
-fn generic_pose_ln<T: AD>(translation: &Vector3<T>, rotation: &UnitQuaternion<T>) -> Vector6<T> {
-    let h_v = Vector3::new(rotation.i, rotation.j, rotation.k);
-    let s: T = h_v.norm();
-    let c = rotation.w;
-    let phi = s.atan2(c);
-    let mut a = T::zero();
-    if s > T::zero() { a = phi / s; }
-    // let rot_vec_diff = a * h_v;
-    let rot_vec_diff = a.mul_by_nalgebra_matrix_ref(&h_v);
-
-    let mu_r;
-    let mu_d;
-
-    if s < T::constant(0.00000000000001) {
-        mu_r = T::one() - (phi.powi(2) / T::constant(3.0)) - (phi.powi(4) / T::constant(45.0));
-    } else {
-        mu_r = (c * phi) / s;
-    }
-
-    if phi < T::constant(0.00000000000001) {
-        mu_d = (T::one() / T::constant(3.0)) + (phi.powi(2) / T::constant(45.0)) + ((T::constant(2.0) * phi.powi(4)) / T::constant(945.0));
-    } else {
-        mu_d = (T::one() - mu_r) / (phi.powi(2));
-    }
-
-    let tmp = translation / T::constant(2.0);
-
-    let translation_diff = (mu_d * tmp.dot(&rot_vec_diff)).mul_by_nalgebra_matrix_ref(&rot_vec_diff) + mu_r.mul_by_nalgebra_matrix_ref(&tmp) + tmp.cross(&rot_vec_diff);
-
-    let out_vec = Vector6::new(rot_vec_diff[0], rot_vec_diff[1], rot_vec_diff[2], translation_diff[0], translation_diff[1], translation_diff[2]);
-
-    out_vec
-}
-
-fn generic_pose_exp<T: AD>(ln_vec: &Vector6<T>) -> (Vector3<T>, UnitQuaternion<T>) {
-    let w = Vector3::new(ln_vec[0], ln_vec[1], ln_vec[2]);
-    let v = Vector3::new(ln_vec[3], ln_vec[4], ln_vec[5]);
-
-    let phi = w.norm();
-    let s = phi.sin();
-    let c = phi.cos();
-    let gamma = w.dot(&v);
-
-    let mu_r;
-    let mu_d;
-
-    if phi < T::constant(0.00000001) {
-        mu_r = T::constant(1.0) - phi.powi(2) / T::constant(6.0) + phi.powi(4) / T::constant(120.0);
-        mu_d = T::constant(4.0 / 3.0) - T::constant(4.0) * phi.powi(2) / T::constant(15.0) + T::constant(8.0) * phi.powi(4) / T::constant(315.0);
-    } else {
-        mu_r = s / phi;
-        mu_d = (T::constant(2.0) - c * (T::constant(2.0) * mu_r)) / phi.powi(2);
-    }
-
-    let h_v: Vector3<T> = mu_r.mul_by_nalgebra_matrix_ref(&w);
-    let quat_ = Quaternion::new(c, h_v[0], h_v[1], h_v[2]);
-    let rotation = UnitQuaternion::from_quaternion(quat_);
-
-    let translation = T::constant(2.0).mul_by_nalgebra_matrix_ref(&mu_r.mul_by_nalgebra_matrix_ref(&h_v.cross(&v))) + (c * T::constant(2.0) * mu_r).mul_by_nalgebra_matrix_ref(&v) + (mu_d * gamma).mul_by_nalgebra_matrix_ref(&w);
-
-    return (translation, rotation);
-}
-
-impl<T: AD> ImplicitDualQuaternion<T>
-{
-    pub fn ln(&self) -> Vector6<T> {
-        generic_pose_ln(&self.translation, &self.rotation)
-    }
-    pub fn exp(ln_vec: &Vector6<T>) -> Self {
-        let res = generic_pose_exp(ln_vec);
-        Self {
-            translation: res.0,
-            rotation: res.1,
-        }
-    }
 }
 
 impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
@@ -292,6 +200,98 @@ impl<T: AD> O3DPose<T> for Isometry3<T> {
 
     fn interpolate(&self, to: &Self, t: T) -> Self {
         self.lerp_slerp(to, t)
+    }
+}
+
+pub trait O3DLieAlgebraPose<T: AD> : O3DPose<T> {
+    type LnVecType;
+
+    fn ln(&self) -> Self::LnVecType;
+    fn exp(ln_vec: &Self::LnVecType) -> Self;
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ImplicitDualQuaternion<T: AD> {
+    #[serde(deserialize_with = "Vector3::<T>::deserialize")]
+    translation: Vector3<T>,
+    #[serde(deserialize_with = "UnitQuaternion::<T>::deserialize")]
+    rotation: UnitQuaternion<T>
+}
+
+fn generic_pose_ln<T: AD>(translation: &Vector3<T>, rotation: &UnitQuaternion<T>) -> Vector6<T> {
+    let h_v = Vector3::new(rotation.i, rotation.j, rotation.k);
+    let s: T = h_v.norm();
+    let c = rotation.w;
+    let phi = s.atan2(c);
+    let mut a = T::zero();
+    if s > T::zero() { a = phi / s; }
+    // let rot_vec_diff = a * h_v;
+    let rot_vec_diff = a.mul_by_nalgebra_matrix_ref(&h_v);
+
+    let mu_r;
+    let mu_d;
+
+    if s < T::constant(0.00000000000001) {
+        mu_r = T::one() - (phi.powi(2) / T::constant(3.0)) - (phi.powi(4) / T::constant(45.0));
+    } else {
+        mu_r = (c * phi) / s;
+    }
+
+    if phi < T::constant(0.00000000000001) {
+        mu_d = (T::one() / T::constant(3.0)) + (phi.powi(2) / T::constant(45.0)) + ((T::constant(2.0) * phi.powi(4)) / T::constant(945.0));
+    } else {
+        mu_d = (T::one() - mu_r) / (phi.powi(2));
+    }
+
+    let tmp = translation / T::constant(2.0);
+
+    let translation_diff = (mu_d * tmp.dot(&rot_vec_diff)).mul_by_nalgebra_matrix_ref(&rot_vec_diff) + mu_r.mul_by_nalgebra_matrix_ref(&tmp) + tmp.cross(&rot_vec_diff);
+
+    let out_vec = Vector6::new(rot_vec_diff[0], rot_vec_diff[1], rot_vec_diff[2], translation_diff[0], translation_diff[1], translation_diff[2]);
+
+    out_vec
+}
+
+fn generic_pose_exp<T: AD>(ln_vec: &Vector6<T>) -> (Vector3<T>, UnitQuaternion<T>) {
+    let w = Vector3::new(ln_vec[0], ln_vec[1], ln_vec[2]);
+    let v = Vector3::new(ln_vec[3], ln_vec[4], ln_vec[5]);
+
+    let phi = w.norm();
+    let s = phi.sin();
+    let c = phi.cos();
+    let gamma = w.dot(&v);
+
+    let mu_r;
+    let mu_d;
+
+    if phi < T::constant(0.00000001) {
+        mu_r = T::constant(1.0) - phi.powi(2) / T::constant(6.0) + phi.powi(4) / T::constant(120.0);
+        mu_d = T::constant(4.0 / 3.0) - T::constant(4.0) * phi.powi(2) / T::constant(15.0) + T::constant(8.0) * phi.powi(4) / T::constant(315.0);
+    } else {
+        mu_r = s / phi;
+        mu_d = (T::constant(2.0) - c * (T::constant(2.0) * mu_r)) / phi.powi(2);
+    }
+
+    let h_v: Vector3<T> = mu_r.mul_by_nalgebra_matrix_ref(&w);
+    let quat_ = Quaternion::new(c, h_v[0], h_v[1], h_v[2]);
+    let rotation = UnitQuaternion::from_quaternion(quat_);
+
+    let translation = T::constant(2.0).mul_by_nalgebra_matrix_ref(&mu_r.mul_by_nalgebra_matrix_ref(&h_v.cross(&v))) + (c * T::constant(2.0) * mu_r).mul_by_nalgebra_matrix_ref(&v) + (mu_d * gamma).mul_by_nalgebra_matrix_ref(&w);
+
+    return (translation, rotation);
+}
+
+impl<T: AD> ImplicitDualQuaternion<T>
+{
+    pub fn ln(&self) -> Vector6<T> {
+        generic_pose_ln(&self.translation, &self.rotation)
+    }
+    pub fn exp(ln_vec: &Vector6<T>) -> Self {
+        let res = generic_pose_exp(ln_vec);
+        Self {
+            translation: res.0,
+            rotation: res.1,
+        }
     }
 }
 
