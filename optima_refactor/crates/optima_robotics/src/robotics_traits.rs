@@ -3,7 +3,7 @@ use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_3d_spatial::optima_3d_rotation::ScaledAxis;
 use optima_linalg::vecs_and_mats::{OLinalgTrait, OVec};
 use optima_utils::arr_storage::ImmutArrTraitRaw;
-use crate::robotics_components::{ChainInfo, OJointType, OPose};
+use crate::robotics_components::{ChainInfo, ODynamics, OJointType, OMimic, OPose, OSafetyController};
 
 pub trait JointTrait<T: AD, P: O3DPose<T>> {
     fn joint_idx(&self) -> usize;
@@ -12,6 +12,14 @@ pub trait JointTrait<T: AD, P: O3DPose<T>> {
     fn joint_type(&self) -> &OJointType;
     fn axis(&self) -> &[T; 3];
     fn origin(&self) -> &OPose<T, P>;
+    fn mimic(&self) -> &Option<OMimic<T>>;
+    fn dynamics(&self) -> &Option<ODynamics<T>>;
+    fn safety_controller(&self) -> &Option<OSafetyController<T>>;
+    fn get_num_dofs(&self) -> usize;
+    fn fixed_values(&self) -> &Option<Vec<T>>;
+    fn sub_dof_idxs(&self) -> &Vec<usize>;
+    fn sub_dof_idxs_range(&self) -> &Option<(usize, usize)>;
+    #[inline]
     fn get_variable_transform_from_joint_values_subslice(&self, joint_values_subslice: &[T]) -> P {
         return match &self.joint_type() {
             OJointType::Revolute => {
@@ -49,10 +57,48 @@ pub trait JointTrait<T: AD, P: O3DPose<T>> {
             }
         }
     }
+    #[inline]
+    fn get_joint_variable_transform<V: OVec<T>>(&self, state: &V, all_joints: &Vec<Self>) -> P where Self: Sized {
+        let joint = self;
+        if let Some(mimic) = &joint.mimic() {
+            let mimic_joint_idx = mimic.joint_idx();
+            let range = joint.sub_dof_idxs_range();
+            match range {
+                None => { panic!("mimicked joint must have exactly one dof.") }
+                Some(range) => {
+                    let subslice = state.subslice(range.0, range.1);
+                    assert_eq!(subslice.len(), 1, "mimicked joint must have exactly one dof.");
+                    let value = match (mimic.offset(), mimic.multiplier()) {
+                        (Some(offset), Some(multiplier)) => { (subslice[0] + *offset) * *multiplier }
+                        (None, Some(multiplier)) => { subslice[0] * *multiplier }
+                        (Some(offset), None) => { subslice[0] + *offset }
+                        (None, None) => { subslice[0] }
+                    };
+                    return all_joints.get_element(mimic_joint_idx).get_variable_transform_from_joint_values_subslice(&[value]);
+                }
+            }
+        } else if let Some(fixed_values) = &joint.fixed_values() {
+            joint.get_variable_transform_from_joint_values_subslice(fixed_values)
+        } else {
+            let range = joint.sub_dof_idxs_range();
+            return match range {
+                None => { P::identity() }
+                Some(range) => {
+                    let subslice = state.subslice(range.0, range.1);
+                    joint.get_variable_transform_from_joint_values_subslice(subslice)
+                }
+            }
+        }
+    }
+    #[inline]
     fn get_joint_fixed_offset_transform(&self) -> &P {
         self.origin().pose()
     }
-    fn get_num_dofs(&self) -> usize;
+    #[inline]
+    fn get_joint_transform<V: OVec<T>>(&self, state: &V, all_joints: &Vec<Self>) -> P where Self: Sized {
+        // self.get_joint_fixed_offset_transform(joint_idx).mul(&self.get_joint_variable_transform(state, joint_idx))
+        self.get_joint_fixed_offset_transform().mul(&self.get_joint_variable_transform(state, all_joints))
+    }
 }
 
 pub trait ChainableTrait<T: AD, P: O3DPose<T>> {

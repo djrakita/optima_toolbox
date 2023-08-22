@@ -23,9 +23,8 @@ pub struct OChain<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     joints: Vec<OJoint<T, P>>,
     link_name_to_link_idx_map: HashMap<String, usize>,
     joint_name_to_joint_idx_map: HashMap<String, usize>,
-    joint_sub_dof_idxs: Vec<Vec<usize>>,
-    joint_sub_dof_idxs_range: Vec<Option<(usize, usize)>>,
-    chain_info: ChainInfo,
+    base_link_idx: usize,
+    kinematic_hierarchy: Vec<Vec<usize>>,
     num_dofs: usize,
     phantom_data: PhantomData<(T, P)>
 }
@@ -57,9 +56,8 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
             joints,
             link_name_to_link_idx_map,
             joint_name_to_joint_idx_map,
-            joint_sub_dof_idxs: vec![],
-            joint_sub_dof_idxs_range: vec![],
-            chain_info: ChainInfo::new_empty(),
+            base_link_idx: usize::default(),
+            kinematic_hierarchy: vec![],
             num_dofs: usize::default(),
             phantom_data: Default::default(),
         };
@@ -86,9 +84,8 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
             joints,
             link_name_to_link_idx_map,
             joint_name_to_joint_idx_map,
-            joint_sub_dof_idxs: vec![],
-            joint_sub_dof_idxs_range: vec![],
-            chain_info: ChainInfo::new_empty(),
+            base_link_idx: usize::default(),
+            kinematic_hierarchy: vec![],
             num_dofs: usize::default(),
             phantom_data: Default::default(),
         };
@@ -143,7 +140,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
     */
     #[inline]
     pub fn get_joint_transform<V: OVec<T>>(&self, state: &V, joint_idx: usize) -> P {
-        self.get_joint_fixed_offset_transform(joint_idx).mul(&self.get_joint_variable_transform(state, joint_idx))
+        self.joints[joint_idx].get_joint_transform(state, &self.joints)
     }
     #[inline(always)]
     pub fn get_joint_fixed_offset_transform(&self, joint_idx: usize) -> &P {
@@ -151,54 +148,13 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
     }
     #[inline]
     pub fn get_joint_variable_transform<V: OVec<T>>(&self, state: &V, joint_idx: usize) -> P {
-        let joint = &self.joints[joint_idx];
-        if let Some(mimic) = &joint.mimic() {
-            let mimic_joint_idx = mimic.joint_idx();
-            let range = &self.joint_sub_dof_idxs_range[mimic_joint_idx];
-            match range {
-                None => { panic!("mimicked joint must have exactly one dof.") }
-                Some(range) => {
-                    let subslice = state.subslice(range.0, range.1);
-                    assert_eq!(subslice.len(), 1, "mimicked joint must have exactly one dof.");
-                    let value = match (mimic.offset(), mimic.multiplier()) {
-                        (Some(offset), Some(multiplier)) => { (subslice[0] + *offset) * *multiplier }
-                        (None, Some(multiplier)) => { subslice[0] * *multiplier }
-                        (Some(offset), None) => { subslice[0] + *offset }
-                        (None, None) => { subslice[0] }
-                    };
-                    return self.joints.get_element(mimic_joint_idx).get_variable_transform_from_joint_values_subslice(&[value]);
-                }
-            }
-        } else if let Some(fixed_values) = &joint.fixed_values {
-            joint.get_variable_transform_from_joint_values_subslice(fixed_values)
-        } else {
-            let range = &self.joint_sub_dof_idxs_range[joint_idx];
-            return match range {
-                None => { P::identity() }
-                Some(range) => {
-                    let subslice = state.subslice(range.0, range.1);
-                    joint.get_variable_transform_from_joint_values_subslice(subslice)
-                }
-            }
-        }
-    }
-    #[inline]
-    pub fn chain_info(&self) -> &ChainInfo {
-        &self.chain_info
-    }
-    #[inline]
-    pub fn joint_sub_dof_idxs(&self) -> &Vec<Vec<usize>> {
-        &self.joint_sub_dof_idxs
-    }
-    #[inline]
-    pub fn joint_sub_dof_idxs_range(&self) -> &Vec<Option<(usize, usize)>> {
-        &self.joint_sub_dof_idxs_range
+        self.joints[joint_idx].get_joint_variable_transform(state, &self.joints)
     }
     fn setup(&mut self) {
         self.set_link_and_joint_idxs();
         self.assign_joint_connection_indices();
         self.set_mimic_joint_idxs();
-        self.chain_info = self.compute_chain_info();
+        self.set_chain_info();
         self.set_num_dofs();
         self.set_all_sub_dof_idxs();
     }
@@ -226,6 +182,20 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
                 self.joints[joint_idx].mimic.as_mut().unwrap().joint_idx = idx;
             }
         }
+    }
+    fn set_chain_info(&mut self) {
+        let chain_info = self.compute_chain_info();
+
+        self.base_link_idx = chain_info.base_link_idx;
+        self.kinematic_hierarchy = chain_info.kinematic_hierarchy.clone();
+
+        self.links.iter_mut().enumerate().for_each(|(i, x)| {
+            x.parent_joint_idx = chain_info.link_parent_joint[i].clone();
+            x.children_joint_idxs = chain_info.link_children_joints[i].clone();
+            x.parent_link_idx = chain_info.link_parent_link[i].clone();
+            x.children_link_idxs = chain_info.link_children_links[i].clone();
+            x.link_connection_paths = chain_info.link_connection_paths[i].clone();
+        });
     }
     fn set_num_dofs(&mut self) {
         let mut num_dofs = 0;
@@ -258,26 +228,33 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
     */
     fn set_all_sub_dof_idxs(&mut self) {
         let mut count = 0;
+
+        let mut joint_sub_dof_idxs = vec![];
+        let mut joint_sub_dof_idxs_range = vec![];
+
         for joint_idx in 0..self.joints().len() {
             let num_dofs = self.joints().get_element(joint_idx).get_num_dofs();
             let mut sub_dof_idxs = vec![];
-            // joint.sub_dof_idxs = Vec::new();
             for _ in 0..num_dofs {
                 sub_dof_idxs.push(count);
                 count += 1;
             }
-            self.joint_sub_dof_idxs.push(sub_dof_idxs);
+            joint_sub_dof_idxs.push(sub_dof_idxs);
         }
-
         for joint_idx in 0..self.joints().len() {
             let mut sub_dof_idxs_range = None;
-            if self.joint_sub_dof_idxs[joint_idx].len() > 0 {
-                let range_start = self.joint_sub_dof_idxs[joint_idx].first().unwrap();
-                let range_end = self.joint_sub_dof_idxs[joint_idx].last().unwrap();
+            if joint_sub_dof_idxs[joint_idx].len() > 0 {
+                let range_start = joint_sub_dof_idxs[joint_idx].first().unwrap();
+                let range_end = joint_sub_dof_idxs[joint_idx].last().unwrap();
                 sub_dof_idxs_range = Some( (*range_start, *range_end + 1) );
             }
-            self.joint_sub_dof_idxs_range.push(sub_dof_idxs_range);
+            joint_sub_dof_idxs_range.push(sub_dof_idxs_range);
         }
+
+        joint_sub_dof_idxs.iter().zip(joint_sub_dof_idxs_range.iter()).enumerate().for_each(|(i, (x,y))| {
+            self.joints[i].sub_dof_idxs = x.clone();
+            self.joints[i].sub_dof_idxs_range = y.clone();
+        })
     }
 }
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ChainableTrait<T, P> for OChain<T, P, L> {
