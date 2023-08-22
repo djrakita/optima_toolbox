@@ -1,22 +1,67 @@
 use ad_trait::AD;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
+use optima_3d_spatial::optima_3d_rotation::ScaledAxis;
 use optima_linalg::vecs_and_mats::{OLinalgTrait, OVec};
 use optima_utils::arr_storage::ImmutArrTraitRaw;
-use crate::robotics_components::ChainInfo;
+use crate::robotics_components::{ChainInfo, OJointType, OPose};
 
-pub trait JointTrait {
+pub trait JointTrait<T: AD, P: O3DPose<T>> {
     fn joint_idx(&self) -> usize;
     fn parent_link_idx(&self) -> usize;
     fn child_link_idx(&self) -> usize;
+    fn joint_type(&self) -> &OJointType;
+    fn axis(&self) -> &[T; 3];
+    fn origin(&self) -> &OPose<T, P>;
+    fn get_variable_transform_from_joint_values_subslice(&self, joint_values_subslice: &[T]) -> P {
+        return match &self.joint_type() {
+            OJointType::Revolute => {
+                assert_eq!(joint_values_subslice.len(), 1);
+                let axis = self.axis();
+                let axis = axis.scalar_mul(&joint_values_subslice[0]);
+                P::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
+            }
+            OJointType::Continuous => {
+                assert_eq!(joint_values_subslice.len(), 1);
+                let axis = self.axis();
+                let axis = axis.scalar_mul(&joint_values_subslice[0]);
+                P::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
+            }
+            OJointType::Prismatic => {
+                assert_eq!(joint_values_subslice.len(), 1);
+                let axis = self.axis();
+                let axis = axis.scalar_mul(&joint_values_subslice[0]);
+                P::from_translation_and_rotation_constructor(&axis, &[T::zero(), T::zero(), T::zero()])
+            }
+            OJointType::Fixed => {
+                P::identity()
+            }
+            OJointType::Floating => {
+                assert_eq!(joint_values_subslice.len(), 6);
+                P::from_translation_and_rotation_constructor(&[joint_values_subslice[0], joint_values_subslice[1], joint_values_subslice[2]], &ScaledAxis([joint_values_subslice[3], joint_values_subslice[4], joint_values_subslice[5]]))
+            }
+            OJointType::Planar => {
+                assert_eq!(joint_values_subslice.len(), 2);
+                P::from_translation_and_rotation_constructor(&[joint_values_subslice[0], joint_values_subslice[1], T::zero()], &[T::zero(), T::zero(), T::zero()])
+            }
+            OJointType::Spherical => {
+                assert_eq!(joint_values_subslice.len(), 3);
+                P::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &ScaledAxis([joint_values_subslice[0], joint_values_subslice[1], joint_values_subslice[2]]))
+            }
+        }
+    }
+    fn get_joint_fixed_offset_transform(&self) -> &P {
+        self.origin().pose()
+    }
+    fn get_num_dofs(&self) -> usize;
 }
 
-pub trait ChainableTrait {
+pub trait ChainableTrait<T: AD, P: O3DPose<T>> {
     type LinkType;
-    type JointType : JointTrait;
+    type JointType : JointTrait<T, P>;
 
     fn links(&self) -> &Vec<Self::LinkType>;
     fn joints(&self) -> &Vec<Self::JointType>;
-    fn compute_compute_chain_info(&self) -> ChainInfo {
+    fn compute_chain_info(&self) -> ChainInfo {
         let num_links = self.links().len();
         let num_joints = self.joints().len();
 

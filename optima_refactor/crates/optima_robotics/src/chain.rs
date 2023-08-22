@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use ad_trait::*;
-use arrayvec::ArrayVec;
 use nalgebra::Isometry3;
 use serde::{Serialize, Deserialize};
 use optima_3d_spatial::optima_3d_pose::O3DPose;
@@ -11,7 +10,7 @@ use crate::utils::get_urdf_path_from_robot_name;
 use serde_with::*;
 use optima_linalg::vecs_and_mats::{NalgebraLinalg, OLinalgTrait, OVec};
 use crate::robotics_components::*;
-use crate::robotics_traits::{ChainableTrait};
+use crate::robotics_traits::{ChainableTrait, JointTrait};
 
 pub type OChainDefault<T> = OChain<T, Isometry3<T>, NalgebraLinalg>;
 
@@ -24,6 +23,8 @@ pub struct OChain<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     joints: Vec<OJoint<T, P>>,
     link_name_to_link_idx_map: HashMap<String, usize>,
     joint_name_to_joint_idx_map: HashMap<String, usize>,
+    joint_sub_dof_idxs: Vec<Vec<usize>>,
+    joint_sub_dof_idxs_range: Vec<Option<(usize, usize)>>,
     chain_info: ChainInfo,
     num_dofs: usize,
     phantom_data: PhantomData<(T, P)>
@@ -56,8 +57,8 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
             joints,
             link_name_to_link_idx_map,
             joint_name_to_joint_idx_map,
-            // link_kinematic_hierarchy: Vec::default(),
-            // base_link_idx: usize::default(),
+            joint_sub_dof_idxs: vec![],
+            joint_sub_dof_idxs_range: vec![],
             chain_info: ChainInfo::new_empty(),
             num_dofs: usize::default(),
             phantom_data: Default::default(),
@@ -85,8 +86,8 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
             joints,
             link_name_to_link_idx_map,
             joint_name_to_joint_idx_map,
-            // link_kinematic_hierarchy: Vec::default(),
-            // base_link_idx: usize::default(),
+            joint_sub_dof_idxs: vec![],
+            joint_sub_dof_idxs_range: vec![],
             chain_info: ChainInfo::new_empty(),
             num_dofs: usize::default(),
             phantom_data: Default::default(),
@@ -146,14 +147,14 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
     }
     #[inline(always)]
     pub fn get_joint_fixed_offset_transform(&self, joint_idx: usize) -> &P {
-        self.joints[joint_idx].origin().pose()
+        self.joints[joint_idx].get_joint_fixed_offset_transform()
     }
     #[inline]
     pub fn get_joint_variable_transform<V: OVec<T>>(&self, state: &V, joint_idx: usize) -> P {
         let joint = &self.joints[joint_idx];
         if let Some(mimic) = &joint.mimic() {
             let mimic_joint_idx = mimic.joint_idx();
-            let range = self.joints[mimic_joint_idx].sub_dof_idxs_range();
+            let range = &self.joint_sub_dof_idxs_range[mimic_joint_idx];
             match range {
                 None => { panic!("mimicked joint must have exactly one dof.") }
                 Some(range) => {
@@ -165,18 +166,18 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
                         (Some(offset), None) => { subslice[0] + *offset }
                         (None, None) => { subslice[0] }
                     };
-                    return self.joints.get_element(mimic_joint_idx).get_variable_transform_from_joint_values(&[value]);
+                    return self.joints.get_element(mimic_joint_idx).get_variable_transform_from_joint_values_subslice(&[value]);
                 }
             }
         } else if let Some(fixed_values) = &joint.fixed_values {
-            joint.get_variable_transform_from_joint_values(fixed_values)
+            joint.get_variable_transform_from_joint_values_subslice(fixed_values)
         } else {
-            let range = joint.sub_dof_idxs_range();
+            let range = &self.joint_sub_dof_idxs_range[joint_idx];
             return match range {
                 None => { P::identity() }
                 Some(range) => {
                     let subslice = state.subslice(range.0, range.1);
-                    joint.get_variable_transform_from_joint_values(subslice)
+                    joint.get_variable_transform_from_joint_values_subslice(subslice)
                 }
             }
         }
@@ -185,11 +186,19 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
     pub fn chain_info(&self) -> &ChainInfo {
         &self.chain_info
     }
+    #[inline]
+    pub fn joint_sub_dof_idxs(&self) -> &Vec<Vec<usize>> {
+        &self.joint_sub_dof_idxs
+    }
+    #[inline]
+    pub fn joint_sub_dof_idxs_range(&self) -> &Vec<Option<(usize, usize)>> {
+        &self.joint_sub_dof_idxs_range
+    }
     fn setup(&mut self) {
         self.set_link_and_joint_idxs();
         self.assign_joint_connection_indices();
         self.set_mimic_joint_idxs();
-        self.chain_info = self.compute_compute_chain_info();
+        self.chain_info = self.compute_chain_info();
         self.set_num_dofs();
         self.set_all_sub_dof_idxs();
     }
@@ -223,6 +232,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
         self.joints.iter().for_each(|x| num_dofs += x.get_num_dofs());
         self.num_dofs = num_dofs;
     }
+    /*
     fn set_all_sub_dof_idxs(&mut self) {
         let mut count = 0;
         for joint_idx in 0..self.joints().len() {
@@ -245,8 +255,32 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
             }
         }
     }
+    */
+    fn set_all_sub_dof_idxs(&mut self) {
+        let mut count = 0;
+        for joint_idx in 0..self.joints().len() {
+            let num_dofs = self.joints().get_element(joint_idx).get_num_dofs();
+            let mut sub_dof_idxs = vec![];
+            // joint.sub_dof_idxs = Vec::new();
+            for _ in 0..num_dofs {
+                sub_dof_idxs.push(count);
+                count += 1;
+            }
+            self.joint_sub_dof_idxs.push(sub_dof_idxs);
+        }
+
+        for joint_idx in 0..self.joints().len() {
+            let mut sub_dof_idxs_range = None;
+            if self.joint_sub_dof_idxs[joint_idx].len() > 0 {
+                let range_start = self.joint_sub_dof_idxs[joint_idx].first().unwrap();
+                let range_end = self.joint_sub_dof_idxs[joint_idx].last().unwrap();
+                sub_dof_idxs_range = Some( (*range_start, *range_end + 1) );
+            }
+            self.joint_sub_dof_idxs_range.push(sub_dof_idxs_range);
+        }
+    }
 }
-impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ChainableTrait for OChain<T, P, L> {
+impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ChainableTrait<T, P> for OChain<T, P, L> {
     type LinkType = OLink<T, P, L>;
     type JointType = OJoint<T, P>;
 
@@ -260,8 +294,6 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ChainableTrait for OChain<T, P, L> {
         &self.joints
     }
 }
-
-
 
 /*
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OForwardKinematicsTrait<T, P> for OChain<T, P, L> {

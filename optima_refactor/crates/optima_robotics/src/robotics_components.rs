@@ -4,9 +4,9 @@ use ad_trait::AD;
 use arrayvec::ArrayVec;
 use urdf_rs::{Collision, Color, Dynamics, Geometry, Inertial, Joint, JointLimit, JointType, Link, Material, Mimic, Pose, SafetyController, Texture, Visual};
 use optima_3d_spatial::optima_3d_pose::O3DPose;
-use optima_3d_spatial::optima_3d_rotation::{O3DRotation, ScaledAxis};
+use optima_3d_spatial::optima_3d_rotation::{O3DRotation};
 use optima_3d_spatial::optima_3d_vec::O3DVec;
-use optima_linalg::vecs_and_mats::{OLinalgTrait, OMat, OVec};
+use optima_linalg::vecs_and_mats::{OLinalgTrait, OMat};
 use serde_with::*;
 use crate::robotics_traits::JointTrait;
 use ad_trait::SerdeAD;
@@ -149,8 +149,6 @@ pub struct OJoint<T: AD, P: O3DPose<T>> {
     pub (crate) parent_link_idx: usize,
     child_link: String,
     pub (crate) child_link_idx: usize,
-    pub (crate) sub_dof_idxs: ArrayVec<usize, 6>,
-    pub (crate) sub_dof_idxs_range: Option<(usize, usize)>,
     #[serde(deserialize_with = "OJointLimit::<T>::deserialize")]
     limit: OJointLimit<T>,
     #[serde(deserialize_with = "Option::<ODynamics::<T>>::deserialize")]
@@ -176,8 +174,6 @@ impl<T: AD, P: O3DPose<T>> OJoint<T, P> {
             parent_link_idx: usize::default(),
             child_link: String::from(&joint.child.link),
             child_link_idx: usize::default(),
-            sub_dof_idxs: Default::default(),
-            sub_dof_idxs_range: Default::default(),
             limit: OJointLimit::from_joint_limit(&joint.limit),
             dynamics: match &joint.dynamics {
                 None => { None }
@@ -206,8 +202,6 @@ impl<T: AD, P: O3DPose<T>> OJoint<T, P> {
             parent_link_idx: usize::default(),
             child_link: child_link.into(),
             child_link_idx: usize::default(),
-            sub_dof_idxs: Default::default(),
-            sub_dof_idxs_range: None,
             limit,
             dynamics,
             mimic,
@@ -225,12 +219,6 @@ impl<T: AD, P: O3DPose<T>> OJoint<T, P> {
     #[inline(always)]
     pub fn joint_type(&self) -> &OJointType {
         &self.joint_type
-    }
-    pub fn origin(&self) -> &OPose<T, P> {
-        &self.origin
-    }
-    pub fn axis(&self) -> &[T; 3] {
-        &self.axis
     }
     pub fn parent_link(&self) -> &str {
         &self.parent_link
@@ -256,60 +244,11 @@ impl<T: AD, P: O3DPose<T>> OJoint<T, P> {
     pub fn safety_controller(&self) -> &Option<OSafetyController<T>> {
         &self.safety_controller
     }
-    #[inline(always)]
-    pub fn sub_dof_idxs(&self) -> &ArrayVec<usize, 6> {
-        &self.sub_dof_idxs
-    }
-    #[inline(always)]
-    pub fn sub_dof_idxs_range(&self) -> &Option<(usize, usize)> {
-        &self.sub_dof_idxs_range
-    }
     pub fn fixed_values(&self) -> &Option<Vec<T>> {
         &self.fixed_values
     }
-    #[inline(always)]
-    pub fn get_num_dofs(&self) -> usize {
-        return if !self.is_present_in_model { 0 } else if self.mimic.is_some() { 0 } else if self.fixed_values.is_some() { 0 } else { self.joint_type.num_dofs() }
-    }
-    pub (crate) fn get_variable_transform_from_joint_values(&self, joint_values: &[T]) -> P {
-        return match &self.joint_type {
-            OJointType::Revolute => {
-                assert_eq!(joint_values.len(), 1);
-                let axis = self.axis();
-                let axis = axis.scalar_mul(&joint_values[0]);
-                P::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
-            }
-            OJointType::Continuous => {
-                assert_eq!(joint_values.len(), 1);
-                let axis = self.axis();
-                let axis = axis.scalar_mul(&joint_values[0]);
-                P::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
-            }
-            OJointType::Prismatic => {
-                assert_eq!(joint_values.len(), 1);
-                let axis = self.axis();
-                let axis = axis.scalar_mul(&joint_values[0]);
-                P::from_translation_and_rotation_constructor(&axis, &[T::zero(), T::zero(), T::zero()])
-            }
-            OJointType::Fixed => {
-                P::identity()
-            }
-            OJointType::Floating => {
-                assert_eq!(joint_values.len(), 6);
-                P::from_translation_and_rotation_constructor(&[joint_values[0], joint_values[1], joint_values[2]], &ScaledAxis([joint_values[3], joint_values[4], joint_values[5]]))
-            }
-            OJointType::Planar => {
-                assert_eq!(joint_values.len(), 2);
-                P::from_translation_and_rotation_constructor(&[joint_values[0], joint_values[1], T::zero()], &[T::zero(), T::zero(), T::zero()])
-            }
-            OJointType::Spherical => {
-                assert_eq!(joint_values.len(), 3);
-                P::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &ScaledAxis([joint_values[0], joint_values[1], joint_values[2]]))
-            }
-        }
-    }
 }
-impl<T: AD, P: O3DPose<T>> JointTrait for OJoint<T, P> {
+impl<T: AD, P: O3DPose<T>> JointTrait<T, P> for OJoint<T, P> {
     #[inline(always)]
     fn joint_idx(&self) -> usize {
         self.joint_idx
@@ -324,31 +263,53 @@ impl<T: AD, P: O3DPose<T>> JointTrait for OJoint<T, P> {
     fn child_link_idx(&self) -> usize {
         self.child_link_idx
     }
+
+    #[inline(always)]
+    fn joint_type(&self) -> &OJointType {
+        &self.joint_type
+    }
+
+    #[inline(always)]
+    fn axis(&self) -> &[T; 3] {
+        &self.axis
+    }
+
+    #[inline(always)]
+    fn origin(&self) -> &OPose<T, P> {
+        &self.origin
+    }
+
+    #[inline(always)]
+    fn get_num_dofs(&self) -> usize {
+        return if !self.is_present_in_model { 0 } else if self.mimic.is_some() { 0 } else if self.fixed_values.is_some() { 0 } else { self.joint_type.num_dofs() }
+    }
 }
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OChainJoint<T: AD, P: O3DPose<T>> {
-    chain_joint_idx: usize,
+pub struct OMacroJoint<T: AD, P: O3DPose<T>> {
+    macro_joint_idx: usize,
     #[serde(deserialize_with = "OPose::<T, P>::deserialize")]
     origin: OPose<T, P>,
     #[serde_as(as = "[SerdeAD<T>; 3]")]
     axis: [T; 3],
     joint_type: OJointType,
     parent_chain_idx: usize,
+    parent_link_idx_in_parent_chain: usize,
     child_chain_idx: usize,
-    sub_dof_idxs: ArrayVec<usize, 6>,
-    sub_dof_idxs_range: Option<(usize, usize)>,
+    pub (crate) sub_dof_idxs: ArrayVec<usize, 6>,
+    pub (crate) sub_dof_idxs_range: Option<(usize, usize)>,
     _phantom_data: PhantomData<T>
 }
-impl<T: AD, P: O3DPose<T>> OChainJoint<T, P> {
-    fn new(origin: OPose<T, P>, axis: [T; 3], joint_type: OJointType, parent_chain_idx: usize, child_chain_idx: usize) -> Self {
+impl<T: AD, P: O3DPose<T>> OMacroJoint<T, P> {
+    pub (crate) fn new(macro_joint_idx: usize, origin: OPose<T, P>, axis: [T; 3], joint_type: OJointType, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, child_chain_idx: usize) -> Self {
         Self {
-            chain_joint_idx: usize::default(),
+            macro_joint_idx,
             origin,
             axis,
             joint_type,
             parent_chain_idx,
+            parent_link_idx_in_parent_chain,
             child_chain_idx,
             sub_dof_idxs: Default::default(),
             sub_dof_idxs_range: None,
@@ -356,17 +317,40 @@ impl<T: AD, P: O3DPose<T>> OChainJoint<T, P> {
         }
     }
 }
-impl<T: AD, P: O3DPose<T>> JointTrait for OChainJoint<T, P> {
+impl<T: AD, P: O3DPose<T>> JointTrait<T, P> for OMacroJoint<T, P> {
+    #[inline(always)]
     fn joint_idx(&self) -> usize {
-        self.chain_joint_idx
+        self.macro_joint_idx
     }
 
+    #[inline(always)]
     fn parent_link_idx(&self) -> usize {
         self.parent_chain_idx
     }
 
+    #[inline(always)]
     fn child_link_idx(&self) -> usize {
         self.child_chain_idx
+    }
+
+    #[inline(always)]
+    fn joint_type(&self) -> &OJointType {
+        &self.joint_type
+    }
+
+    #[inline(always)]
+    fn axis(&self) -> &[T; 3] {
+        &self.axis
+    }
+
+    #[inline(always)]
+    fn origin(&self) -> &OPose<T, P> {
+        &self.origin
+    }
+
+    #[inline(always)]
+    fn get_num_dofs(&self) -> usize {
+        self.joint_type.num_dofs()
     }
 }
 
