@@ -30,14 +30,14 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
             _phantom_data: Default::default(),
         }
     }
-    pub fn add_chain(&mut self, chain: OChain<T, P, L>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, origin: &P, axis: [T; 3], joint_type: OJointType) {
+    pub fn add_chain(&mut self, chain: OChain<T, P, L>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, origin: &P, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>) {
         assert!(parent_chain_idx <= self.chain_wrappers.len());
         assert!(parent_link_idx_in_parent_chain <= self.chain_wrappers[parent_chain_idx].chain.links().len());
 
         let new_chain_idx = self.chain_wrappers.len();
         let new_macro_joint_idx = self.macro_joints.len();
         let pose = OPose::from_o3d_pose(origin);
-        let macro_joint = OMacroJoint::new(new_macro_joint_idx, pose, axis, joint_type, parent_chain_idx, parent_link_idx_in_parent_chain, new_chain_idx);
+        let macro_joint = OMacroJoint::new(new_macro_joint_idx, pose, axis, joint_type, limit, parent_chain_idx, parent_link_idx_in_parent_chain, new_chain_idx);
 
         let chain_wrapper = OChainWrapper {
             chain,

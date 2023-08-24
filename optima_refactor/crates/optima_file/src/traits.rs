@@ -1,7 +1,7 @@
 
 use serde::de::DeserializeOwned;
 use serde::{Serialize};
-use crate::path::{load_object_from_json_string, OptimaAssetLocation, OptimaStemCellPath};
+use crate::path::{load_object_from_json_string, OAssetLocation, OStemCellPath};
 
 pub trait SaveAndLoadable {
     type SaveType: Serialize + DeserializeOwned;
@@ -10,10 +10,10 @@ pub trait SaveAndLoadable {
     fn get_serialization_string(&self) -> String {
         serde_json::to_string(&self.get_save_serialization_object()).expect("error")
     }
-    fn save_to_path(&self, path: &OptimaStemCellPath) {
+    fn save_to_path(&self, path: &OStemCellPath) {
         path.save_object_to_file_as_json(&self.get_save_serialization_object())
     }
-    fn load_from_path(path: &OptimaStemCellPath) -> Self where Self: Sized {
+    fn load_from_path(path: &OStemCellPath) -> Self where Self: Sized {
         let s = path.read_file_contents_to_string();
         return Self::load_from_json_string(&s);
     }
@@ -45,13 +45,13 @@ impl <T> SaveAndLoadable for Vec<T> where T: SaveAndLoadable{
 }
 
 pub trait AssetSaveAndLoadable: SaveAndLoadable {
-    fn save_as_asset(&self, location: OptimaAssetLocation) {
-        let mut path = OptimaStemCellPath::new_asset_path();
+    fn save_as_asset(&self, location: OAssetLocation) {
+        let mut path = OStemCellPath::new_asset_path();
         path.append_file_location(&location);
         self.save_to_path(&path)
     }
-    fn load_as_asset(location: OptimaAssetLocation) -> Self where Self: Sized {
-        let mut path = OptimaStemCellPath::new_asset_path();
+    fn load_as_asset(location: OAssetLocation) -> Self where Self: Sized {
+        let mut path = OStemCellPath::new_asset_path();
         path.append_file_location(&location);
         Self::load_from_path(&path)
     }

@@ -11,6 +11,7 @@ use crate::robotics_traits::JointTrait;
 use ad_trait::SerdeAD;
 use optima_linalg::vecs_and_mats::SerdeOMat;
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
+use optima_file::path::OStemCellPath;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ChainInfo {
@@ -70,7 +71,8 @@ pub struct OLink<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     #[serde(deserialize_with = "Vec::<OVisual<T, P>>::deserialize")]
     visual: Vec<OVisual<T, P>>,
     #[serde(deserialize_with = "OInertial::<T, L>::deserialize")]
-    inertial: OInertial<T, L>
+    inertial: OInertial<T, L>,
+    pub (crate) original_mesh_file_path: Option<OStemCellPath>,
 }
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
     pub (crate) fn from_link(link: &Link) -> Self {
@@ -85,7 +87,8 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
             link_connection_paths: vec![],
             collision: link.collision.iter().map(|x| OCollision::from_collision(x)).collect(),
             visual: link.visual.iter().map(|x| OVisual::from_visual(x)).collect(),
-            inertial: OInertial::from_inertial(&link.inertial)
+            inertial: OInertial::from_inertial(&link.inertial),
+            original_mesh_file_path: None,
         }
     }
     pub fn new_manual(name: &str, collision: Vec<OCollision<T, P>>, visual: Vec<OVisual<T, P>>, inertial: OInertial<T, L>) -> Self {
@@ -101,6 +104,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
             collision,
             visual,
             inertial,
+            original_mesh_file_path: None,
         }
     }
     #[inline(always)]
@@ -114,6 +118,18 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
     #[inline(always)]
     pub fn name(&self) -> &str {
         &self.name
+    }
+    pub fn collision(&self) -> &Vec<OCollision<T, P>> {
+        &self.collision
+    }
+    pub fn visual(&self) -> &Vec<OVisual<T, P>> {
+        &self.visual
+    }
+    pub fn inertial(&self) -> &OInertial<T, L> {
+        &self.inertial
+    }
+    pub fn original_mesh_file_path(&self) -> &Option<OStemCellPath> {
+        &self.original_mesh_file_path
     }
 }
 
@@ -321,6 +337,8 @@ pub struct OMacroJoint<T: AD, P: O3DPose<T>> {
     #[serde_as(as = "[SerdeAD<T>; 3]")]
     axis: [T; 3],
     joint_type: OJointType,
+    #[serde(deserialize_with = "OJointLimit::<T>::deserialize")]
+    limit: OJointLimit<T>,
     #[serde_as(as = "Option::<Vec<SerdeAD<T>>>")]
     pub (crate) fixed_values: Option<Vec<T>>,
     pub (crate) parent_chain_idx: usize,
@@ -337,12 +355,13 @@ pub struct OMacroJoint<T: AD, P: O3DPose<T>> {
     _phantom_data: PhantomData<T>
 }
 impl<T: AD, P: O3DPose<T>> OMacroJoint<T, P> {
-    pub (crate) fn new(macro_joint_idx: usize, origin: OPose<T, P>, axis: [T; 3], joint_type: OJointType, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, child_chain_idx: usize) -> Self {
+    pub (crate) fn new(macro_joint_idx: usize, origin: OPose<T, P>, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, child_chain_idx: usize) -> Self {
         Self {
             macro_joint_idx,
             origin,
             axis,
             joint_type,
+            limit,
             fixed_values: None,
             parent_chain_idx,
             parent_link_idx_in_parent_chain,
@@ -577,6 +596,22 @@ pub struct OVisual<T: AD, P: O3DPose<T>> {
     #[serde(deserialize_with = "OGeometry::deserialize")]
     geometry: OGeometry
 }
+
+impl<T: AD, P: O3DPose<T>> OVisual<T, P> {
+    pub fn name(&self) -> &Option<String> {
+        &self.name
+    }
+    pub fn material(&self) -> &Option<OMaterial> {
+        &self.material
+    }
+    pub fn origin(&self) -> &OPose<T, P> {
+        &self.origin
+    }
+    pub fn geometry(&self) -> &OGeometry {
+        &self.geometry
+    }
+}
+
 impl<T: AD, P: O3DPose<T>> OVisual<T, P> {
     pub (crate) fn from_visual(visual: &Visual) -> Self {
         Self {
@@ -848,6 +883,16 @@ impl<T: AD> OJointLimit<T> {
     }
     pub fn velocity(&self) -> &T {
         &self.velocity
+    }
+}
+impl<T: AD> Default for OJointLimit<T> {
+    fn default() -> Self {
+        Self {
+            effort: T::zero(),
+            lower: T::zero(),
+            upper: T::zero(),
+            velocity: T::zero(),
+        }
     }
 }
 

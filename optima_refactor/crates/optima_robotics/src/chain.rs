@@ -6,8 +6,9 @@ use nalgebra::Isometry3;
 use serde::{Serialize, Deserialize};
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_utils::arr_storage::*;
-use crate::utils::get_urdf_path_from_robot_name;
+use crate::utils::get_urdf_path_from_chain_name;
 use serde_with::*;
+use optima_file::path::{OAssetLocation, OPath, OPathMatchingPattern, OPathMatchingStopCondition, OStemCellPath};
 use optima_linalg::vecs_and_mats::{NalgebraLinalg, OLinalgTrait, OVec};
 use crate::robotics_components::*;
 use crate::robotics_traits::{ChainableTrait, JointTrait};
@@ -30,7 +31,7 @@ pub struct OChain<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
 }
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
     pub fn from_urdf(chain_name: &str) -> Self {
-        let urdf_path = get_urdf_path_from_robot_name(chain_name);
+        let urdf_path = get_urdf_path_from_chain_name(chain_name);
         let urdf = urdf_path.load_urdf();
 
         let mut links = vec![];
@@ -157,6 +158,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
         self.set_chain_info();
         self.set_num_dofs();
         self.set_all_sub_dof_idxs();
+        self.set_link_original_mesh_file_paths();
     }
 }
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
@@ -255,6 +257,40 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
             self.joints[i].sub_dof_idxs = x.clone();
             self.joints[i].sub_dof_idxs_range = y.clone();
         })
+    }
+    fn set_link_original_mesh_file_paths(&mut self) {
+        self.links.iter_mut().for_each(|x| {
+           if x.visual().len() > 0 {
+               let geometry = x.visual()[0].geometry().clone();
+               match geometry {
+                   OGeometry::Mesh { filename, .. } => {
+                       let split = filename.split("//");
+                       let split: Vec<String> = split.map(|x| x.to_string()).collect();
+                       let filepath = split.last().unwrap().to_owned();
+                       let split = filepath.split("/");
+                       let split: Vec<String> = split.map(|x| x.to_string()).collect();
+
+                       let file_check = split.last().unwrap().to_owned();
+                       let mut destination_path = OStemCellPath::new_asset_path();
+                       destination_path.append_file_location(&OAssetLocation::ChainOriginalMeshes { chain_name: self.chain_name.clone() });
+                       destination_path.append(&file_check);
+                       let exists = destination_path.exists();
+
+                       if !exists {
+                           let asset_path = OPath::new_home_path();
+                           let found_paths = asset_path.walk_directory_and_match(OPathMatchingPattern::PathComponents(split), OPathMatchingStopCondition::First);
+                           if found_paths.is_empty() {
+                               panic!("could not find filepath for link mesh: {:?}", filename);
+                           }
+
+                           let found_path = found_paths[0].clone();
+                           found_path.copy_file_to_destination(destination_path.as_physical_path()).expect("error: file could not be copied.");
+                       }
+                   }
+                   _ => { }
+               }
+           }
+        });
     }
 }
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ChainableTrait<T, P> for OChain<T, P, L> {

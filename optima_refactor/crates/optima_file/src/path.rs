@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use vfs::*;
 #[cfg(not(feature = "do_not_embed_assets"))]
 use rust_embed::RustEmbed;
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use serde::de::DeserializeOwned;
 use walkdir::WalkDir;
 use crate::traits::{ToJsonString};
@@ -41,18 +41,18 @@ struct AssetEmbed;
 ///
 /// # Example
 ///```
-/// use optima_file::path::{OptimaAssetLocation, OptimaStemCellPath};
+/// use optima_file::path::{OAssetLocation, OStemCellPath};
 ///
-/// let mut p = OptimaStemCellPath::new_asset_path().expect("error");
-/// p.append_file_location(&OptimaAssetLocation::RobotMeshes {robot_name: "ur5".to_string()});
+/// let mut p = OStemCellPath::new_asset_path().expect("error");
+/// p.append_file_location(&OAssetLocation::RobotMeshes {robot_name: "ur5".to_string()});
 /// p.append("0.dae");
 ///
 ///```
 #[derive(Clone, Debug)]
-pub struct OptimaStemCellPath {
-    optima_file_paths: Vec<OptimaPath>
+pub struct OStemCellPath {
+    optima_file_paths: Vec<OPath>
 }
-impl OptimaStemCellPath {
+impl OStemCellPath {
     pub fn new_asset_path() -> Self {
         let mut optima_file_paths = vec![];
 
@@ -60,21 +60,21 @@ impl OptimaStemCellPath {
 
         if cfg!(target_arch = "wasm32") || cfg!(feature = "only_use_embedded_assets") {
             #[cfg(not(feature = "do_not_embed_assets"))]
-            let p_res = OptimaPath::new_asset_virtual_path();
+            let p_res = OPath::new_asset_virtual_path();
             #[cfg(not(feature = "do_not_embed_assets"))]
             if let Ok(p) = &p_res { optima_file_paths.push(p.clone()); }
             #[cfg(not(feature = "do_not_embed_assets"))]
             if let Err(p) = &p_res { error_strings.push(p.clone()); }
         } else if cfg!(feature = "do_not_embed_assets") {
-            let p_res = OptimaPath::new_asset_physical_path_from_json_file();
+            let p_res = OPath::new_asset_physical_path_from_json_file();
             if let Ok(p) = &p_res { optima_file_paths.push(p.clone()); }
             if let Err(p) = &p_res { error_strings.push(p.clone()); }
         } else {
-            let p_res1 = OptimaPath::new_asset_physical_path_from_json_file();
+            let p_res1 = OPath::new_asset_physical_path_from_json_file();
             if let Ok(p) = &p_res1 { optima_file_paths.push(p.clone()); }
             if let Err(p) = &p_res1 { error_strings.push(p.clone()) }
             #[cfg(not(feature = "do_not_embed_assets"))]
-            let p_res2 = OptimaPath::new_asset_virtual_path();
+            let p_res2 = OPath::new_asset_virtual_path();
             #[cfg(not(feature = "do_not_embed_assets"))]
             if let Ok(p) = &p_res2 { optima_file_paths.push(p.clone()); }
             #[cfg(not(feature = "do_not_embed_assets"))]
@@ -102,22 +102,22 @@ impl OptimaStemCellPath {
             p.append_vec(v);
         }
     }
-    pub fn append_file_location(&mut self, location: &OptimaAssetLocation) {
+    pub fn append_file_location(&mut self, location: &OAssetLocation) {
         for p in &mut self.optima_file_paths {
             p.append_file_location(location);
         }
     }
     pub fn read_file_contents_to_string(&self) -> String {
-        self.try_function_on_all_optima_file_paths(OptimaPath::read_file_contents_to_string, "read_file_contents_to_string")
+        self.try_function_on_all_optima_file_paths(OPath::read_file_contents_to_string, "read_file_contents_to_string")
     }
     pub fn write_string_to_file(&self, s: &String) {
-        self.try_function_on_all_optima_file_paths_with_one_param(OptimaPath::write_string_to_file, s, "write_string_to_file")
+        self.try_function_on_all_optima_file_paths_with_one_param(OPath::write_string_to_file, s, "write_string_to_file")
     }
     pub fn exists(&self) -> bool {
         return self.optima_file_paths[0].exists();
     }
     pub fn get_file_for_writing(&self) -> File {
-        self.try_function_on_all_optima_file_paths(OptimaPath::get_file_for_writing, "get_file_for_writing")
+        self.try_function_on_all_optima_file_paths(OPath::get_file_for_writing, "get_file_for_writing")
     }
     pub fn to_string(&self) -> String {
         return self.optima_file_paths[0].to_string();
@@ -146,16 +146,16 @@ impl OptimaStemCellPath {
         return self.optima_file_paths[0].split_path_into_string_components_back_to_given_dir(dir);
     }
     pub fn delete_file(&self) {
-        self.try_function_on_all_optima_file_paths(OptimaPath::delete_file, "delete_file")
+        self.try_function_on_all_optima_file_paths(OPath::delete_file, "delete_file")
     }
     pub fn delete_all_items_in_directory(&self) {
-        self.try_function_on_all_optima_file_paths(OptimaPath::delete_all_items_in_directory, "delete_all_items_in_directory")
+        self.try_function_on_all_optima_file_paths(OPath::delete_all_items_in_directory, "delete_all_items_in_directory")
     }
-    pub fn copy_file_to_destination(&self, destination: &OptimaPath) {
-        self.try_function_on_all_optima_file_paths_with_one_param(OptimaPath::copy_file_to_destination, destination, "copy_file_to_destination")
+    pub fn copy_file_to_destination(&self, destination: &OPath) {
+        self.try_function_on_all_optima_file_paths_with_one_param(OPath::copy_file_to_destination, destination, "copy_file_to_destination")
     }
     pub fn verify_extension(&self, extensions: &Vec<&str>) {
-        self.try_function_on_all_optima_file_paths_with_one_param(OptimaPath::verify_extension, extensions, "verify_extension")
+        self.try_function_on_all_optima_file_paths_with_one_param(OPath::verify_extension, extensions, "verify_extension")
     }
     pub fn get_all_items_in_directory(&self, include_directories: bool, include_hidden_files: bool) -> Vec<String> {
         for p in &self.optima_file_paths {
@@ -171,7 +171,7 @@ impl OptimaStemCellPath {
         }
         return vec![];
     }
-    pub fn get_all_items_in_directory_as_paths(&self, include_directories: bool, include_hidden_files: bool) -> Vec<OptimaStemCellPath> {
+    pub fn get_all_items_in_directory_as_paths(&self, include_directories: bool, include_hidden_files: bool) -> Vec<OStemCellPath> {
         let mut out = vec![];
 
         let mut tmp_paths = vec![];
@@ -187,12 +187,12 @@ impl OptimaStemCellPath {
             for path_type_idx in 0..tmp_paths.len() {
                 paths.push( tmp_paths[path_type_idx][item_idx].clone() )
             }
-            out.push(OptimaStemCellPath { optima_file_paths: paths })
+            out.push(OStemCellPath { optima_file_paths: paths })
         }
         
         out
     }
-    pub fn get_all_directories_in_directory_as_paths(&self) -> Vec<OptimaStemCellPath> {
+    pub fn get_all_directories_in_directory_as_paths(&self) -> Vec<OStemCellPath> {
         let mut out = vec![];
 
         let mut tmp_paths = vec![];
@@ -208,18 +208,18 @@ impl OptimaStemCellPath {
             for path_type_idx in 0..tmp_paths.len() {
                 paths.push( tmp_paths[path_type_idx][item_idx].clone() )
             }
-            out.push(OptimaStemCellPath { optima_file_paths: paths })
+            out.push(OStemCellPath { optima_file_paths: paths })
         }
 
         out
     }
     pub fn save_object_to_file_as_json<T: Serialize + DeserializeOwned>(&self, object: &T) {
-        self.try_function_on_all_optima_file_paths_with_one_param(OptimaPath::save_object_to_file_as_json, object, "save_object_to_file_as_json")
+        self.try_function_on_all_optima_file_paths_with_one_param(OPath::save_object_to_file_as_json, object, "save_object_to_file_as_json")
     }
     pub fn load_object_from_json_file<T: DeserializeOwned>(&self) -> T {
-        self.try_function_on_all_optima_file_paths(OptimaPath::load_object_from_json_file, "load_object_from_json_file")
+        self.try_function_on_all_optima_file_paths(OPath::load_object_from_json_file, "load_object_from_json_file")
     }
-    pub fn walk_directory_and_match(&self, pattern: OptimaPathMatchingPattern, stop_condition: OptimaPathMatchingStopCondition) -> Vec<OptimaPath> {
+    pub fn walk_directory_and_match(&self, pattern: OPathMatchingPattern, stop_condition: OPathMatchingStopCondition) -> Vec<OPath> {
         for p in &self.optima_file_paths {
             let res = p.walk_directory_and_match(pattern.clone(), stop_condition.clone());
             if res.len() > 0 { return res; }
@@ -227,9 +227,9 @@ impl OptimaStemCellPath {
         return vec![];
     }
     pub fn load_urdf(&self) -> Robot {
-        return self.try_function_on_all_optima_file_paths(OptimaPath::load_urdf, "load_urdf");
+        return self.try_function_on_all_optima_file_paths(OPath::load_urdf, "load_urdf");
     }
-    pub fn try_function_on_all_optima_file_paths<T>(&self, f: fn(&OptimaPath) -> Result<T, String>, function_name: &str) -> T {
+    pub fn try_function_on_all_optima_file_paths<T>(&self, f: fn(&OPath) -> Result<T, String>, function_name: &str) -> T {
         let mut error_strings = vec![];
         for p in &self.optima_file_paths {
             let res = f(p);
@@ -240,7 +240,7 @@ impl OptimaStemCellPath {
         }
         panic!("No valid optima_path in function {:?} with error strings {:?}", function_name, error_strings);
     }
-    pub fn try_function_on_all_optima_file_paths_with_one_param<T, P>(&self, f: fn(&OptimaPath, &P) -> Result<T, String>, param: &P, function_name: &str) -> T {
+    pub fn try_function_on_all_optima_file_paths_with_one_param<T, P>(&self, f: fn(&OPath, &P) -> Result<T, String>, param: &P, function_name: &str) -> T {
         let mut error_strings = vec![];
         for p in &self.optima_file_paths {
             let res = f(p, param);
@@ -251,8 +251,45 @@ impl OptimaStemCellPath {
         }
         panic!("No valid optima_path in function {:?} with error strings {:?}", function_name, error_strings);
     }
-    pub fn optima_file_paths(&self) -> &Vec<OptimaPath> {
+    pub fn optima_file_paths(&self) -> &Vec<OPath> {
         &self.optima_file_paths
+    }
+    pub fn as_physical_path(&self) -> &OPath {
+        for x in self.optima_file_paths() {
+            match x {
+                OPath::Path(_) => { return x; }
+                OPath::VfsPath(_) => {}
+            }
+        }
+        panic!("physical path not found");
+    }
+    pub fn as_virtual_path(&self) -> &OPath {
+        for x in self.optima_file_paths() {
+            match x {
+                OPath::Path(_) => { }
+                OPath::VfsPath(_) => { return x; }
+            }
+        }
+        panic!("virtual path not found");
+    }
+}
+
+impl Serialize for OStemCellPath {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let paths_as_strings: Vec<String> = self.split_path_into_string_components();
+        paths_as_strings.serialize(serializer)
+    }
+}
+impl<'de> Deserialize<'de> for OStemCellPath {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let paths_as_strings: Vec<String> = Vec::deserialize(deserializer)?;
+        Ok(OStemCellPath::new_asset_path_from_string_components(&paths_as_strings))
     }
 }
 
@@ -281,11 +318,11 @@ impl OptimaStemCellPath {
 /// for the VFS options to work, the --no-default-features flag must be used at compile time (because
 /// the do_not_embed_assets feature is on by default).
 #[derive(Clone, Debug)]
-pub enum OptimaPath {
+pub enum OPath {
     Path(PathBuf),
     VfsPath(VfsPath)
 }
-impl OptimaPath {
+impl OPath {
     pub fn new_home_path() -> Self {
         if cfg!(target_arch = "wasm32") { panic!("Not supported by wasm32.") }
 
@@ -345,8 +382,8 @@ impl OptimaPath {
     pub fn append(&mut self, s: &str) {
         if s == "" { return; }
         match self {
-            OptimaPath::Path(p) => { p.push(s); }
-            OptimaPath::VfsPath(p) => { *p = p.join(s).expect("error"); }
+            OPath::Path(p) => { p.push(s); }
+            OPath::VfsPath(p) => { *p = p.join(s).expect("error"); }
         }
     }
     pub fn append_vec(&mut self, v: &Vec<String>) {
@@ -354,20 +391,20 @@ impl OptimaPath {
             self.append(s);
         }
     }
-    pub fn append_file_location(&mut self, location: &OptimaAssetLocation) {
+    pub fn append_file_location(&mut self, location: &OAssetLocation) {
         let v = location.get_path_wrt_asset_folder();
         match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 for s in v { p.push(s); }
             }
-            OptimaPath::VfsPath(p) => {
+            OPath::VfsPath(p) => {
                 for s in v { *p = p.join(s).expect("error"); }
             }
         }
     }
     pub fn read_file_contents_to_string(&self) -> Result<String, String> {
         return match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 let mut file_res = File::open(p);
                 return match &mut file_res {
                     Ok(f) => {
@@ -385,7 +422,7 @@ impl OptimaPath {
                     }
                 }
             }
-            OptimaPath::VfsPath(p) => {
+            OPath::VfsPath(p) => {
                 let mut content = String::new();
 
                 let mut seek_and_read_res = p.open_file();
@@ -404,7 +441,7 @@ impl OptimaPath {
     }
     pub fn write_string_to_file(&self, s: &String) -> Result<(), String> {
         match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 let parent_option = p.parent();
                 match parent_option {
                     None => {
@@ -433,7 +470,7 @@ impl OptimaPath {
                     }
                 }
             }
-            OptimaPath::VfsPath(_) => {
+            OPath::VfsPath(_) => {
                 // panic!("Writing is not supported by VfsPath.  Try using a Path variant instead.");
                 Err("Writing is not supported by VfsPath.  Try using a Path variant instead.".to_string())
             }
@@ -441,20 +478,20 @@ impl OptimaPath {
     }
     pub fn exists(&self) -> bool {
         return match self {
-            OptimaPath::Path(p) => { p.exists() }
-            OptimaPath::VfsPath(p) => { p.exists().expect("error") }
+            OPath::Path(p) => { p.exists() }
+            OPath::VfsPath(p) => { p.exists().expect("error") }
         }
     }
     pub fn get_file_for_writing(&self) -> Result<File, String> {
         return match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 let prefix = p.parent().unwrap();
                 fs::create_dir_all(prefix).unwrap();
                 if p.exists() { fs::remove_file(p).expect("error"); }
                 let file = OpenOptions::new().write(true).create_new(true).open(p).expect("error");
                 Ok(file)
             }
-            OptimaPath::VfsPath(_) => {
+            OPath::VfsPath(_) => {
                 // panic!("Cannot get file for writing from VfsPath.");
                 Err("Cannot get file for writing from VfsPath.".to_string())
             }
@@ -462,24 +499,24 @@ impl OptimaPath {
     }
     pub fn to_string(&self) -> String {
         return match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 p.to_str().unwrap().to_string()
             }
-            OptimaPath::VfsPath(p) => {
+            OPath::VfsPath(p) => {
                 p.as_str().to_string()
             }
         }
     }
     pub fn filename(&self) -> Option<String> {
         return match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 let f = p.file_name();
                 match f {
                     None => { None }
                     Some(ff) => { Some(ff.to_str().unwrap().to_string()) }
                 }
             }
-            OptimaPath::VfsPath(p) => {
+            OPath::VfsPath(p) => {
                 let f = p.filename();
                 Some(f)
             }
@@ -497,14 +534,14 @@ impl OptimaPath {
     }
     pub fn extension(&self) -> Option<String> {
         return match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 let ext_option = p.extension();
                 match ext_option {
                     None => { None }
                     Some(ext) => { Some(ext.to_str().unwrap().to_string()) }
                 }
             }
-            OptimaPath::VfsPath(p) => {
+            OPath::VfsPath(p) => {
                 let filename = p.filename();
                 let split: Vec<&str> = filename.split(".").collect();
                 if split.len() <= 1 { None } else { Some(split[split.len() - 1].to_string()) }
@@ -513,10 +550,10 @@ impl OptimaPath {
     }
     pub fn set_extension(&mut self, extension: &str) {
         match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 p.set_extension(extension);
             }
-            OptimaPath::VfsPath(p) => {
+            OPath::VfsPath(p) => {
                 let parent_path = p.parent();
                 let filename = parent_path.filename();
                 let split: Vec<&str> = filename.split(".").collect();
@@ -530,12 +567,12 @@ impl OptimaPath {
     }
     pub fn save_object_to_file_as_json<T: Serialize + DeserializeOwned>(&self, object: &T) -> Result<(), String> {
         return match self {
-            OptimaPath::Path(_) => {
+            OPath::Path(_) => {
                 let s = object.to_json_string();
                 self.write_string_to_file(&s).expect("error");
                 Ok(())
             }
-            OptimaPath::VfsPath(_) => {
+            OPath::VfsPath(_) => {
                 // panic!("Writing is not supported by VfsPath.  Try using a Path variant instead.");
                 Err("Writing is not supported by VfsPath.  Try using a Path variant instead.".to_string())
             }
@@ -545,11 +582,11 @@ impl OptimaPath {
         let contents = self.read_file_contents_to_string()?;
         return load_object_from_json_string::<T>(&contents);
     }
-    pub fn walk_directory_and_match(&self, pattern: OptimaPathMatchingPattern, stop_condition: OptimaPathMatchingStopCondition) -> Vec<OptimaPath> {
+    pub fn walk_directory_and_match(&self, pattern: OPathMatchingPattern, stop_condition: OPathMatchingStopCondition) -> Vec<OPath> {
         let mut out_vec = vec![];
 
         match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 for entry_res in WalkDir::new(p) {
                     if let Ok(entry) = entry_res {
                         let entry_path = entry.path().to_path_buf();
@@ -557,16 +594,16 @@ impl OptimaPath {
                         let matched = Self::directory_walk_standard_entry(&mut optima_path, &mut out_vec, &pattern);
                         if matched {
                             match stop_condition {
-                                OptimaPathMatchingStopCondition::First => {
+                                OPathMatchingStopCondition::First => {
                                     return out_vec;
                                 }
-                                OptimaPathMatchingStopCondition::All => {}
+                                OPathMatchingStopCondition::All => {}
                             }
                         }
                     }
                 }
             }
-            OptimaPath::VfsPath(p) => {
+            OPath::VfsPath(p) => {
                 let it_res = p.walk_dir();
                 if let Ok(it) = it_res {
                     for entry_res in it {
@@ -575,10 +612,10 @@ impl OptimaPath {
                             let matched = Self::directory_walk_standard_entry(&mut optima_path, &mut out_vec, &pattern);
                             if matched {
                                 match stop_condition {
-                                    OptimaPathMatchingStopCondition::First => {
+                                    OPathMatchingStopCondition::First => {
                                         return out_vec;
                                     }
-                                    OptimaPathMatchingStopCondition::All => {}
+                                    OPathMatchingStopCondition::All => {}
                                 }
                             }
                         }
@@ -593,7 +630,7 @@ impl OptimaPath {
         let mut out_vec = vec![];
 
         match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 let mut par = p.clone();
                 loop {
                     let filename_option = par.file_name();
@@ -608,7 +645,7 @@ impl OptimaPath {
                     }
                 }
             }
-            OptimaPath::VfsPath(p) => {
+            OPath::VfsPath(p) => {
                 let mut par = p.clone();
                 loop {
                     let filename = par.filename();
@@ -620,7 +657,7 @@ impl OptimaPath {
     }
     pub fn split_path_into_string_components_back_to_asset_dir(&self) -> Vec<String> {
         return match self {
-            OptimaPath::Path(_) => {
+            OPath::Path(_) => {
                 let string_components = self.split_path_into_string_components();
                 let mut optima_assets_idx: Option<usize> = None;
                 for (i, s) in string_components.iter().enumerate() {
@@ -647,14 +684,14 @@ impl OptimaPath {
 
                 out_vec
             }
-            OptimaPath::VfsPath(_) => {
+            OPath::VfsPath(_) => {
                 self.split_path_into_string_components()
             }
         }
     }
     pub fn split_path_into_string_components_back_to_given_dir(&self, dir: &str) -> Vec<String> {
         return match self {
-            OptimaPath::Path(_) => {
+            OPath::Path(_) => {
                 let string_components = self.split_path_into_string_components();
                 let mut optima_assets_idx: Option<usize> = None;
                 for (i, s) in string_components.iter().enumerate() {
@@ -681,18 +718,18 @@ impl OptimaPath {
 
                 out_vec
             }
-            OptimaPath::VfsPath(_) => {
+            OPath::VfsPath(_) => {
                 self.split_path_into_string_components()
             }
         }
     }
     pub fn delete_file(&self) -> Result<(), String> {
         match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 fs::remove_file(p).expect("error");
                 Ok(())
             }
-            OptimaPath::VfsPath(_) => {
+            OPath::VfsPath(_) => {
                 // panic!("VfsPath does not support deleting files.");
                 Err("VfsPath does not support deleting files.".to_string())
             }
@@ -700,26 +737,26 @@ impl OptimaPath {
     }
     pub fn delete_all_items_in_directory(&self) -> Result<(), String> {
         match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 fs::remove_dir_all(p).expect("error");
                 fs::create_dir(p).expect("error");
                 Ok(())
             }
-            OptimaPath::VfsPath(_) => {
+            OPath::VfsPath(_) => {
                 // panic!("VfsPath does not support deleting files.");
                 Err("VfsPath does not support deleting files.".to_string())
             }
         }
     }
-    pub fn copy_file_to_destination(&self, destination: &OptimaPath) -> Result<(), String> {
+    pub fn copy_file_to_destination(&self, destination: &OPath) -> Result<(), String> {
         if !self.exists() {
             // panic!("Tried to copy file {:?} but it does not exist!", self);
             return Err(format!("Tried to copy file {:?} but it does not exist!", self));
         }
         match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 match destination {
-                    OptimaPath::Path(p2) => {
+                    OPath::Path(p2) => {
                         if !p2.exists() {
                             let par = p2.parent().unwrap();
                             fs::create_dir_all(par).expect("error");
@@ -727,13 +764,13 @@ impl OptimaPath {
                         fs::copy(p, p2).expect("error");
                         Ok(())
                     }
-                    OptimaPath::VfsPath(_) => {
+                    OPath::VfsPath(_) => {
                         // panic!("VfsPath does not support copying files.");
                         Err("VfsPath does not support copying files.".to_string())
                     }
                 }
             }
-            OptimaPath::VfsPath(_) => {
+            OPath::VfsPath(_) => {
                 // panic!("VfsPath does not support copying files.")
                 Err("VfsPath does not support copying files.".to_string())
             }
@@ -761,7 +798,7 @@ impl OptimaPath {
         let mut out_vec = vec![];
 
         match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 let res = p.read_dir();
                 if let Ok(read_dir) = res {
                     for dir_entry_res in read_dir {
@@ -777,7 +814,7 @@ impl OptimaPath {
                     }
                 }
             }
-            OptimaPath::VfsPath(p) => {
+            OPath::VfsPath(p) => {
                 let res = p.read_dir();
                 if let Ok(read_dir) = res {
                     for i in read_dir {
@@ -798,7 +835,7 @@ impl OptimaPath {
         let mut out_vec = vec![];
 
         match self {
-            OptimaPath::Path(p) => {
+            OPath::Path(p) => {
                 let res = p.read_dir();
                 if let Ok(read_dir) = res {
                     for dir_entry_res in read_dir {
@@ -812,7 +849,7 @@ impl OptimaPath {
                     }
                 }
             }
-            OptimaPath::VfsPath(p) => {
+            OPath::VfsPath(p) => {
                 let res = p.read_dir();
                 if let Ok(read_dir) = res {
                     for i in read_dir {
@@ -826,7 +863,7 @@ impl OptimaPath {
 
         out_vec
     }
-    pub fn get_all_items_in_directory_as_paths(&self, include_directories: bool, include_hidden_files: bool) -> Vec<OptimaPath> {
+    pub fn get_all_items_in_directory_as_paths(&self, include_directories: bool, include_hidden_files: bool) -> Vec<OPath> {
         let mut out = vec![];
 
         let items = self.get_all_items_in_directory(include_directories, include_hidden_files);
@@ -838,7 +875,7 @@ impl OptimaPath {
 
         out
     }
-    pub fn get_all_directories_in_directory_as_paths(&self) -> Vec<OptimaPath> {
+    pub fn get_all_directories_in_directory_as_paths(&self) -> Vec<OPath> {
         let mut out = vec![];
 
         let items = self.get_all_directories_in_directory();
@@ -858,12 +895,12 @@ impl OptimaPath {
             Err(e) => { Err(format!("{:?}", e)) }
         }
     }
-    fn directory_walk_standard_entry(optima_path: &mut OptimaPath,
-                                     out_vec: &mut Vec<OptimaPath>,
-                                     pattern: &OptimaPathMatchingPattern) -> bool {
+    fn directory_walk_standard_entry(optima_path: &mut OPath,
+                                     out_vec: &mut Vec<OPath>,
+                                     pattern: &OPathMatchingPattern) -> bool {
         let mut matched = false;
         match pattern {
-            OptimaPathMatchingPattern::FileOrDirName(s) => {
+            OPathMatchingPattern::FileOrDirName(s) => {
                 let filename_option = optima_path.filename();
                 if let Some(filename) = filename_option {
                     if &filename == s {
@@ -872,7 +909,7 @@ impl OptimaPath {
                     }
                 }
             }
-            OptimaPathMatchingPattern::Extension(s) => {
+            OPathMatchingPattern::Extension(s) => {
                 let extension_option = optima_path.extension();
                 if let Some(extension) = extension_option {
                     if &extension == s {
@@ -881,7 +918,7 @@ impl OptimaPath {
                     }
                 }
             }
-            OptimaPathMatchingPattern::FilenameWithoutExtension(s) => {
+            OPathMatchingPattern::FilenameWithoutExtension(s) => {
                 let filename_option = optima_path.filename_without_extension();
                 if let Some(filename) = filename_option {
                     if &filename == s {
@@ -890,7 +927,7 @@ impl OptimaPath {
                     }
                 }
             }
-            OptimaPathMatchingPattern::PathComponents(v) => {
+            OPathMatchingPattern::PathComponents(v) => {
                 let split = optima_path.split_path_into_string_components();
                 let v_len = v.len();
                 let split_len = split.len();
@@ -909,7 +946,7 @@ impl OptimaPath {
                     matched = true;
                 }
             }
-            OptimaPathMatchingPattern::PathComponentsWithoutExtension(v) => {
+            OPathMatchingPattern::PathComponentsWithoutExtension(v) => {
                 let mut optima_path_copy = optima_path.clone();
                 optima_path_copy.set_extension("");
                 let split = optima_path_copy.split_path_into_string_components();
@@ -936,7 +973,7 @@ impl OptimaPath {
     fn auto_create_optima_asset_path_json_file() -> bool {
         optima_print("Searching for Optima assets folder...", PrintMode::Println, PrintColor::Cyan, true, 0, None, vec![]);
         let mut home_dir = Self::new_home_path();
-        let walk_vec = home_dir.walk_directory_and_match(OptimaPathMatchingPattern::FileOrDirName("optima_assets".to_string()), OptimaPathMatchingStopCondition::All);
+        let walk_vec = home_dir.walk_directory_and_match(OPathMatchingPattern::FileOrDirName("optima_assets".to_string()), OPathMatchingStopCondition::All);
         return if walk_vec.is_empty() {
             optima_print("WARNING: optima_assets folder not found on your computer.", PrintMode::Println, PrintColor::Yellow, true, 0, None, vec![]);
             let mut lock_path = Self::new_home_path();
@@ -957,7 +994,7 @@ impl OptimaPath {
             }
 
             match &found_path {
-                OptimaPath::Path(p) => {
+                OPath::Path(p) => {
                     optima_print(&format!("Optima assets folder found at {:?}", p), PrintMode::Println, PrintColor::Green, true, 0, None, vec![]);
                     home_dir.append(".optima_asset_path.JSON");
                     optima_print(&format!("Saved found path at {:?}", home_dir), PrintMode::Println, PrintColor::Green, true, 0, None, vec![]);
@@ -1012,7 +1049,7 @@ struct PathToAssetsDir {
 /// Asset folder location.  Will be used to easily access paths to these locations with respect to
 /// the asset folder.
 #[derive(Clone, Debug)]
-pub enum OptimaAssetLocation {
+pub enum OAssetLocation {
     RobotSets,
     RobotSet { set_name: String },
     Robots,
@@ -1032,102 +1069,118 @@ pub enum OptimaAssetLocation {
     SceneMeshFilePreprocessing { name: String },
     SceneMeshFileConvexShape { name: String },
     SceneMeshFileConvexShapeSubcomponents { name: String },
-    FileIO
+    FileIO,
+    Chains,
+    Chain { chain_name: String },
+    ChainOriginalMeshes { chain_name: String }
 }
-impl OptimaAssetLocation {
+impl OAssetLocation {
     pub fn get_path_wrt_asset_folder(&self) -> Vec<String> {
         return match self {
-            OptimaAssetLocation::RobotSets => {
+            OAssetLocation::RobotSets => {
                 vec!["optima_robot_sets".to_string()]
             }
-            OptimaAssetLocation::RobotSet { set_name } => {
+            OAssetLocation::RobotSet { set_name } => {
                 let mut v = Self::RobotSets.get_path_wrt_asset_folder();
                 v.push(set_name.clone());
                 v
             }
-            OptimaAssetLocation::Robots => {
+            OAssetLocation::Robots => {
                 vec!["optima_robots".to_string()]
             }
-            OptimaAssetLocation::Robot { robot_name } => {
+            OAssetLocation::Robot { robot_name } => {
                 let mut v = Self::Robots.get_path_wrt_asset_folder();
                 v.push(robot_name.clone());
                 v
             }
-            OptimaAssetLocation::RobotConfigurations { robot_name } => {
+            OAssetLocation::RobotConfigurations { robot_name } => {
                 let mut v = Self::Robot { robot_name: robot_name.clone() }.get_path_wrt_asset_folder();
                 v.push("configurations".to_string());
                 v
             }
-            OptimaAssetLocation::RobotInputMeshes { robot_name } => {
+            OAssetLocation::RobotInputMeshes { robot_name } => {
                 let mut v = Self::Robot { robot_name: robot_name.clone() }.get_path_wrt_asset_folder();
                 v.push("input_meshes".to_string());
                 v
             }
-            OptimaAssetLocation::RobotMeshes { robot_name } => {
+            OAssetLocation::RobotMeshes { robot_name } => {
                 let mut v = Self::Robot { robot_name: robot_name.clone() }.get_path_wrt_asset_folder();
                 v.push("meshes".to_string());
                 v
             }
-            OptimaAssetLocation::RobotGLBMeshes { robot_name } => {
+            OAssetLocation::RobotGLBMeshes { robot_name } => {
                 let mut v = Self::Robot { robot_name: robot_name.clone() }.get_path_wrt_asset_folder();
                 v.push("glb_meshes".to_string());
                 v
             }
-            OptimaAssetLocation::RobotPreprocessedData { robot_name } => {
+            OAssetLocation::RobotPreprocessedData { robot_name } => {
                 let mut v = Self::Robot { robot_name: robot_name.clone() }.get_path_wrt_asset_folder();
                 v.push("preprocessed_data".to_string());
                 v
             }
-            OptimaAssetLocation::RobotModuleJsons { robot_name } => {
+            OAssetLocation::RobotModuleJsons { robot_name } => {
                 let mut v = Self::RobotPreprocessedData { robot_name: robot_name.clone() }.get_path_wrt_asset_folder();
                 v.push("robot_module_jsons".to_string());
                 v
             }
-            OptimaAssetLocation::RobotModuleJson { robot_name, t } => {
+            OAssetLocation::RobotModuleJson { robot_name, t } => {
                 let mut v = Self::RobotModuleJsons { robot_name: robot_name.clone() }.get_path_wrt_asset_folder();
                 v.push(t.filename().to_string());
                 v
             }
-            OptimaAssetLocation::RobotConvexShapes { robot_name } => {
+            OAssetLocation::RobotConvexShapes { robot_name } => {
                 let mut v = Self::RobotPreprocessedData { robot_name: robot_name.clone() }.get_path_wrt_asset_folder();
                 v.push("convex_shapes".to_string());
                 v
             }
-            OptimaAssetLocation::RobotConvexSubcomponents { robot_name } => {
+            OAssetLocation::RobotConvexSubcomponents { robot_name } => {
                 let mut v = Self::RobotPreprocessedData { robot_name: robot_name.clone() }.get_path_wrt_asset_folder();
                 v.push("convex_shape_subcomponents".to_string());
                 v
             }
-            OptimaAssetLocation::Scenes => {
+            OAssetLocation::Scenes => {
                 vec!["optima_scenes".to_string()]
             }
-            OptimaAssetLocation::SceneMeshFiles => {
+            OAssetLocation::SceneMeshFiles => {
                 let mut v = Self::Scenes.get_path_wrt_asset_folder();
                 v.push("mesh_files".to_string());
                 v
             }
-            OptimaAssetLocation::SceneMeshFile { name } => {
+            OAssetLocation::SceneMeshFile { name } => {
                 let mut v = Self::SceneMeshFiles.get_path_wrt_asset_folder();
                 v.push(name.clone());
                 v
             }
-            OptimaAssetLocation::SceneMeshFilePreprocessing { name } => {
+            OAssetLocation::SceneMeshFilePreprocessing { name } => {
                 let mut v = Self::SceneMeshFile { name: name.clone() }.get_path_wrt_asset_folder();
                 v.push("preprocessing".to_string());
                 v
             }
-            OptimaAssetLocation::SceneMeshFileConvexShape { name } => {
+            OAssetLocation::SceneMeshFileConvexShape { name } => {
                 let mut v = Self::SceneMeshFilePreprocessing { name: name.clone() }.get_path_wrt_asset_folder();
                 v.push("convex_shape".to_string());
                 v
             }
-            OptimaAssetLocation::SceneMeshFileConvexShapeSubcomponents { name } => {
+            OAssetLocation::SceneMeshFileConvexShapeSubcomponents { name } => {
                 let mut v = Self::SceneMeshFilePreprocessing { name: name.clone() }.get_path_wrt_asset_folder();
                 v.push("convex_shape_subcomponents".to_string());
                 v
             }
-            OptimaAssetLocation::FileIO => {
+            OAssetLocation::FileIO => {
                 vec!["fileIO".to_string()]
+            }
+            OAssetLocation::Chains => {
+                vec!["chains".to_string()]
+            }
+            OAssetLocation::Chain { chain_name } => {
+                let mut v = Self::Chains.get_path_wrt_asset_folder();
+                v.push(chain_name.clone());
+                v
+            }
+            OAssetLocation::ChainOriginalMeshes { chain_name } => {
+                let mut v = Self::Chain { chain_name: chain_name.clone() }.get_path_wrt_asset_folder();
+                v.push(chain_name.clone());
+                v
             }
         }
     }
@@ -1135,7 +1188,7 @@ impl OptimaAssetLocation {
 
 /// An Enum used to specify a particular patten that should be matched during a directory walk.
 #[derive(Debug, Clone)]
-pub enum OptimaPathMatchingPattern {
+pub enum OPathMatchingPattern {
     FileOrDirName(String),
     Extension(String),
     FilenameWithoutExtension(String),
@@ -1148,7 +1201,7 @@ pub enum OptimaPathMatchingPattern {
 /// for the first time, while `All` will continue recursively searching through the whole directory
 /// until all potential matches are found.
 #[derive(Debug, Clone)]
-pub enum OptimaPathMatchingStopCondition {
+pub enum OPathMatchingStopCondition {
     First,
     All
 }

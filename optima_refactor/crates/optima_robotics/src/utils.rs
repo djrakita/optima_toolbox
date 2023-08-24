@@ -1,8 +1,9 @@
-use optima_file::path::{OptimaAssetLocation, OptimaStemCellPath};
+use optima_file::path::{OAssetLocation, OStemCellPath};
 
-pub fn get_urdf_path_from_robot_name(robot_name: &str) -> OptimaStemCellPath {
-    let mut p = OptimaStemCellPath::new_asset_path();
-    p.append_file_location(&OptimaAssetLocation::Robot { robot_name: robot_name.to_string() });
+pub fn get_urdf_path_from_chain_name(chain_name: &str) -> OStemCellPath {
+    let mut p = OStemCellPath::new_asset_path();
+    // p.append_file_location(&OAssetLocation::Robot { robot_name: robot_name.to_string() });
+    p.append_file_location(&OAssetLocation::Chain { chain_name: chain_name.to_string() });
     let item_paths = p.get_all_items_in_directory_as_paths(false, false);
     for item_path in &item_paths {
         let extension = item_path.extension();
@@ -10,5 +11,5 @@ pub fn get_urdf_path_from_robot_name(robot_name: &str) -> OptimaStemCellPath {
             if extension == "urdf" { return item_path.clone(); }
         }
     }
-    panic!("urdf file not found for robot name {}", robot_name);
+    panic!("urdf file not found for chain name {}", chain_name);
 }
