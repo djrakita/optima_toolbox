@@ -17,8 +17,8 @@ pub trait JointTrait<T: AD, P: O3DPose<T>> {
     fn safety_controller(&self) -> &Option<OSafetyController<T>>;
     fn get_num_dofs(&self) -> usize;
     fn fixed_values(&self) -> &Option<Vec<T>>;
-    fn sub_dof_idxs(&self) -> &Vec<usize>;
-    fn sub_dof_idxs_range(&self) -> &Option<(usize, usize)>;
+    fn dof_idxs(&self) -> &Vec<usize>;
+    fn dof_idxs_range(&self) -> &Option<(usize, usize)>;
     #[inline]
     fn get_variable_transform_from_joint_values_subslice(&self, joint_values_subslice: &[T]) -> P {
         return match &self.joint_type() {
@@ -62,7 +62,7 @@ pub trait JointTrait<T: AD, P: O3DPose<T>> {
         let joint = self;
         if let Some(mimic) = &joint.mimic() {
             let mimic_joint_idx = mimic.joint_idx();
-            let range = joint.sub_dof_idxs_range();
+            let range = joint.dof_idxs_range();
             match range {
                 None => { panic!("mimicked joint must have exactly one dof.") }
                 Some(range) => {
@@ -80,7 +80,7 @@ pub trait JointTrait<T: AD, P: O3DPose<T>> {
         } else if let Some(fixed_values) = &joint.fixed_values() {
             joint.get_variable_transform_from_joint_values_subslice(fixed_values)
         } else {
-            let range = joint.sub_dof_idxs_range();
+            let range = joint.dof_idxs_range();
             return match range {
                 None => { P::identity() }
                 Some(range) => {

@@ -150,8 +150,8 @@ pub struct OJoint<T: AD, P: O3DPose<T>> {
     pub (crate) parent_link_idx: usize,
     child_link: String,
     pub (crate) child_link_idx: usize,
-    pub (crate) sub_dof_idxs: Vec<usize>,
-    pub (crate) sub_dof_idxs_range: Option<(usize, usize)>,
+    pub (crate) dof_idxs: Vec<usize>,
+    pub (crate) dof_idxs_range: Option<(usize, usize)>,
     #[serde(deserialize_with = "OJointLimit::<T>::deserialize")]
     limit: OJointLimit<T>,
     #[serde(deserialize_with = "Option::<ODynamics::<T>>::deserialize")]
@@ -177,8 +177,8 @@ impl<T: AD, P: O3DPose<T>> OJoint<T, P> {
             parent_link_idx: usize::default(),
             child_link: String::from(&joint.child.link),
             child_link_idx: usize::default(),
-            sub_dof_idxs: vec![],
-            sub_dof_idxs_range: None,
+            dof_idxs: vec![],
+            dof_idxs_range: None,
             limit: OJointLimit::from_joint_limit(&joint.limit),
             dynamics: match &joint.dynamics {
                 None => { None }
@@ -207,8 +207,8 @@ impl<T: AD, P: O3DPose<T>> OJoint<T, P> {
             parent_link_idx: usize::default(),
             child_link: child_link.into(),
             child_link_idx: usize::default(),
-            sub_dof_idxs: vec![],
-            sub_dof_idxs_range: None,
+            dof_idxs: vec![],
+            dof_idxs_range: None,
             limit,
             dynamics,
             mimic,
@@ -318,13 +318,13 @@ impl<T: AD, P: O3DPose<T>> JointTrait<T, P> for OJoint<T, P> {
     }
 
     #[inline(always)]
-    fn sub_dof_idxs(&self) -> &Vec<usize> {
-        &self.sub_dof_idxs
+    fn dof_idxs(&self) -> &Vec<usize> {
+        &self.dof_idxs
     }
 
     #[inline(always)]
-    fn sub_dof_idxs_range(&self) -> &Option<(usize, usize)> {
-        &self.sub_dof_idxs_range
+    fn dof_idxs_range(&self) -> &Option<(usize, usize)> {
+        &self.dof_idxs_range
     }
 }
 
@@ -344,8 +344,8 @@ pub struct OMacroJoint<T: AD, P: O3DPose<T>> {
     pub (crate) parent_chain_idx: usize,
     pub (crate) parent_link_idx_in_parent_chain: usize,
     pub (crate) child_chain_idx: usize,
-    pub (crate) sub_dof_idxs: Vec<usize>,
-    pub (crate) sub_dof_idxs_range: Option<(usize, usize)>,
+    pub (crate) dof_idxs: Vec<usize>,
+    pub (crate) dof_idxs_range: Option<(usize, usize)>,
     #[serde(deserialize_with = "Option::<OMimic<T>>::deserialize")]
     mimic: Option<OMimic<T>>,
     #[serde(deserialize_with = "Option::<ODynamics::<T>>::deserialize")]
@@ -366,8 +366,8 @@ impl<T: AD, P: O3DPose<T>> OMacroJoint<T, P> {
             parent_chain_idx,
             parent_link_idx_in_parent_chain,
             child_chain_idx,
-            sub_dof_idxs: Default::default(),
-            sub_dof_idxs_range: None,
+            dof_idxs: Default::default(),
+            dof_idxs_range: None,
             mimic: None,
             dynamics: None,
             safety_controller: None,
@@ -453,13 +453,13 @@ impl<T: AD, P: O3DPose<T>> JointTrait<T, P> for OMacroJoint<T, P> {
     }
 
     #[inline(always)]
-    fn sub_dof_idxs(&self) -> &Vec<usize> {
-        &self.sub_dof_idxs
+    fn dof_idxs(&self) -> &Vec<usize> {
+        &self.dof_idxs
     }
 
     #[inline(always)]
-    fn sub_dof_idxs_range(&self) -> &Option<(usize, usize)> {
-        &self.sub_dof_idxs_range
+    fn dof_idxs_range(&self) -> &Option<(usize, usize)> {
+        &self.dof_idxs_range
     }
 }
 

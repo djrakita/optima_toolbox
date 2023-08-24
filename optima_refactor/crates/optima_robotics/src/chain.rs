@@ -27,6 +27,7 @@ pub struct OChain<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     base_link_idx: usize,
     kinematic_hierarchy: Vec<Vec<usize>>,
     num_dofs: usize,
+    dof_to_joint_and_sub_dof_idxs: Vec<(usize, usize)>,
     phantom_data: PhantomData<(T, P)>
 }
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
@@ -37,35 +38,15 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
         let mut links = vec![];
         let mut joints = vec![];
 
-        let mut link_name_to_link_idx_map = HashMap::new();
-
-        urdf.links.iter().enumerate().for_each(|(i, x)| {
+        urdf.links.iter().for_each(|x| {
             links.push(OLink::from_link(x));
-            link_name_to_link_idx_map.insert( x.name.clone(), i );
         });
 
-        let mut joint_name_to_joint_idx_map = HashMap::new();
-
-        urdf.joints.iter().enumerate().for_each(|(i, x)| {
+        urdf.joints.iter().for_each(|x| {
             joints.push(OJoint::from_joint(x));
-            joint_name_to_joint_idx_map.insert( x.name.clone(), i );
         });
 
-        let mut out = Self {
-            chain_name: chain_name.into(),
-            links,
-            joints,
-            link_name_to_link_idx_map,
-            joint_name_to_joint_idx_map,
-            base_link_idx: usize::default(),
-            kinematic_hierarchy: vec![],
-            num_dofs: usize::default(),
-            phantom_data: Default::default(),
-        };
-
-        out.setup();
-
-        out
+        Self::from_manual(chain_name, links, joints)
     }
     pub fn from_manual(chain_name: &str, links: Vec<OLink<T, P, L>>, joints: Vec<OJoint<T, P>>) -> Self {
         let mut link_name_to_link_idx_map = HashMap::new();
@@ -88,6 +69,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
             base_link_idx: usize::default(),
             kinematic_hierarchy: vec![],
             num_dofs: usize::default(),
+            dof_to_joint_and_sub_dof_idxs: vec![],
             phantom_data: Default::default(),
         };
 
@@ -151,6 +133,10 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
     pub fn get_joint_variable_transform<V: OVec<T>>(&self, state: &V, joint_idx: usize) -> P {
         self.joints[joint_idx].get_joint_variable_transform(state, &self.joints)
     }
+    #[inline]
+    pub fn dof_to_joint_and_sub_dof_idxs(&self) -> &Vec<(usize, usize)> {
+        &self.dof_to_joint_and_sub_dof_idxs
+    }
     fn setup(&mut self) {
         self.set_link_and_joint_idxs();
         self.assign_joint_connection_indices();
@@ -159,6 +145,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
         self.set_num_dofs();
         self.set_all_sub_dof_idxs();
         self.set_link_original_mesh_file_paths();
+        self.set_dof_to_joint_and_sub_dof_idxs();
     }
 }
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
@@ -254,8 +241,8 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
         }
 
         joint_sub_dof_idxs.iter().zip(joint_sub_dof_idxs_range.iter()).enumerate().for_each(|(i, (x,y))| {
-            self.joints[i].sub_dof_idxs = x.clone();
-            self.joints[i].sub_dof_idxs_range = y.clone();
+            self.joints[i].dof_idxs = x.clone();
+            self.joints[i].dof_idxs_range = y.clone();
         })
     }
     fn set_link_original_mesh_file_paths(&mut self) {
@@ -291,6 +278,17 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
                }
            }
         });
+    }
+    fn set_dof_to_joint_and_sub_dof_idxs(&mut self) {
+        let mut dof_to_joint_and_sub_dof_idxs = vec![];
+
+        self.joints.iter().enumerate().for_each(|(joint_idx, joint)| {
+           joint.dof_idxs.iter().enumerate().for_each(|(i, _)| {
+               dof_to_joint_and_sub_dof_idxs.push( (joint_idx, i) );
+           })
+        });
+
+        self.dof_to_joint_and_sub_dof_idxs = dof_to_joint_and_sub_dof_idxs;
     }
 }
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ChainableTrait<T, P> for OChain<T, P, L> {
