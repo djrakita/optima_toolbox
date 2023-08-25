@@ -137,6 +137,9 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
     pub fn dof_to_joint_and_sub_dof_idxs(&self) -> &Vec<(usize, usize)> {
         &self.dof_to_joint_and_sub_dof_idxs
     }
+    pub fn forward_kinematics<V: OVec<T>>(&self, state: &V, base_offset: Option<&P>) -> Vec<Option<P>> {
+        todo!()
+    }
     fn setup(&mut self) {
         self.set_link_and_joint_idxs();
         self.assign_joint_connection_indices();
