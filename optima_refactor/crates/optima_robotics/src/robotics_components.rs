@@ -74,6 +74,8 @@ pub struct OLink<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     inertial: OInertial<T, L>,
     pub (crate) original_mesh_file_path: Option<OStemCellPath>,
     pub (crate) stl_mesh_file_path: Option<OStemCellPath>,
+    pub (crate) convex_hull_file_path: Option<OStemCellPath>,
+    pub (crate) convex_decomposition_file_paths: Vec<OStemCellPath>
 }
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
     pub (crate) fn from_link(link: &Link) -> Self {
@@ -91,6 +93,8 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
             inertial: OInertial::from_inertial(&link.inertial),
             original_mesh_file_path: None,
             stl_mesh_file_path: None,
+            convex_hull_file_path: None,
+            convex_decomposition_file_paths: vec![],
         }
     }
     pub fn new_manual(name: &str, collision: Vec<OCollision<T, P>>, visual: Vec<OVisual<T, P>>, inertial: OInertial<T, L>) -> Self {
@@ -108,6 +112,8 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
             inertial,
             original_mesh_file_path: None,
             stl_mesh_file_path: None,
+            convex_hull_file_path: None,
+            convex_decomposition_file_paths: vec![],
         }
     }
     #[inline(always)]
@@ -136,6 +142,12 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
     }
     pub fn stl_mesh_file_path(&self) -> &Option<OStemCellPath> {
         &self.stl_mesh_file_path
+    }
+    pub fn convex_hull_file_path(&self) -> &Option<OStemCellPath> {
+        &self.convex_hull_file_path
+    }
+    pub fn convex_decomposition_file_paths(&self) -> &Vec<OStemCellPath> {
+        &self.convex_decomposition_file_paths
     }
 }
 

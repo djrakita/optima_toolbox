@@ -13,3 +13,4 @@ serde = { version="*", features = ["derive"] }
 serde_json = { version="*" }
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 stl_io = { version="0.7.0" }
+parry3d-f64 = { version="0.13.5" }

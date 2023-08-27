@@ -12,6 +12,7 @@ optima_utils = { path = "../optima_utils" }
 optima_3d_spatial = { path = "../optima_3d_spatial" }
 optima_linalg = { path = "../optima_linalg" }
 optima_3d_mesh = { path = "../optima_3d_mesh" }
+optima_console = { path = "../optima_console" }
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 urdf-rs = { version="0.7.2" }
 arrayvec = { version="0.7.4", features = ["serde"] }

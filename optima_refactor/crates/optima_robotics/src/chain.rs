@@ -8,7 +8,8 @@ use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_utils::arr_storage::*;
 use crate::utils::get_urdf_path_from_chain_name;
 use serde_with::*;
-use optima_3d_mesh::{SaveToSTL};
+use optima_3d_mesh::{SaveToSTL, ToTriMesh};
+use optima_console::output::{oprint, PrintColor, PrintMode};
 use optima_file::path::{OAssetLocation, OPath, OPathMatchingPattern, OPathMatchingStopCondition, OStemCellPath};
 use optima_linalg::vecs_and_mats::{NalgebraLinalg, OLinalgTrait, OVec};
 use crate::robotics_components::*;
@@ -200,6 +201,8 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
         self.set_dof_to_joint_and_sub_dof_idxs();
         self.set_link_original_mesh_file_paths();
         self.set_link_stl_mesh_file_paths();
+        self.set_link_convex_hull_mesh_file_paths();
+        self.set_link_convex_decomposition_mesh_file_paths();
     }
 }
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
@@ -330,7 +333,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
 
                         if !exists {
                             let asset_path = OPath::new_home_path();
-                            println!("searching for mesh {:?}", filepath);
+                            oprint(&format!("searching for mesh {:?}", filepath), PrintMode::Println, PrintColor::Green);
                             let found_paths = asset_path.walk_directory_and_match(OPathMatchingPattern::PathComponents(split), OPathMatchingStopCondition::First);
                             if found_paths.is_empty() {
                                 panic!("could not find filepath for link mesh: {:?}", filename);
@@ -359,6 +362,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
                 let exists = target_path.exists();
 
                 if !exists {
+                    oprint(&format!("saving stl version of {:?}", original_mesh_file_path.filename().unwrap()), PrintMode::Println, PrintColor::Green);
                     if extension.as_str() == "stl" || extension.as_str() == "STL" {
                         original_mesh_file_path.load_stl().save_to_stl(&target_path);
                     } else if extension.as_str() == "dae" || extension.as_str() == "DAE" {
@@ -369,6 +373,55 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
                 }
 
                 link.stl_mesh_file_path = Some(target_path.clone());
+            }
+        });
+    }
+    fn set_link_convex_hull_mesh_file_paths(&mut self) {
+        self.links.iter_mut().for_each(|link| {
+            let stl_mesh_file = &link.stl_mesh_file_path;
+            if let Some(stl_mesh_file) = stl_mesh_file {
+                let filename = stl_mesh_file.filename().unwrap();
+
+                let mut target_path = OStemCellPath::new_asset_path();
+                target_path.append_file_location(&OAssetLocation::ChainConvexHulls { chain_name: &self.chain_name });
+                target_path.append(&filename);
+
+                let exists = target_path.exists();
+
+                if !exists {
+                    oprint(&format!("computing convex hull of {:?}", filename), PrintMode::Println, PrintColor::Green);
+                    let convex_hull = stl_mesh_file.load_stl().to_trimesh().to_convex_hull();
+                    convex_hull.save_to_stl(&target_path);
+                }
+
+                link.convex_hull_file_path = Some(target_path.clone());
+            }
+        });
+    }
+    fn set_link_convex_decomposition_mesh_file_paths(&mut self) {
+        self.links.iter_mut().for_each(|link| {
+            let stl_mesh_file = &link.stl_mesh_file_path;
+            if let Some(stl_mesh_file) = stl_mesh_file {
+                let filename = stl_mesh_file.filename_without_extension().unwrap();
+
+                let mut target_path_stub = OStemCellPath::new_asset_path();
+                target_path_stub.append_file_location(&OAssetLocation::LinkConvexDecomposition { chain_name: &self.chain_name, link_mesh_name: &filename });
+
+                let exists = target_path_stub.exists();
+
+                if !exists {
+                    let convex_decomposition = stl_mesh_file.load_stl().to_trimesh().to_convex_decomposition();
+                    oprint(&format!("computing convex decomposition of {:?}.  {:?} convex subcomponents found.", filename, convex_decomposition.len()), PrintMode::Println, PrintColor::Green);
+
+                    convex_decomposition.iter().enumerate().for_each(|(i, trimesh)| {
+                        let mut target_path = target_path_stub.clone();
+                        target_path.append(&(filename.clone() + "_" + i.to_string().as_str() + ".stl"));
+                        trimesh.save_to_stl(&target_path);
+                    });
+                }
+
+                let files = target_path_stub.get_all_items_in_directory_as_paths(false, false);
+                link.convex_decomposition_file_paths = files.clone();
             }
         });
     }

@@ -12,7 +12,7 @@ use serde::de::DeserializeOwned;
 use stl_io::IndexedMesh;
 use walkdir::WalkDir;
 use crate::traits::{ToJsonString};
-use optima_console::output::{optima_print, PrintColor, PrintMode};
+use optima_console::output::{oprint_full, PrintColor, PrintMode};
 use urdf_rs::Robot;
 
 /// excludes have higher priority than includes.  Includes work based on union of sets, so if you use
@@ -979,16 +979,16 @@ impl OPath {
         return matched;
     }
     fn auto_create_optima_asset_path_json_file() -> bool {
-        optima_print("Searching for Optima assets folder...", PrintMode::Println, PrintColor::Cyan, true, 0, None, vec![]);
+        oprint_full("Searching for Optima assets folder...", PrintMode::Println, PrintColor::Cyan, true, 0, None, vec![]);
         let mut home_dir = Self::new_home_path();
         let walk_vec = home_dir.walk_directory_and_match(OPathMatchingPattern::FileOrDirName("optima_assets".to_string()), OPathMatchingStopCondition::All);
         return if walk_vec.is_empty() {
-            optima_print("WARNING: optima_assets folder not found on your computer.", PrintMode::Println, PrintColor::Yellow, true, 0, None, vec![]);
+            oprint_full("WARNING: optima_assets folder not found on your computer.", PrintMode::Println, PrintColor::Yellow, true, 0, None, vec![]);
             let mut lock_path = Self::new_home_path();
             lock_path.append(".optima_asset_path.lock");
             lock_path.write_string_to_file(&"".to_string()).expect("error");
-            optima_print(&format!("Adding a lock file here: {:?}", lock_path), PrintMode::Println, PrintColor::Yellow, true, 0, None, vec![]);
-            optima_print(&format!("If you would like to use a local optima_assets directory on your computer, please delete the lock file once the assets directory is on your computer"), PrintMode::Println, PrintColor::Yellow, true, 0, None, vec![]);
+            oprint_full(&format!("Adding a lock file here: {:?}", lock_path), PrintMode::Println, PrintColor::Yellow, true, 0, None, vec![]);
+            oprint_full(&format!("If you would like to use a local optima_assets directory on your computer, please delete the lock file once the assets directory is on your computer"), PrintMode::Println, PrintColor::Yellow, true, 0, None, vec![]);
             false
         } else {
             let mut found_path = walk_vec[0].clone();
@@ -1003,9 +1003,9 @@ impl OPath {
 
             match &found_path {
                 OPath::Path(p) => {
-                    optima_print(&format!("Optima assets folder found at {:?}", p), PrintMode::Println, PrintColor::Green, true, 0, None, vec![]);
+                    oprint_full(&format!("Optima assets folder found at {:?}", p), PrintMode::Println, PrintColor::Green, true, 0, None, vec![]);
                     home_dir.append(".optima_asset_path.JSON");
-                    optima_print(&format!("Saved found path at {:?}", home_dir), PrintMode::Println, PrintColor::Green, true, 0, None, vec![]);
+                    oprint_full(&format!("Saved found path at {:?}", home_dir), PrintMode::Println, PrintColor::Green, true, 0, None, vec![]);
                     let path_to_assets_dir = PathToAssetsDir { path_to_assets_dir: p.clone() };
                     home_dir.save_object_to_file_as_json(&path_to_assets_dir).expect("error");
                     true
@@ -1134,7 +1134,10 @@ pub enum OAssetLocation<'a> {
     Chains,
     Chain { chain_name: &'a str },
     ChainOriginalMeshes { chain_name: &'a str },
-    ChainSTLMeshes { chain_name: &'a str }
+    ChainSTLMeshes { chain_name: &'a str },
+    ChainConvexHulls { chain_name: &'a str },
+    ChainConvexDecomposition { chain_name: &'a str },
+    LinkConvexDecomposition { chain_name: &'a str, link_mesh_name: &'a str }
 }
 impl<'a> OAssetLocation<'a> {
     pub fn get_path_wrt_asset_folder(&self) -> Vec<String> {
@@ -1247,6 +1250,21 @@ impl<'a> OAssetLocation<'a> {
             OAssetLocation::ChainSTLMeshes { chain_name } => {
                 let mut v = Self::Chain { chain_name }.get_path_wrt_asset_folder();
                 v.push("stl_meshes".to_string());
+                v
+            }
+            OAssetLocation::ChainConvexHulls { chain_name } => {
+                let mut v = Self::Chain { chain_name }.get_path_wrt_asset_folder();
+                v.push("convex_hulls".to_string());
+                v
+            }
+            OAssetLocation::ChainConvexDecomposition { chain_name } => {
+                let mut v = Self::Chain { chain_name }.get_path_wrt_asset_folder();
+                v.push("convex_decomposition".to_string());
+                v
+            }
+            OAssetLocation::LinkConvexDecomposition { chain_name, link_mesh_name } => {
+                let mut v = Self::ChainConvexDecomposition { chain_name }.get_path_wrt_asset_folder();
+                v.push(link_mesh_name.to_string());
                 v
             }
         }

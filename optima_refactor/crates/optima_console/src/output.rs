@@ -32,15 +32,20 @@ impl OptimaDebug {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
+pub fn oprint(s: &str, mode: PrintMode, color: PrintColor) {
+    oprint_full(s, mode, color, false, 0, None, vec![]);
+}
+
 /// Prints the given string with the given color.
 ///
 /// ## Example
 /// ```
-/// use optima_console::output::{optima_print, PrintColor, PrintMode};
-/// optima_print("test", PrintMode::Print, PrintColor::Blue, false, 0, None,vec![]);
+/// use optima_console::output::{oprint_full, PrintColor, PrintMode};
+/// oprint_full("test", PrintMode::Print, PrintColor::Blue, false, 0, None,vec![]);
 /// ```
 #[cfg(not(target_arch = "wasm32"))]
-pub fn optima_print(s: &str, mode: PrintMode, color: PrintColor, bolded: bool, num_indentation: usize, fill_character: Option<char>, leading_marks: Vec<(usize, &str)>) {
+pub fn oprint_full(s: &str, mode: PrintMode, color: PrintColor, bolded: bool, num_indentation: usize, fill_character: Option<char>, leading_marks: Vec<(usize, &str)>) {
     let mut string = "".to_string();
     let fill_character = match fill_character {
         None => { ' ' }
@@ -77,20 +82,20 @@ pub fn optima_print(s: &str, mode: PrintMode, color: PrintColor, bolded: bool, n
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn optima_print_new_line() {
-    optima_print("\n", PrintMode::Print, PrintColor::None, false, 0, None, vec![]);
+pub fn oprint_new_line() {
+    oprint_full("\n", PrintMode::Print, PrintColor::None, false, 0, None, vec![]);
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn optima_print_multi_entry(m: OptimaPrintMultiEntryCollection, num_indentation: usize, fill_character: Option<char>, leading_marks: Vec<(usize, &str)>) {
+pub fn oprint_multi_entry(m: OptimaPrintMultiEntryCollection, num_indentation: usize, fill_character: Option<char>, leading_marks: Vec<(usize, &str)>) {
     for (i, entry) in m.entries.iter().enumerate() {
         let mode = PrintMode::Print;
         let num_indentation = if i == 0 { num_indentation } else { if entry.add_space_before {1} else {0} };
         let fill_character = if i == 0 { fill_character.clone() } else { None };
         let leading_marks = if i == 0 { leading_marks.clone() } else { vec![] };
-        optima_print(&entry.line, mode, entry.color.clone(), entry.bolded, num_indentation, fill_character, leading_marks);
+        oprint_full(&entry.line, mode, entry.color.clone(), entry.bolded, num_indentation, fill_character, leading_marks);
     }
-    optima_print_new_line();
+    oprint_new_line();
     // print!("\n");
 }
 
@@ -152,12 +157,12 @@ pub fn optima_print(s: &str, mode: PrintMode, color: PrintColor, bolded: bool, n
 
 #[cfg(target_arch = "wasm32")]
 pub fn optima_print_new_line() {
-    optima_print("\n", PrintMode::Print, PrintColor::None, false, 0, None, vec![]);
+    oprint_full("\n", PrintMode::Print, PrintColor::None, false, 0, None, vec![]);
 }
 
 #[cfg(target_arch = "wasm32")]
 pub fn optima_print_multi_entry(m: OptimaPrintMultiEntryCollection, num_indentation: usize, fill_character: Option<char>) {
-    optima_print("multicolor line print not supported in WASM.", PrintMode::Print, PrintColor::None, false, 0);
+    oprint_full("multicolor line print not supported in WASM.", PrintMode::Print, PrintColor::None, false, 0);
 }
 
 /// Enum that is used in print_termion_string function.
