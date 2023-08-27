@@ -2,11 +2,14 @@ use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::PathBuf;
+use std::str::FromStr;
+use dae_parser::Document;
 use vfs::*;
 #[cfg(not(feature = "do_not_embed_assets"))]
 use rust_embed::RustEmbed;
 use serde::{Serialize, Deserialize, Serializer, Deserializer};
 use serde::de::DeserializeOwned;
+use stl_io::IndexedMesh;
 use walkdir::WalkDir;
 use crate::traits::{ToJsonString};
 use optima_console::output::{optima_print, PrintColor, PrintMode};
@@ -226,9 +229,6 @@ impl OStemCellPath {
         }
         return vec![];
     }
-    pub fn load_urdf(&self) -> Robot {
-        return self.try_function_on_all_optima_file_paths(OPath::load_urdf, "load_urdf");
-    }
     pub fn try_function_on_all_optima_file_paths<T>(&self, f: fn(&OPath) -> Result<T, String>, function_name: &str) -> T {
         let mut error_strings = vec![];
         for p in &self.optima_file_paths {
@@ -271,6 +271,22 @@ impl OStemCellPath {
             }
         }
         panic!("virtual path not found");
+    }
+}
+impl OStemCellPath {
+    pub fn load_urdf(&self) -> Robot {
+        return self.try_function_on_all_optima_file_paths(OPath::load_urdf, "load_urdf");
+    }
+    /*
+    pub fn load_dae(&self) -> Scene {
+        return self.try_function_on_all_optima_file_paths(OPath::load_dae, "load_dae");
+    }
+    */
+    pub fn load_dae(&self) -> Document {
+        return self.try_function_on_all_optima_file_paths(OPath::load_dae, "load_dae");
+    }
+    pub fn load_stl(&self) -> IndexedMesh {
+        return self.try_function_on_all_optima_file_paths(OPath::load_stl, "load_stl");
     }
 }
 
@@ -887,14 +903,6 @@ impl OPath {
 
         out
     }
-    pub fn load_urdf(&self) -> Result<Robot, String> {
-        let s = self.read_file_contents_to_string()?;
-        let robot = urdf_rs::read_from_string(&s);
-        return match robot {
-            Ok(robot) => { Ok(robot) }
-            Err(e) => { Err(format!("{:?}", e)) }
-        }
-    }
     fn directory_walk_standard_entry(optima_path: &mut OPath,
                                      out_vec: &mut Vec<OPath>,
                                      pattern: &OPathMatchingPattern) -> bool {
@@ -1007,6 +1015,59 @@ impl OPath {
         }
     }
 }
+impl OPath {
+    pub fn load_urdf(&self) -> Result<Robot, String> {
+        self.verify_extension(&vec!["urdf"])?;
+        let s = self.read_file_contents_to_string()?;
+        let robot = urdf_rs::read_from_string(&s);
+        return match robot {
+            Ok(robot) => { Ok(robot) }
+            Err(e) => { Err(format!("{:?}", e)) }
+        }
+    }
+    /*
+    pub fn load_dae(&self) -> Result<Scene, String> {
+        let contents = self.read_file_contents_to_string()?;
+        Ok( mesh_loader::collada::from_str(&contents).expect( &format!("there was an error loading dae. {:?}", self)) )
+    }
+    */
+    pub fn load_dae(&self) -> Result<Document, String> {
+        self.verify_extension(&vec!["dae", "DAE"])?;
+        let contents = self.read_file_contents_to_string()?;
+        Ok( Document::from_str(&contents).expect(&format!("there was an error loading dae. {:?}", self)) )
+    }
+    pub fn load_stl(&self) -> Result<IndexedMesh, String> {
+        self.verify_extension(&vec!["stl", "STL"])?;
+        return match self {
+            OPath::Path(p) => {
+                let mut file = File::open(p);
+                match &mut file {
+                    Ok(f) => {
+                        let read_res = stl_io::read_stl(f);
+                        match read_res {
+                            Ok(read) => { Ok(read) }
+                            Err(e) => { Err(e.to_string()) }
+                        }
+                    }
+                    Err(e) => { Err(e.to_string()) }
+                }
+            }
+            OPath::VfsPath(p) => {
+                let mut file = p.open_file();
+                match &mut file {
+                    Ok(f) => {
+                        let read_res = stl_io::read_stl(f);
+                        match read_res {
+                            Ok(read) => { Ok(read) }
+                            Err(e) => { Err(e.to_string()) }
+                        }
+                    }
+                    Err(e) => { Err(e.to_string()) }
+                }
+            }
+        }
+    }
+}
 
 /// Loads an object that implements the `Deserialize` trait from a deserialized json string.
 pub fn load_object_from_json_string<T: DeserializeOwned>(json_str: &str) -> Result<T, String> {
@@ -1049,7 +1110,7 @@ struct PathToAssetsDir {
 /// Asset folder location.  Will be used to easily access paths to these locations with respect to
 /// the asset folder.
 #[derive(Clone, Debug)]
-pub enum OAssetLocation {
+pub enum OAssetLocation<'a> {
     RobotSets,
     RobotSet { set_name: String },
     Robots,
@@ -1071,10 +1132,11 @@ pub enum OAssetLocation {
     SceneMeshFileConvexShapeSubcomponents { name: String },
     FileIO,
     Chains,
-    Chain { chain_name: String },
-    ChainOriginalMeshes { chain_name: String }
+    Chain { chain_name: &'a str },
+    ChainOriginalMeshes { chain_name: &'a str },
+    ChainSTLMeshes { chain_name: &'a str }
 }
-impl OAssetLocation {
+impl<'a> OAssetLocation<'a> {
     pub fn get_path_wrt_asset_folder(&self) -> Vec<String> {
         return match self {
             OAssetLocation::RobotSets => {
@@ -1174,12 +1236,17 @@ impl OAssetLocation {
             }
             OAssetLocation::Chain { chain_name } => {
                 let mut v = Self::Chains.get_path_wrt_asset_folder();
-                v.push(chain_name.clone());
+                v.push(chain_name.to_string());
                 v
             }
             OAssetLocation::ChainOriginalMeshes { chain_name } => {
-                let mut v = Self::Chain { chain_name: chain_name.clone() }.get_path_wrt_asset_folder();
-                v.push(chain_name.clone());
+                let mut v = Self::Chain { chain_name }.get_path_wrt_asset_folder();
+                v.push("original_meshes".to_string());
+                v
+            }
+            OAssetLocation::ChainSTLMeshes { chain_name } => {
+                let mut v = Self::Chain { chain_name }.get_path_wrt_asset_folder();
+                v.push("stl_meshes".to_string());
                 v
             }
         }

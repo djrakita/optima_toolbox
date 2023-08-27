@@ -73,6 +73,7 @@ pub struct OLink<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     #[serde(deserialize_with = "OInertial::<T, L>::deserialize")]
     inertial: OInertial<T, L>,
     pub (crate) original_mesh_file_path: Option<OStemCellPath>,
+    pub (crate) stl_mesh_file_path: Option<OStemCellPath>,
 }
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
     pub (crate) fn from_link(link: &Link) -> Self {
@@ -89,6 +90,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
             visual: link.visual.iter().map(|x| OVisual::from_visual(x)).collect(),
             inertial: OInertial::from_inertial(&link.inertial),
             original_mesh_file_path: None,
+            stl_mesh_file_path: None,
         }
     }
     pub fn new_manual(name: &str, collision: Vec<OCollision<T, P>>, visual: Vec<OVisual<T, P>>, inertial: OInertial<T, L>) -> Self {
@@ -105,6 +107,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
             visual,
             inertial,
             original_mesh_file_path: None,
+            stl_mesh_file_path: None,
         }
     }
     #[inline(always)]
@@ -130,6 +133,9 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
     }
     pub fn original_mesh_file_path(&self) -> &Option<OStemCellPath> {
         &self.original_mesh_file_path
+    }
+    pub fn stl_mesh_file_path(&self) -> &Option<OStemCellPath> {
+        &self.stl_mesh_file_path
     }
 }
 

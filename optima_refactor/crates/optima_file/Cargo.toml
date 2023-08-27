@@ -14,6 +14,8 @@ rust-embed = { version="*", features=["debug-embed", "interpolate-folder-path", 
 dirs = { version="*" }
 walkdir = { version="*" }
 urdf-rs = { version="0.7.2" }
+dae-parser = { version="0.10.0" }
+stl_io = { version="0.7.0" }
 
 # excludes have higher priority than includes.  Includes work based on union of sets, so if you use
 # even one include, you must then include everything else you want too.

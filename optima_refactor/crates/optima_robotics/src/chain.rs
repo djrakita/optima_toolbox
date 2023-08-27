@@ -2,12 +2,13 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use ad_trait::*;
-use nalgebra::Isometry3;
+use nalgebra::{Isometry3};
 use serde::{Serialize, Deserialize};
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_utils::arr_storage::*;
 use crate::utils::get_urdf_path_from_chain_name;
 use serde_with::*;
+use optima_3d_mesh::{SaveToSTL};
 use optima_file::path::{OAssetLocation, OPath, OPathMatchingPattern, OPathMatchingStopCondition, OStemCellPath};
 use optima_linalg::vecs_and_mats::{NalgebraLinalg, OLinalgTrait, OVec};
 use crate::robotics_components::*;
@@ -137,8 +138,57 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
     pub fn dof_to_joint_and_sub_dof_idxs(&self) -> &Vec<(usize, usize)> {
         &self.dof_to_joint_and_sub_dof_idxs
     }
-    pub fn forward_kinematics<V: OVec<T>>(&self, state: &V, base_offset: Option<&P>) -> Vec<Option<P>> {
-        todo!()
+    pub fn forward_kinematics<V: OVec<T>>(&self, state: &V, base_offset: Option<&P>) -> ChainFKResult<T, P> {
+        let mut out = vec![ None; self.links.len() ];
+
+        let base_pose = match base_offset {
+            None => { P::identity() }
+            Some(base_offset) => { base_offset.to_owned() }
+        };
+
+        self.kinematic_hierarchy.iter().enumerate().for_each(|(layer_idx, layer)| {
+            layer.iter().for_each(|link_idx| {
+                if layer_idx == 0 { out[*link_idx] = Some(base_pose.clone()) }
+                else {
+                    let link = &self.links[*link_idx];
+                    let parent_link_idx = link.parent_link_idx.unwrap();
+                    let parent_joint_idx = link.parent_joint_idx.unwrap();
+                    let transform = self.get_joint_transform(state, parent_joint_idx);
+                    let new_pose = out[parent_link_idx].as_ref().unwrap().mul(&transform);
+                    out[*link_idx] = Some(new_pose);
+                }
+            });
+        });
+
+        ChainFKResult { link_poses: out, _phantom_data: Default::default() }
+    }
+    pub fn forward_kinematics_floating_chain<V: OVec<T>>(&self, state: &V, start_link_idx: usize, end_link_idx: usize, base_offset: Option<&P>) -> ChainFKResult<T, P> {
+        let mut out = vec![ None; self.links.len() ];
+
+        let base_pose = match base_offset {
+            None => { P::identity() }
+            Some(base_offset) => { base_offset.to_owned() }
+        };
+
+        let link_chain = &self.links[start_link_idx].link_connection_paths[end_link_idx];
+        match link_chain {
+            None => {}
+            Some(link_chain) => {
+                link_chain.iter().enumerate().for_each(|(i, link_idx)| {
+                    if i == 0 { out[*link_idx] = Some(base_pose.clone()); }
+                    else {
+                        let link = &self.links[*link_idx];
+                        let parent_link_idx = link.parent_link_idx.unwrap();
+                        let parent_joint_idx = link.parent_joint_idx.unwrap();
+                        let transform = self.get_joint_transform(state, parent_joint_idx);
+                        let new_pose = out[parent_link_idx].as_ref().unwrap().mul(&transform);
+                        out[*link_idx] = Some(new_pose);
+                    }
+                });
+            }
+        }
+
+        ChainFKResult { link_poses: out, _phantom_data: Default::default() }
     }
     fn setup(&mut self) {
         self.set_link_and_joint_idxs();
@@ -147,8 +197,9 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
         self.set_chain_info();
         self.set_num_dofs();
         self.set_all_sub_dof_idxs();
-        self.set_link_original_mesh_file_paths();
         self.set_dof_to_joint_and_sub_dof_idxs();
+        self.set_link_original_mesh_file_paths();
+        self.set_link_stl_mesh_file_paths();
     }
 }
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
@@ -248,40 +299,6 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
             self.joints[i].dof_idxs_range = y.clone();
         })
     }
-    fn set_link_original_mesh_file_paths(&mut self) {
-        self.links.iter_mut().for_each(|x| {
-           if x.visual().len() > 0 {
-               let geometry = x.visual()[0].geometry().clone();
-               match geometry {
-                   OGeometry::Mesh { filename, .. } => {
-                       let split = filename.split("//");
-                       let split: Vec<String> = split.map(|x| x.to_string()).collect();
-                       let filepath = split.last().unwrap().to_owned();
-                       let split = filepath.split("/");
-                       let split: Vec<String> = split.map(|x| x.to_string()).collect();
-
-                       let file_check = split.last().unwrap().to_owned();
-                       let mut destination_path = OStemCellPath::new_asset_path();
-                       destination_path.append_file_location(&OAssetLocation::ChainOriginalMeshes { chain_name: self.chain_name.clone() });
-                       destination_path.append(&file_check);
-                       let exists = destination_path.exists();
-
-                       if !exists {
-                           let asset_path = OPath::new_home_path();
-                           let found_paths = asset_path.walk_directory_and_match(OPathMatchingPattern::PathComponents(split), OPathMatchingStopCondition::First);
-                           if found_paths.is_empty() {
-                               panic!("could not find filepath for link mesh: {:?}", filename);
-                           }
-
-                           let found_path = found_paths[0].clone();
-                           found_path.copy_file_to_destination(destination_path.as_physical_path()).expect("error: file could not be copied.");
-                       }
-                   }
-                   _ => { }
-               }
-           }
-        });
-    }
     fn set_dof_to_joint_and_sub_dof_idxs(&mut self) {
         let mut dof_to_joint_and_sub_dof_idxs = vec![];
 
@@ -292,6 +309,68 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
         });
 
         self.dof_to_joint_and_sub_dof_idxs = dof_to_joint_and_sub_dof_idxs;
+    }
+    fn set_link_original_mesh_file_paths(&mut self) {
+        self.links.iter_mut().for_each(|link| {
+            if link.visual().len() > 0 {
+                let geometry = link.visual()[0].geometry().clone();
+                match geometry {
+                    OGeometry::Mesh { filename, .. } => {
+                        let split = filename.split("//");
+                        let split: Vec<String> = split.map(|x| x.to_string()).collect();
+                        let filepath = split.last().unwrap().to_owned();
+                        let split = filepath.split("/");
+                        let split: Vec<String> = split.map(|x| x.to_string()).collect();
+
+                        let file_check = split.last().unwrap().to_owned();
+                        let mut target_path = OStemCellPath::new_asset_path();
+                        target_path.append_file_location(&OAssetLocation::ChainOriginalMeshes { chain_name: &self.chain_name });
+                        target_path.append(&file_check);
+                        let exists = target_path.exists();
+
+                        if !exists {
+                            let asset_path = OPath::new_home_path();
+                            println!("searching for mesh {:?}", filepath);
+                            let found_paths = asset_path.walk_directory_and_match(OPathMatchingPattern::PathComponents(split), OPathMatchingStopCondition::First);
+                            if found_paths.is_empty() {
+                                panic!("could not find filepath for link mesh: {:?}", filename);
+                            }
+
+                            let found_path = found_paths[0].clone();
+                            found_path.copy_file_to_destination(target_path.as_physical_path()).expect("error: file could not be copied.");
+                        }
+
+                        link.original_mesh_file_path = Some(target_path.clone());
+                    }
+                    _ => {}
+                }
+            }
+        });
+    }
+    fn set_link_stl_mesh_file_paths(&mut self) {
+        self.links.iter_mut().for_each(|link| {
+            let original_mesh_file_path = &link.original_mesh_file_path;
+            if let Some(original_mesh_file_path) = original_mesh_file_path {
+                let extension = original_mesh_file_path.extension().expect("must have extension");
+                let filename = original_mesh_file_path.filename_without_extension().expect("must have filename");
+                let mut target_path = OStemCellPath::new_asset_path();
+                target_path.append_file_location(&OAssetLocation::ChainSTLMeshes { chain_name: &self.chain_name });
+                target_path.append(&(filename.clone() + ".stl"));
+                let exists = target_path.exists();
+
+                if !exists {
+                    if extension.as_str() == "stl" || extension.as_str() == "STL" {
+                        original_mesh_file_path.load_stl().save_to_stl(&target_path);
+                    } else if extension.as_str() == "dae" || extension.as_str() == "DAE" {
+                        original_mesh_file_path.load_dae().save_to_stl(&target_path);
+                    } else {
+                        panic!("extension {} is unsupported.", extension);
+                    };
+                }
+
+                link.stl_mesh_file_path = Some(target_path.clone());
+            }
+        });
     }
 }
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ChainableTrait<T, P> for OChain<T, P, L> {
@@ -306,6 +385,23 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ChainableTrait<T, P> for OChain<T, P
     #[inline(always)]
     fn joints(&self) -> &Vec<Self::JointType> {
         &self.joints
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ChainFKResult<T: AD, P: O3DPose<T>> {
+    #[serde(deserialize_with = "Vec::<Option::<P>>::deserialize")]
+    pub (crate) link_poses: Vec<Option<P>>,
+    _phantom_data: PhantomData<T>
+}
+impl<T: AD, P: O3DPose<T>> ChainFKResult<T, P> {
+    #[inline]
+    pub fn link_poses(&self) -> &Vec<Option<P>> {
+        &self.link_poses
+    }
+    #[inline]
+    pub fn get_link_pose(&self, link_idx: usize) -> &Option<P> {
+        &self.link_poses[link_idx]
     }
 }
 

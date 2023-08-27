@@ -4,7 +4,7 @@ use ad_trait::AD;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_linalg::vecs_and_mats::{OLinalgTrait, OVec};
 use serde_with::*;
-use crate::chain::OChain;
+use crate::chain::{ChainFKResult, OChain};
 use crate::robotics_components::*;
 use crate::robotics_traits::{ChainableTrait, JointTrait};
 
@@ -18,12 +18,13 @@ pub struct ORobot<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     num_dofs: usize,
     base_chain_idx: usize,
     dof_to_joint_and_sub_dof_idxs: Vec<RobotJointIdx>,
-    _phantom_data: PhantomData<(T,P,L)>
+    _phantom_data: PhantomData<(T, P, L)>,
 }
+
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
     pub fn new_empty() -> Self {
         Self {
-            chain_wrappers: vec![ OChainWrapper::<T, P, L>::new_world_chain() ],
+            chain_wrappers: vec![OChainWrapper::<T, P, L>::new_world_chain()],
             macro_joints: vec![],
             kinematic_hierarchy: vec![],
             num_dofs: usize::default(),
@@ -44,10 +45,11 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
         let chain_wrapper = OChainWrapper {
             chain,
             chain_idx: new_chain_idx,
-            parent_joint_idx: None,
-            children_joint_idxs: vec![],
-            parent_link_idx: None,
-            children_link_idxs: vec![],
+            parent_macro_joint_idx: None,
+            children_macro_joint_idxs: vec![],
+            parent_chain_idx: None,
+            parent_link_idx_in_parent_chain: None,
+            children_chain_idxs: vec![],
             chain_connection_paths: vec![],
             dof_idxs: vec![],
             dof_idxs_range: None,
@@ -89,6 +91,86 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
     pub fn dof_to_joint_and_sub_dof_idxs(&self) -> &Vec<RobotJointIdx> {
         &self.dof_to_joint_and_sub_dof_idxs
     }
+    pub fn forward_kinematics<V: OVec<T>>(&self, state: &V, base_offset: Option<&P>) -> RobotFKResult<T, P> {
+        let mut out = vec![None; self.chain_wrappers.len()];
+
+        let base_pose = match base_offset {
+            None => { P::identity() }
+            Some(base_offset) => { base_offset.to_owned() }
+        };
+
+        self.chain_wrappers().iter().enumerate().for_each(|(chain_idx, chain_wrapper)| {
+            let dof_idxs_range = &chain_wrapper.dof_idxs_range;
+            if chain_idx == 0 {
+                let fk_res = match dof_idxs_range {
+                    None => { chain_wrapper.chain.forward_kinematics(&[], Some(&base_pose)) }
+                    Some(r) => { chain_wrapper.chain.forward_kinematics(&state.subslice(r.0, r.1), Some(&base_pose)) }
+                };
+                out[chain_idx] = Some(fk_res);
+            } else {
+                let parent_chain_idx = chain_wrapper.parent_chain_idx.unwrap();
+                let parent_link_idx_in_parent_chain = chain_wrapper.parent_link_idx_in_parent_chain.unwrap();
+                let parent_macro_joint_idx = chain_wrapper.parent_macro_joint_idx.unwrap();
+
+                let pose = out[parent_chain_idx].as_ref().unwrap().get_link_pose(parent_link_idx_in_parent_chain).as_ref().expect("pose must not be None");
+                let transform = self.get_macro_joint_transform(state, parent_macro_joint_idx);
+
+                let base_offset = pose.mul(&transform);
+
+                let fk_res = match dof_idxs_range {
+                    None => { chain_wrapper.chain.forward_kinematics(&[], Some(&base_pose)) }
+                    Some(r) => { chain_wrapper.chain.forward_kinematics(&state.subslice(r.0, r.1), Some(&base_offset)) }
+                };
+
+                out[chain_idx] = Some(fk_res);
+            }
+        });
+
+        RobotFKResult { chain_fk_results: out, _phantom_data: Default::default() }
+    }
+    pub fn forward_kinematics_floating_chain<V: OVec<T>>(&self, state: &V, start_chain_idx: usize, end_chain_idx: usize, base_offset: Option<&P>) -> RobotFKResult<T, P> {
+        let mut out = vec![None; self.chain_wrappers.len()];
+
+        let chain_path = &self.chain_wrappers[start_chain_idx].chain_connection_paths[end_chain_idx];
+        match chain_path {
+            None => {}
+            Some(chain_path) => {
+                let base_pose = match base_offset {
+                    None => { P::identity() }
+                    Some(base_offset) => { base_offset.to_owned() }
+                };
+                chain_path.iter().enumerate().for_each(|(i, chain_idx)| {
+                    let chain_wrapper = &self.chain_wrappers[*chain_idx];
+                    let dof_idxs_range = &chain_wrapper.dof_idxs_range;
+                    if i == 0 {
+                        let fk_res = match dof_idxs_range {
+                            None => { chain_wrapper.chain.forward_kinematics(&[], Some(&base_pose)) }
+                            Some(r) => { chain_wrapper.chain.forward_kinematics(&state.subslice(r.0, r.1), Some(&base_pose)) }
+                        };
+                        out[*chain_idx] = Some(fk_res);
+                    } else {
+                        let parent_chain_idx = chain_wrapper.parent_chain_idx.unwrap();
+                        let parent_link_idx_in_parent_chain = chain_wrapper.parent_link_idx_in_parent_chain.unwrap();
+                        let parent_macro_joint_idx = chain_wrapper.parent_macro_joint_idx.unwrap();
+
+                        let pose = out[parent_chain_idx].as_ref().unwrap().get_link_pose(parent_link_idx_in_parent_chain).as_ref().expect("pose must not be None");
+                        let transform = self.get_macro_joint_transform(state, parent_macro_joint_idx);
+
+                        let base_offset = pose.mul(&transform);
+
+                        let fk_res = match dof_idxs_range {
+                            None => { chain_wrapper.chain.forward_kinematics(&[], Some(&base_pose)) }
+                            Some(r) => { chain_wrapper.chain.forward_kinematics(&state.subslice(r.0, r.1), Some(&base_offset)) }
+                        };
+
+                        out[*chain_idx] = Some(fk_res);
+                    }
+                });
+            }
+        }
+
+        RobotFKResult { chain_fk_results: out, _phantom_data: Default::default() }
+    }
     fn setup(&mut self) {
         self.set_chain_info();
         self.set_num_dofs();
@@ -96,6 +178,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
         self.set_dof_to_joint_and_sub_dof_idxs();
     }
 }
+
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
     fn set_chain_info(&mut self) {
         let chain_info = self.compute_chain_info();
@@ -104,35 +187,39 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
         self.kinematic_hierarchy = chain_info.kinematic_hierarchy.clone();
 
         self.chain_wrappers.iter_mut().enumerate().for_each(|(i, x)| {
-            x.parent_joint_idx = chain_info.link_parent_joint[i].clone();
-            x.children_joint_idxs = chain_info.link_children_joints[i].clone();
-            x.parent_link_idx = chain_info.link_parent_link[i].clone();
-            x.children_link_idxs = chain_info.link_children_links[i].clone();
+            x.parent_macro_joint_idx = chain_info.link_parent_joint[i].clone();
+            if let Some(link_parent_joint_idx) = &chain_info.link_parent_joint[i] {
+                let macro_joint = self.macro_joints[*link_parent_joint_idx].clone();
+                x.parent_link_idx_in_parent_chain = Some(macro_joint.parent_link_idx_in_parent_chain);
+            }
+            x.children_macro_joint_idxs = chain_info.link_children_joints[i].clone();
+            x.parent_chain_idx = chain_info.link_parent_link[i].clone();
+            x.children_chain_idxs = chain_info.link_children_links[i].clone();
             x.chain_connection_paths = chain_info.link_connection_paths[i].clone();
         });
     }
     fn set_num_dofs(&mut self) {
         let mut num_dofs = 0;
-        self.chain_wrappers.iter().for_each(|x| num_dofs += x.chain.num_dofs() );
-        self.macro_joints.iter().for_each(|x| num_dofs += x.get_num_dofs() );
+        self.chain_wrappers.iter().for_each(|x| num_dofs += x.chain.num_dofs());
+        self.macro_joints.iter().for_each(|x| num_dofs += x.get_num_dofs());
 
         self.num_dofs = num_dofs;
     }
     fn set_all_sub_dof_idxs(&mut self) {
         let mut count = 0;
 
-        let mut macro_joint_sub_dof_idxs = vec![ vec![]; self.macro_joints.len() ];
-        let mut macro_joint_sub_dof_idxs_range = vec![ None; self.macro_joints.len() ];
-        let mut chain_sub_dof_idxs = vec![ vec![]; self.chain_wrappers.len() ];
-        let mut chain_sub_dof_idxs_range = vec![ None; self.chain_wrappers.len() ];
+        let mut macro_joint_sub_dof_idxs = vec![vec![]; self.macro_joints.len()];
+        let mut macro_joint_sub_dof_idxs_range = vec![None; self.macro_joints.len()];
+        let mut chain_sub_dof_idxs = vec![vec![]; self.chain_wrappers.len()];
+        let mut chain_sub_dof_idxs_range = vec![None; self.chain_wrappers.len()];
 
         let kinematic_hierarchy = &self.kinematic_hierarchy;
         for layer in kinematic_hierarchy {
             for chain_idx in layer {
                 // let parent_joint = self.chain_info.link_parent_joint(*chain_idx);
-                let parent_joint = self.chain_wrappers[*chain_idx].parent_joint_idx;
+                let parent_joint = self.chain_wrappers[*chain_idx].parent_macro_joint_idx;
                 match parent_joint {
-                    None => { }
+                    None => {}
                     Some(parent_joint) => {
                         let num_dofs = self.macro_joints[parent_joint].get_num_dofs();
                         if num_dofs > 0 {
@@ -171,7 +258,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
         });
     }
     fn set_dof_to_joint_and_sub_dof_idxs(&mut self) {
-        let mut dof_to_joint_and_sub_dof_idxs = vec![ RobotJointIdx::default(); self.num_dofs ];
+        let mut dof_to_joint_and_sub_dof_idxs = vec![RobotJointIdx::default(); self.num_dofs];
 
         self.macro_joints.iter().enumerate().for_each(|(macro_joint_idx, macro_joint)| {
             macro_joint.dof_idxs.iter().enumerate().for_each(|(i, dof_idx)| {
@@ -194,6 +281,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
         self.dof_to_joint_and_sub_dof_idxs = dof_to_joint_and_sub_dof_idxs;
     }
 }
+
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ChainableTrait<T, P> for ORobot<T, P, L> {
     type LinkType = OChainWrapper<T, P, L>;
     type JointType = OMacroJoint<T, P>;
@@ -212,25 +300,28 @@ pub struct OChainWrapper<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     #[serde(deserialize_with = "OChain::<T, P, L>::deserialize")]
     chain: OChain<T, P, L>,
     chain_idx: usize,
-    pub (crate) parent_joint_idx: Option<usize>,
-    pub (crate) children_joint_idxs: Vec<usize>,
-    pub (crate) parent_link_idx: Option<usize>,
-    pub (crate) children_link_idxs: Vec<usize>,
-    pub (crate) chain_connection_paths: Vec<Option<Vec<usize>>>,
+    pub(crate) parent_macro_joint_idx: Option<usize>,
+    pub(crate) children_macro_joint_idxs: Vec<usize>,
+    pub(crate) parent_chain_idx: Option<usize>,
+    pub(crate) parent_link_idx_in_parent_chain: Option<usize>,
+    pub(crate) children_chain_idxs: Vec<usize>,
+    pub(crate) chain_connection_paths: Vec<Option<Vec<usize>>>,
     dof_idxs: Vec<usize>,
-    dof_idxs_range: Option<(usize, usize)>
+    dof_idxs_range: Option<(usize, usize)>,
 }
+
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChainWrapper<T, P, L> {
     fn new_world_chain() -> Self {
         Self {
             chain: OChain::new_world_chain(),
             chain_idx: 0,
-            parent_joint_idx: None,
-            children_joint_idxs: vec![],
-            parent_link_idx: None,
-            children_link_idxs: vec![],
+            parent_macro_joint_idx: None,
+            children_macro_joint_idxs: vec![],
+            parent_chain_idx: None,
+            parent_link_idx_in_parent_chain: None,
+            children_chain_idxs: vec![],
             chain_connection_paths: vec![],
-            dof_idxs: vec![ ],
+            dof_idxs: vec![],
             dof_idxs_range: None,
         }
     }
@@ -251,38 +342,65 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChainWrapper<T, P, L> {
         &self.dof_idxs_range
     }
     #[inline(always)]
-    pub fn parent_joint_idx(&self) -> &Option<usize> {
-        &self.parent_joint_idx
-    }
-    #[inline(always)]
-    pub fn children_joint_idxs(&self) -> &Vec<usize> {
-        &self.children_joint_idxs
-    }
-    #[inline(always)]
-    pub fn parent_link_idx(&self) -> &Option<usize> {
-        &self.parent_link_idx
-    }
-    #[inline(always)]
-    pub fn children_link_idxs(&self) -> &Vec<usize> {
-        &self.children_link_idxs
-    }
-    #[inline(always)]
     pub fn chain_connection_paths(&self) -> &Vec<Option<Vec<usize>>> {
         &self.chain_connection_paths
+    }
+    #[inline(always)]
+    pub fn parent_macro_joint_idx(&self) -> &Option<usize> {
+        &self.parent_macro_joint_idx
+    }
+    #[inline(always)]
+    pub fn children_macro_joint_idxs(&self) -> &Vec<usize> {
+        &self.children_macro_joint_idxs
+    }
+    #[inline(always)]
+    pub fn parent_chain_idx(&self) -> &Option<usize> {
+        &self.parent_chain_idx
+    }
+    #[inline(always)]
+    pub fn children_chain_idxs(&self) -> &Vec<usize> {
+        &self.children_chain_idxs
+    }
+    #[inline(always)]
+    pub fn dof_idxs(&self) -> &Vec<usize> {
+        &self.dof_idxs
+    }
+    #[inline(always)]
+    pub fn dof_idxs_range(&self) -> &Option<(usize, usize)> {
+        &self.dof_idxs_range
     }
 }
 
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
-    pub (crate) fn new_world_chain() -> Self {
+    pub(crate) fn new_world_chain() -> Self {
         Self::from_manual("world", vec![OLink::new_manual("world_link", vec![], vec![], OInertial::new_zeros())], vec![])
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RobotFKResult<T: AD, P: O3DPose<T>> {
+    #[serde(deserialize_with = "Vec::<Option::<ChainFKResult<T, P>>>::deserialize")]
+    pub(crate) chain_fk_results: Vec<Option<ChainFKResult<T, P>>>,
+    _phantom_data: PhantomData<T>,
+}
+
+impl<T: AD, P: O3DPose<T>> RobotFKResult<T, P> {
+    #[inline]
+    pub fn chain_fk_results(&self) -> &Vec<Option<ChainFKResult<T, P>>> {
+        &self.chain_fk_results
+    }
+    #[inline]
+    pub fn get_chain_fk_result(&self, chain_idx: usize) -> &Option<ChainFKResult<T, P>> {
+        &self.chain_fk_results[chain_idx]
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum RobotJointIdx {
     ChainJoint { chain_idx: usize, joint_idx: usize, sub_dof_idx: usize },
-    MacroJoint { macro_joint_idx: usize, sub_dof_idx: usize }
+    MacroJoint { macro_joint_idx: usize, sub_dof_idx: usize },
 }
+
 impl Default for RobotJointIdx {
     fn default() -> Self {
         Self::ChainJoint {

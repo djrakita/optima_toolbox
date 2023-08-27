@@ -50,7 +50,7 @@ impl OLinalgTrait for NdarrayLinalg {
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum OVecType {
-    Arr, Vec, ArrayVec, DVector, SVector, NDarray,
+    Slice, Arr, Vec, ArrayVec, DVector, SVector, NDarray,
 }
 
 pub trait OVec<T: AD> : Debug + Clone {
@@ -67,6 +67,65 @@ pub trait OVec<T: AD> : Debug + Clone {
     fn get_element_mut(&mut self, i: usize) -> &mut T;
     fn set_element(&mut self, i: usize, element: T);
     fn len(&self) -> usize;
+}
+
+impl<T: AD> OVec<T> for &[T] {
+    #[inline]
+    fn type_identifier() -> OVecType {
+        OVecType::Slice
+    }
+
+    #[inline]
+    fn from_slice_ovec(_slice: &[T]) -> Self {
+        panic!("cannot make slice from slice.")
+    }
+
+    #[inline]
+    fn as_slice_ovec(&self) -> &[T] {
+        self
+    }
+
+    #[inline]
+    fn dot(&self, other: &Self) -> T {
+        let mut out = T::zero();
+        self.iter().zip(other.iter()).for_each(|(x, y)| out +=  *x * *y);
+        out
+    }
+
+    #[inline]
+    fn add(&self, _other: &Self) -> Self {
+        panic!("cannot do general math on slice")
+    }
+
+    #[inline]
+    fn sub(&self, _other: &Self) -> Self {
+        panic!("cannot do general math on slice")
+    }
+
+    #[inline]
+    fn scalar_mul(&self, _scalar: &T) -> Self {
+        panic!("cannot do general math on slice")
+    }
+
+    #[inline]
+    fn get_element(&self, i: usize) -> &T {
+        &self[i]
+    }
+
+    #[inline]
+    fn get_element_mut(&mut self, _i: usize) -> &mut T {
+        panic!("cannot get mutable element on immutable slice")
+    }
+
+    #[inline]
+    fn set_element(&mut self, _i: usize, _element: T) {
+        panic!("cannot set mutable element on immutable slice")
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        <[T]>::len(self)
+    }
 }
 
 impl<T: AD, const N: usize> OVec<T> for [T; N] {

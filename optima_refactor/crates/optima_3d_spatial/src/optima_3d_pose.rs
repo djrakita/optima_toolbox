@@ -31,6 +31,14 @@ pub trait O3DPose<T: AD> :
     fn update_rotation_native(&mut self, rotation: &Self::RotationType);
     fn update_rotation_direct<R: O3DRotation<T>>(&mut self, rotation: &R);
     fn mul(&self, other: &Self) -> Self;
+    fn mul_by_point_native(&self, point: &<Self::RotationType as O3DRotation<T>>::Native3DVecType) -> <Self::RotationType as O3DRotation<T>>::Native3DVecType {
+        self.rotation().mul_by_point_native(point).add(self.translation())
+    }
+    fn mul_by_point_generic<V: O3DVec<T>>(&self, point: &V) -> V {
+        let tmp = <Self::RotationType as O3DRotation<T>>::Native3DVecType::from_slice(point.as_slice());
+        let res = self.mul_by_point_native(&tmp);
+        V::from_slice(res.as_slice())
+    }
     fn inverse(&self) -> Self;
     fn displacement(&self, other: &Self) -> Self;
     fn dis(&self, other: &Self) -> T;
