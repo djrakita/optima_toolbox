@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ad_trait   = { path = "/Users/djrakita/Documents/ad_trait" }
+ad_trait = { git = "https://github.com/djrakita/ad_trait" }
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 optima_file = { path = "../optima_file" }
 serde = { version="*", features = ["derive"] }
