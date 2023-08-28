@@ -10,6 +10,7 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_utils/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_linalg/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_3d_mesh/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/optima_network/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
     </content>
     <orderEntry type="inheritedJdk" />
