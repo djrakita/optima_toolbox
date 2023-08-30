@@ -20,7 +20,8 @@ members = [
     "crates/optima_utils",
     "crates/optima_linalg",
     "crates/optima_3d_mesh",
-    "crates/optima_network"
+    "crates/optima_network",
+    "crates/optima_optimization"
 ]
 
 [dependencies]

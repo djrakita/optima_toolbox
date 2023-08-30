@@ -57,6 +57,7 @@ pub trait OVec<T: AD> : Debug + Clone {
     fn type_identifier() -> OVecType;
     fn from_slice_ovec(slice: &[T]) -> Self;
     fn as_slice_ovec(&self) -> &[T];
+    fn as_mut_slice_ovec(&mut self) -> &mut [T];
     /// start idx is inclusive, end idx is exclusive
     fn subslice(&self, start: usize, end: usize) -> &[T] { &self.as_slice_ovec()[start..end]  }
     fn dot(&self, other: &Self) -> T;
@@ -83,6 +84,10 @@ impl<T: AD> OVec<T> for &[T] {
     #[inline]
     fn as_slice_ovec(&self) -> &[T] {
         self
+    }
+
+    fn as_mut_slice_ovec(&mut self) -> &mut [T] {
+        panic!("cannot borrow a slice as slice mut")
     }
 
     #[inline]
@@ -148,6 +153,11 @@ impl<T: AD, const N: usize> OVec<T> for [T; N] {
     }
 
     #[inline]
+    fn as_mut_slice_ovec(&mut self) -> &mut [T] {
+        self.as_mut_slice()
+    }
+
+    #[inline]
     fn dot(&self, other: &Self) -> T {
         let mut out = T::zero();
         self.iter().zip(other.iter()).for_each(|(x, y)| out +=  *x * *y);
@@ -210,6 +220,11 @@ impl<T: AD> OVec<T> for Vec<T> {
     #[inline]
     fn as_slice_ovec(&self) -> &[T] {
         self.as_slice()
+    }
+
+    #[inline]
+    fn as_mut_slice_ovec(&mut self) -> &mut [T] {
+        self.as_mut_slice()
     }
 
     #[inline]
@@ -280,6 +295,11 @@ impl<T: AD, const M: usize> OVec<T> for ArrayVec<T, M> {
     }
 
     #[inline]
+    fn as_mut_slice_ovec(&mut self) -> &mut [T] {
+        self.as_mut_slice()
+    }
+
+    #[inline]
     fn dot(&self, other: &Self) -> T {
         let mut out = T::zero();
         self.iter().zip(other.iter()).for_each(|(x, y)| out +=  *x * *y);
@@ -345,6 +365,11 @@ impl<T: AD> OVec<T> for DVector<T> {
     }
 
     #[inline]
+    fn as_mut_slice_ovec(&mut self) -> &mut [T] {
+        self.as_mut_slice()
+    }
+
+    #[inline]
     fn dot(&self, other: &Self) -> T {
         self.dot(other)
     }
@@ -402,6 +427,11 @@ impl<T: AD, const N: usize> OVec<T> for SVector<T, N> {
     }
 
     #[inline]
+    fn as_mut_slice_ovec(&mut self) -> &mut [T] {
+        self.as_mut_slice()
+    }
+
+    #[inline]
     fn dot(&self, other: &Self) -> T {
         self.dot(other)
     }
@@ -456,6 +486,11 @@ impl<T: AD> OVec<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     #[inline]
     fn as_slice_ovec(&self) -> &[T] {
         self.as_slice().unwrap()
+    }
+
+    #[inline]
+    fn as_mut_slice_ovec(&mut self) -> &mut [T] {
+        self.as_slice_mut().unwrap()
     }
 
     #[inline]
