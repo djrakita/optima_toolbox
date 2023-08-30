@@ -4,21 +4,31 @@ use serde_json;
 use std::vec;
 use serde::{Serialize, Deserialize};
 
+#[derive(serde_derive::Serialize, serde_derive::Deserialize, Debug)]
+pub struct Message {
+    pub content: String,
+}
+
+/// A UDP client that provides methods for sending and receiving messages.
 pub struct UdpClient {
     socket: UdpSocket,
 }
 
 impl UdpClient {
+    /// Creates a new instance of the UDP client.
     pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
         let socket = UdpSocket::bind("0.0.0.0:0")?;
         Ok(UdpClient { socket })
     }
 
+    /// Ensures a connection to the specified server address.
     pub fn ensure_connection(&self, server_address: &str) -> Result<(), Box<dyn std::error::Error>> {
+        // Check if the socket is already connected to the specified address
         self.socket.connect(server_address)?;
         Ok(())
     }
 
+    /// Sends a message to the specified server address.
     pub fn send_message<T>(&self, server_address: &str, message: &T) -> Result<(), Box<dyn std::error::Error>>
     where
         T: Serialize,
@@ -33,6 +43,7 @@ impl UdpClient {
         Ok(())
     }
 
+    /// Receives a message from the UDP socket.
     pub fn receive_message<T>(&self) -> Result<T, Box<dyn std::error::Error>>
     where
         T: serde::de::DeserializeOwned,
