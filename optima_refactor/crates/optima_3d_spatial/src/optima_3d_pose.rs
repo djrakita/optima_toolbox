@@ -16,7 +16,7 @@ pub enum O3DPoseType {
 }
 
 pub trait O3DPose<T: AD> :
-    Clone + Debug + Serialize + for<'a> Deserialize<'a>
+    Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync
 {
     type RotationType: O3DRotation<T>;
 

@@ -1,9 +1,15 @@
+use ad_trait::AD;
 use bevy::app::App;
 use bevy::DefaultPlugins;
 use bevy::pbr::PbrBundle;
 use bevy::prelude::{Assets, ClearColor, Color, Commands, Mesh, Msaa, PluginGroup, ResMut, shape, StandardMaterial, Startup, Update, Window};
 use bevy::window::WindowPlugin;
+use bevy_stl::StlPlugin;
+use optima_3d_spatial::optima_3d_pose::O3DPose;
+use optima_linalg::OLinalgTrait;
+use optima_robotics::robot::ORobot;
 use crate::optima_bevy_utils::camera::CameraSystems;
+use crate::optima_bevy_utils::robot::{BevyORobot, RobotSystems};
 
 pub fn bevy_base(app: &mut App) {
     app
@@ -17,7 +23,8 @@ pub fn bevy_base(app: &mut App) {
                 }),
                 ..Default::default()
             })
-        );
+        )
+        .add_plugins(StlPlugin);
 }
 
 pub fn bevy_pan_orbit_camera(app: &mut App) {
@@ -28,6 +35,11 @@ pub fn bevy_pan_orbit_camera(app: &mut App) {
 
 pub fn spawn_cube(app: &mut App) {
     app.add_systems(Update, spawn_cube_sys);
+}
+
+pub fn spawn_robot<T: AD, P: O3DPose<T> + 'static, L: OLinalgTrait + 'static>(app: &mut App, robot: ORobot<T, P, L>) {
+    app.insert_resource(BevyORobot(robot));
+    app.add_systems(Startup, RobotSystems::system_spawn_robot_links::<T, P, L>);
 }
 
 fn spawn_cube_sys(mut commands: Commands,

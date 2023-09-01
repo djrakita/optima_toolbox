@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use std::marker::PhantomData;
 use ad_trait::AD;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
-use optima_linalg::vecs_and_mats::{OLinalgTrait, OVec};
+use optima_linalg::{OLinalgTrait, OVec};
 use serde_with::*;
 use crate::chain::{ChainFKResult, OChain};
 use crate::robotics_components::*;
@@ -32,6 +32,14 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
             dof_to_joint_and_sub_dof_idxs: vec![],
             _phantom_data: Default::default(),
         }
+    }
+    pub fn new_from_single_chain(chain: OChain<T, P, L>) -> Self {
+        let mut out = Self::new_empty();
+        out.add_chain(chain, 0, 0, &P::identity(), [T::zero(); 3], OJointType::Fixed, OJointLimit::default());
+        out
+    }
+    pub fn new_from_single_chain_name(chain_name: &str) -> Self {
+        Self::new_from_single_chain(OChain::from_urdf(chain_name))
     }
     pub fn add_chain(&mut self, chain: OChain<T, P, L>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, origin: &P, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>) {
         assert!(parent_chain_idx <= self.chain_wrappers.len());

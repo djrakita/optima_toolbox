@@ -1,5 +1,5 @@
 use optima_3d_spatial::optima_3d_pose::{ImplicitDualQuaternion};
-use optima_linalg::vecs_and_mats::NalgebraLinalg;
+use optima_linalg::NalgebraLinalg;
 use optima_robotics::chain::OChain;
 use optima_robotics::robotics_traits::ChainableTrait;
 

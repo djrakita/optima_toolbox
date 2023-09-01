@@ -16,7 +16,7 @@ pub enum O3DRotationType {
 
 /// Point is the "native vector" type that serve as the native type that this rotation multiplies by
 pub trait O3DRotation<T: AD> :
-    Clone + Debug + Serialize + for<'a> Deserialize<'a>{
+    Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync {
     type Native3DVecType: O3DVec<T>;
 
     fn type_identifier() -> O3DRotationType;

@@ -11,7 +11,7 @@ use serde_with::*;
 use optima_3d_mesh::{SaveToSTL, ToTriMesh};
 use optima_console::output::{oprint, PrintColor, PrintMode};
 use optima_file::path::{OAssetLocation, OPath, OPathMatchingPattern, OPathMatchingStopCondition, OStemCellPath};
-use optima_linalg::vecs_and_mats::{NalgebraLinalg, OLinalgTrait, OVec};
+use optima_linalg::{NalgebraLinalg, OLinalgTrait, OVec};
 use crate::robotics_components::*;
 use crate::robotics_traits::{ChainableTrait, JointTrait};
 

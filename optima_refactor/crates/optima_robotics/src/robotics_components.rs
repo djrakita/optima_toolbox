@@ -5,11 +5,11 @@ use urdf_rs::{Collision, Color, Dynamics, Geometry, Inertial, Joint, JointLimit,
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_3d_spatial::optima_3d_rotation::{O3DRotation};
 use optima_3d_spatial::optima_3d_vec::O3DVec;
-use optima_linalg::vecs_and_mats::{OLinalgTrait, OMat};
+use optima_linalg::{OLinalgTrait, OMat};
 use serde_with::*;
 use crate::robotics_traits::JointTrait;
 use ad_trait::SerdeAD;
-use optima_linalg::vecs_and_mats::SerdeOMat;
+use optima_linalg::SerdeOMat;
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
 use optima_file::path::OStemCellPath;
 

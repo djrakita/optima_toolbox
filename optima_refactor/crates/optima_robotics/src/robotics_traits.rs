@@ -1,7 +1,7 @@
 use ad_trait::AD;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_3d_spatial::optima_3d_rotation::ScaledAxis;
-use optima_linalg::vecs_and_mats::{OLinalgTrait, OVec};
+use optima_linalg::{OLinalgTrait, OVec};
 use optima_utils::arr_storage::ImmutArrTraitRaw;
 use crate::robotics_components::{ChainInfo, ODynamics, OJointType, OMimic, OPose, OSafetyController};
 

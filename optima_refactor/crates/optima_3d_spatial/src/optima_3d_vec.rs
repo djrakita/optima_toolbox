@@ -14,7 +14,7 @@ pub enum O3DVecType {
 }
 
 pub trait O3DVec<T: AD> :
-    Clone + Debug + Serialize + for<'a> Deserialize<'a>
+    Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync
 {
     fn type_identifier() -> O3DVecType;
     fn x(&self) -> T;

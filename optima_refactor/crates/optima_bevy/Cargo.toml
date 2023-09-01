@@ -7,5 +7,9 @@ edition = "2021"
 
 [dependencies]
 ad_trait = { git = "https://github.com/djrakita/ad_trait" }
+optima_robotics = { path = "../optima_robotics" }
 optima_3d_spatial = { path = "../optima_3d_spatial" }
+optima_linalg = { path = "../optima_linalg" }
+optima_file = { path = "../optima_file" }
 bevy = { version="0.11.2", features = ["dynamic_linking"] }
+bevy_stl = { version = "0.11.0", features = ["wireframe"] }
