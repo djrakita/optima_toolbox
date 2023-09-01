@@ -1,9 +1,6 @@
-use std::time::Instant;
 use ad_trait::AD;
-use ad_trait::differentiable_function::{DifferentiableFunctionTrait, FiniteDifferencing, ForwardAD, ForwardADMulti, ReverseAD};
-use ad_trait::forward_ad::adf::{adf_f32x16, adf_f32x2, adf_f32x4};
-use ad_trait::forward_ad::adfn::adfn;
-use nalgebra::DVector;
+use ad_trait::differentiable_function::{DifferentiableFunctionTrait, FiniteDifferencing, ForwardADMulti};
+use ad_trait::forward_ad::adf::adf_f32x2;
 use optimization_engine::panoc::PANOCCache;
 use optima_optimization::GradientBasedOptimizerTrait;
 use optima_optimization::optimization_engine::{OpEnSimple, OpEnSimpleArgs};

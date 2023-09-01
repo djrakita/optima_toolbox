@@ -178,7 +178,6 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
         self.set_dof_to_joint_and_sub_dof_idxs();
     }
 }
-
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
     fn set_chain_info(&mut self) {
         let chain_info = self.compute_chain_info();
@@ -281,7 +280,6 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
         self.dof_to_joint_and_sub_dof_idxs = dof_to_joint_and_sub_dof_idxs;
     }
 }
-
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ChainableTrait<T, P> for ORobot<T, P, L> {
     type LinkType = OChainWrapper<T, P, L>;
     type JointType = OMacroJoint<T, P>;
