@@ -1,0 +1,16 @@
+udp_server:
+  host: "127.0.0.1"  # UDP server host
+  port: 8080         # UDP server port
+
+ros_server:
+  host: "localhost"  # ROS server host
+  port: 9090         # ROS server port
+
+topics:
+  - name: /udp_received
+    message_type: std_msgs/String
+    publish: true     # This is a publishing topic
+
+  - name: /other_topic
+    message_type: std_msgs/String
+    publish: false    # This is a subscribing topic
