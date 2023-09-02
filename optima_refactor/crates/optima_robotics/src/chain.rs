@@ -81,7 +81,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
     }
     #[inline(always)]
     pub fn get_link_idx_from_link_name(&self, link_name: &str) -> usize {
-        *self.link_name_to_link_idx_map.get(link_name).expect("error")
+        *self.link_name_to_link_idx_map.get(link_name).expect(&format!("link name {} not found", link_name))
     }
     #[inline(always)]
     pub fn get_joint_idx_from_joint_name(&self, joint_name: &str) -> usize {

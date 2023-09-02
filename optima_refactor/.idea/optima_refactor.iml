@@ -12,9 +12,13 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_3d_mesh/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_network/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_optimization/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/optima_bevy/optima_bevy_egui/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/optima_bevy/optima_bevy_robotics/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/optima_bevy/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_bevy/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_network/examples" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
+      <excludeFolder url="file://$MODULE_DIR$/crates/optima_bevy/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

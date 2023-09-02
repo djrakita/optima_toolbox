@@ -13,7 +13,7 @@ impl TransformUtils {
         let r = pose_new.rotation().unit_quaternion_as_wxyz_slice();
 
         return Transform {
-            translation: Vec3::new( t.x().to_constant() as f32, t.y().to_constant() as f32, t.y().to_constant() as f32 ),
+            translation: Vec3::new( t.x().to_constant() as f32, t.y().to_constant() as f32, t.z().to_constant() as f32 ),
             rotation: Quat::from_xyzw( r[1].to_constant() as f32, r[2].to_constant() as f32, r[3].to_constant() as f32, r[0].to_constant() as f32 ),
             ..Default::default()
         }

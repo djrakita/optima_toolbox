@@ -1,12 +1,15 @@
 use serde::{Serialize, Deserialize};
 use std::marker::PhantomData;
 use ad_trait::AD;
+use nalgebra::Isometry3;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
-use optima_linalg::{OLinalgTrait, OVec};
+use optima_linalg::{NalgebraLinalg, OLinalgTrait, OVec};
 use serde_with::*;
 use crate::chain::{ChainFKResult, OChain};
 use crate::robotics_components::*;
 use crate::robotics_traits::{ChainableTrait, JointTrait};
+
+pub type ORobotDefault<T> = ORobot<T, Isometry3<T>, NalgebraLinalg>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ORobot<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
