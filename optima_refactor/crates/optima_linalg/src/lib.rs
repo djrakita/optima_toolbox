@@ -68,6 +68,9 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync  {
     fn get_element_mut(&mut self, i: usize) -> &mut T;
     fn set_element(&mut self, i: usize, element: T);
     fn len(&self) -> usize;
+    fn to_constant_vec(&self) -> Vec<f64> {
+        self.as_slice_ovec().iter().map(|x| x.to_constant()).collect()
+    }
 }
 
 impl<T: AD> OVec<T> for &[T] {

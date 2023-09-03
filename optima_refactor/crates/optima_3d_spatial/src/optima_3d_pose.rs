@@ -23,7 +23,7 @@ pub trait O3DPose<T: AD> :
     fn type_identifier() -> O3DPoseType;
     fn identity() -> Self;
     fn from_translation_and_rotation<V: O3DVec<T>, R: O3DRotation<T>>(translation: &V, rotation: &R) -> Self;
-    fn from_translation_and_rotation_constructor<V: O3DVec<T>, RC: O3DRotationConstructor<T, Self::RotationType>>(translation: &V, rotation_constructor: &RC) -> Self;
+    fn from_constructors<V: O3DVec<T>, RC: O3DRotationConstructor<T, Self::RotationType>>(translation: &V, rotation_constructor: &RC) -> Self;
     fn translation(&self) -> &<Self::RotationType as O3DRotation<T>>::Native3DVecType;
     fn rotation(&self) -> &Self::RotationType;
     fn update_translation(&mut self, translation: &[T]);
@@ -54,7 +54,7 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
     }
 
     fn identity() -> Self {
-        Self::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &[T::zero(), T::zero(), T::zero()])
+        Self::from_constructors(&[T::zero(), T::zero(), T::zero()], &[T::zero(), T::zero(), T::zero()])
     }
 
     fn from_translation_and_rotation<V: O3DVec<T>, R: O3DRotation<T>>(location: &V, orientation: &R) -> Self {
@@ -66,7 +66,7 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
         }
     }
 
-    fn from_translation_and_rotation_constructor<V: O3DVec<T>, RC: O3DRotationConstructor<T, Self::RotationType>>(translation: &V, rotation_constructor: &RC) -> Self {
+    fn from_constructors<V: O3DVec<T>, RC: O3DRotationConstructor<T, Self::RotationType>>(translation: &V, rotation_constructor: &RC) -> Self {
         let translation = Vector3::from_column_slice(translation.as_slice());
         let rotation = rotation_constructor.construct();
 
@@ -148,14 +148,14 @@ impl<T: AD> O3DPose<T> for Isometry3<T> {
     }
 
     fn identity() -> Self {
-        Self::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &[T::zero(), T::zero(), T::zero()])
+        Self::from_constructors(&[T::zero(), T::zero(), T::zero()], &[T::zero(), T::zero(), T::zero()])
     }
 
     fn from_translation_and_rotation<V: O3DVec<T>, R: O3DRotation<T>>(translation: &V, rotation: &R) -> Self {
         Isometry3::from_parts(Translation3::new(translation.x(), translation.y(), translation.z()), UnitQuaternion::from_scaled_axis(Vector3::from_column_slice(&rotation.scaled_axis_of_rotation())))
     }
 
-    fn from_translation_and_rotation_constructor<V: O3DVec<T>, RC: O3DRotationConstructor<T, Self::RotationType>>(translation: &V, rotation_constructor: &RC) -> Self {
+    fn from_constructors<V: O3DVec<T>, RC: O3DRotationConstructor<T, Self::RotationType>>(translation: &V, rotation_constructor: &RC) -> Self {
         let rotation = rotation_constructor.construct();
         Self::from_translation_and_rotation(translation, &rotation)
     }

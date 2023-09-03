@@ -26,34 +26,34 @@ pub trait JointTrait<T: AD, P: O3DPose<T>> {
                 assert_eq!(joint_values_subslice.len(), 1);
                 let axis = self.axis();
                 let axis = axis.scalar_mul(&joint_values_subslice[0]);
-                P::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
+                P::from_constructors(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
             }
             OJointType::Continuous => {
                 assert_eq!(joint_values_subslice.len(), 1);
                 let axis = self.axis();
                 let axis = axis.scalar_mul(&joint_values_subslice[0]);
-                P::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
+                P::from_constructors(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
             }
             OJointType::Prismatic => {
                 assert_eq!(joint_values_subslice.len(), 1);
                 let axis = self.axis();
                 let axis = axis.scalar_mul(&joint_values_subslice[0]);
-                P::from_translation_and_rotation_constructor(&axis, &[T::zero(), T::zero(), T::zero()])
+                P::from_constructors(&axis, &[T::zero(), T::zero(), T::zero()])
             }
             OJointType::Fixed => {
                 P::identity()
             }
             OJointType::Floating => {
                 assert_eq!(joint_values_subslice.len(), 6);
-                P::from_translation_and_rotation_constructor(&[joint_values_subslice[0], joint_values_subslice[1], joint_values_subslice[2]], &ScaledAxis([joint_values_subslice[3], joint_values_subslice[4], joint_values_subslice[5]]))
+                P::from_constructors(&[joint_values_subslice[0], joint_values_subslice[1], joint_values_subslice[2]], &ScaledAxis([joint_values_subslice[3], joint_values_subslice[4], joint_values_subslice[5]]))
             }
             OJointType::Planar => {
                 assert_eq!(joint_values_subslice.len(), 2);
-                P::from_translation_and_rotation_constructor(&[joint_values_subslice[0], joint_values_subslice[1], T::zero()], &[T::zero(), T::zero(), T::zero()])
+                P::from_constructors(&[joint_values_subslice[0], joint_values_subslice[1], T::zero()], &[T::zero(), T::zero(), T::zero()])
             }
             OJointType::Spherical => {
                 assert_eq!(joint_values_subslice.len(), 3);
-                P::from_translation_and_rotation_constructor(&[T::zero(), T::zero(), T::zero()], &ScaledAxis([joint_values_subslice[0], joint_values_subslice[1], joint_values_subslice[2]]))
+                P::from_constructors(&[T::zero(), T::zero(), T::zero()], &ScaledAxis([joint_values_subslice[0], joint_values_subslice[1], joint_values_subslice[2]]))
             }
         }
     }

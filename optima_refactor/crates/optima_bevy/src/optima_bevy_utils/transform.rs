@@ -8,7 +8,7 @@ use optima_3d_spatial::optima_3d_vec::O3DVec;
 pub struct TransformUtils;
 impl TransformUtils {
     pub fn util_convert_3d_pose_to_y_up_bevy_transform<T: AD, P: O3DPose<T>>(pose: &P) -> Transform {
-        let pose_new = P::from_translation_and_rotation_constructor(&[T::zero(),T::zero(),T::zero()], &[T::constant(-std::f64::consts::FRAC_PI_2), T::zero(), T::zero()]).mul(pose);
+        let pose_new = P::from_constructors(&[T::zero(),T::zero(),T::zero()], &[T::constant(-std::f64::consts::FRAC_PI_2), T::zero(), T::zero()]).mul(pose);
         let t = pose_new.translation();
         let r = pose_new.rotation().unit_quaternion_as_wxyz_slice();
 

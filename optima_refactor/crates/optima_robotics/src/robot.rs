@@ -103,6 +103,8 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
         &self.dof_to_joint_and_sub_dof_idxs
     }
     pub fn forward_kinematics<V: OVec<T>>(&self, state: &V, base_offset: Option<&P>) -> RobotFKResult<T, P> {
+        assert_eq!(self.num_dofs(), state.len(), "The state length {} must match the number of dofs {}", state.len(), self.num_dofs());
+
         let mut out = vec![None; self.chain_wrappers.len()];
 
         let base_pose = match base_offset {

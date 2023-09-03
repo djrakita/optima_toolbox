@@ -14,3 +14,4 @@ optima_file = { path = "../optima_file" }
 optima_bevy_egui = { path = "optima_bevy_egui" }
 bevy = { version="0.11.2", features = ["dynamic_linking"] }
 bevy_stl = { version = "0.11.0", features = ["wireframe"] }
+nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }

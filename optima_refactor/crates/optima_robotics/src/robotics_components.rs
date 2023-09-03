@@ -745,7 +745,7 @@ impl<T: AD, P: O3DPose<T>> OPose<T, P> {
         let rpy: Vec<T> = pose.rpy.0.iter().map(|x| T::constant(*x)).collect();
         let xyz: Vec<T> = pose.xyz.0.iter().map(|x| T::constant(*x)).collect();
 
-        let pose = P::from_translation_and_rotation_constructor(&xyz, &rpy);
+        let pose = P::from_constructors(&xyz, &rpy);
 
         Self {
             pose,
