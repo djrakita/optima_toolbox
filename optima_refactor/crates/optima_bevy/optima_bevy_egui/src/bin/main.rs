@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::{EguiContexts, EguiPlugin};
 use bevy_egui::egui::{Color32, Pos2, Visuals};
-use optima_bevy_egui::{OEguiButton, OEguiContainerTrait, OEguiEngine, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSlider, OEguiWindow, OEguiWindowPosition};
+use optima_bevy_egui::{OEguiButton, OEguiContainerTrait, OEguiEngine, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSlider, OEguiWindow};
 use optima_bevy_egui::OEguiWidgetTrait;
 
 fn main() {

@@ -11,6 +11,7 @@ use serde_with::*;
 use optima_3d_mesh::{SaveToSTL, ToTriMesh};
 use optima_console::output::{oprint, PrintColor, PrintMode};
 use optima_file::path::{OAssetLocation, OPath, OPathMatchingPattern, OPathMatchingStopCondition, OStemCellPath};
+use optima_file::traits::{FromJsonString, ToJsonString};
 use optima_linalg::{NalgebraLinalg, OLinalgTrait, OVec};
 use crate::robotics_components::*;
 use crate::robotics_traits::{ChainableTrait, JointTrait};
@@ -78,6 +79,14 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
         out.setup();
 
         out
+    }
+    pub fn to_new_generic_types<T2: AD, P2: O3DPose<T2>, L2: OLinalgTrait>(&self) -> OChain<T2, P2, L2> {
+        let json_str = self.to_json_string();
+        OChain::<T2, P2, L2>::from_json_string(&json_str)
+    }
+    pub fn to_new_generic_types_default<T2: AD>(&self) -> OChainDefault<T2> {
+        let json_str = self.to_json_string();
+        OChainDefault::<T2>::from_json_string(&json_str)
     }
     #[inline(always)]
     pub fn get_link_idx_from_link_name(&self, link_name: &str) -> usize {

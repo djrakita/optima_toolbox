@@ -5,6 +5,7 @@ use nalgebra::Isometry3;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_linalg::{NalgebraLinalg, OLinalgTrait, OVec};
 use serde_with::*;
+use optima_file::traits::{FromJsonString, ToJsonString};
 use crate::chain::{ChainFKResult, OChain};
 use crate::robotics_components::*;
 use crate::robotics_traits::{ChainableTrait, JointTrait};
@@ -43,6 +44,14 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
     }
     pub fn new_from_single_chain_name(chain_name: &str) -> Self {
         Self::new_from_single_chain(OChain::from_urdf(chain_name))
+    }
+    pub fn to_new_generic_types<T2: AD, P2: O3DPose<T2>, L2: OLinalgTrait>(&self) -> ORobot<T2, P2, L2> {
+        let json_str = self.to_json_string();
+        ORobot::<T2, P2, L2>::from_json_string(&json_str)
+    }
+    pub fn to_new_generic_types_default<T2: AD>(&self) -> ORobotDefault<T2> {
+        let json_str = self.to_json_string();
+        ORobotDefault::<T2>::from_json_string(&json_str)
     }
     pub fn add_chain(&mut self, chain: OChain<T, P, L>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, origin: &P, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>) {
         assert!(parent_chain_idx <= self.chain_wrappers.len());
