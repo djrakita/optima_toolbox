@@ -21,6 +21,6 @@ pub fn test_script<T: AD, P: O3DPose<T> + 'static, L: OLinalgTrait + 'static>(ro
 fn tt<T: AD, P: O3DPose<T> + 'static, L: OLinalgTrait + 'static>(keys: Res<Input<KeyCode>>,
                                                                  mut updater: ResMut<UpdaterRobotState>) {
     if keys.just_pressed(KeyCode::Space) {
-        updater.add_update_request(0, &[0.2; 18])
+        updater.add_update_request(0, &[0.2; 24])
     }
 }

@@ -6,3 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+optima_file = { path="../../optima_file" }
+bevy = { version="0.11.2", features = ["dynamic_linking"] }
+bevy_egui = { version = "0.21" }
+serde = { version="*", features = ["derive"] }
