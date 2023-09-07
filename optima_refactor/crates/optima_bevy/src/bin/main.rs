@@ -12,6 +12,6 @@ fn main() {
 
     test_script(robot);
     */
-    let c = OChainDefault::<f64>::from_urdf("lite6");
+    let c = OChainDefault::<f64>::from_urdf("b1");
     c.bevy_display();
 }

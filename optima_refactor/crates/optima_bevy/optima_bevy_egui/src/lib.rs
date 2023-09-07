@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::egui;
 use bevy_egui::egui::{Align2, Color32, Context, Id, Pos2, Response, Ui, Visuals};
+use bevy_egui::egui::panel::{Side, TopBottomSide};
 use optima_file::traits::{FromRonString, ToRonString};
 
 #[derive(Resource)]
@@ -17,6 +18,8 @@ impl OEguiEngineWrapper {
 pub struct OEguiEngine {
     ui_contains_pointer: bool,
     window_states: HashMap<String, OEguiWindowState>,
+    side_panel_states: HashMap<String, OEguiSidePanelState>,
+    top_bottom_panel_states: HashMap<String, OEguiTopBottomPanelState>,
     button_responses: HashMap<String, OEguiButtonResponse>,
     slider_responses: HashMap<String, OEguiSliderResponse>,
     checkbox_responses: HashMap<String, OEguiCheckboxResponse>,
@@ -28,6 +31,8 @@ impl OEguiEngine {
         Self {
             ui_contains_pointer: false,
             window_states: Default::default(),
+            side_panel_states: Default::default(),
+            top_bottom_panel_states: Default::default(),
             button_responses: Default::default(),
             slider_responses: Default::default(),
             checkbox_responses: Default::default(),
@@ -53,6 +58,17 @@ impl OEguiEngine {
             }
         }
     }
+    pub fn close_window(&mut self, id_str: &str) {
+        let window_state = self.window_states.get_mut(id_str);
+        match window_state {
+            None => {
+                self.window_states.insert(id_str.to_string(), OEguiWindowState::new(false, Pos2::default(), false));
+            }
+            Some(window_state) => {
+                window_state.open = false;
+            }
+        }
+    }
     pub fn set_position_of_window(&mut self, id_str: &str, pos: egui::Pos2) {
         let window_state = self.window_states.get_mut(id_str);
         match window_state {
@@ -62,6 +78,50 @@ impl OEguiEngine {
             Some(window_state) => {
                 window_state.position = pos;
                 window_state.change_position = true;
+            }
+        }
+    }
+    pub fn open_side_panel(&mut self, id_str: &str) {
+        let state = self.side_panel_states.get_mut(id_str);
+        match state {
+            None => {
+                self.side_panel_states.insert(id_str.to_string(), OEguiSidePanelState { open: true });
+            }
+            Some(state) => {
+                state.open = true;
+            }
+        }
+    }
+    pub fn close_side_panel(&mut self, id_str: &str) {
+        let state = self.side_panel_states.get_mut(id_str);
+        match state {
+            None => {
+                self.side_panel_states.insert(id_str.to_string(), OEguiSidePanelState { open: false });
+            }
+            Some(state) => {
+                state.open = false;
+            }
+        }
+    }
+    pub fn open_top_bottom_panel(&mut self, id_str: &str) {
+        let state = self.side_panel_states.get_mut(id_str);
+        match state {
+            None => {
+                self.top_bottom_panel_states.insert(id_str.to_string(), OEguiTopBottomPanelState { open: true });
+            }
+            Some(state) => {
+                state.open = true;
+            }
+        }
+    }
+    pub fn close_top_bottom_panel(&mut self, id_str: &str) {
+        let state = self.side_panel_states.get_mut(id_str);
+        match state {
+            None => {
+                self.top_bottom_panel_states.insert(id_str.to_string(), OEguiTopBottomPanelState { open: false });
+            }
+            Some(state) => {
+                state.open = false;
             }
         }
     }
@@ -505,4 +565,102 @@ pub enum OEguiWindowPosition {
     DefaultPositionFromState
 }
 
+pub struct OEguiSidePanel {
+    side: Side,
+    default_width: f32
+}
+impl OEguiSidePanel {
+    pub fn new(side: Side, default_width: f32) -> Self {
+        Self {
+            side,
+            default_width,
+        }
+    }
+}
+impl OEguiContainerTrait for OEguiSidePanel {
+    type Args = ();
+
+    fn show<R, F: FnOnce(&mut Ui) -> R>(&self, id_str: &str, ctx: &Context, egui_engine: &Res<OEguiEngineWrapper>, window_query: &Query<&Window, With<PrimaryWindow>>, _args: &Self::Args, add_contents: F) {
+        let mutex_guard = egui_engine.get_mutex_guard();
+        let saved_state = mutex_guard.side_panel_states.get(id_str);
+        match saved_state {
+            None => {
+                drop(mutex_guard);
+                let mut egui_engine_mutex = egui_engine.get_mutex_guard();
+                egui_engine_mutex.side_panel_states.insert(id_str.to_string(), OEguiSidePanelState { open: true });
+                return;
+            }
+            Some(saved_state) => {
+                let open = saved_state.open;
+                drop(mutex_guard);
+                egui::SidePanel::new(self.side, id_str.to_string())
+                    .default_width(self.default_width)
+                    .show_animated(ctx, open, |ui| {
+                        add_contents(ui);
+                        let ui_contains_pointer = self.does_ui_contain_cursor(ui, 3.0, 3.0, 32.0, 10.0, window_query);
+                        if ui_contains_pointer {
+                            let mut egui_engine_mutex = egui_engine.get_mutex_guard();
+                            egui_engine_mutex.ui_contains_pointer = true;
+                        }
+                    });
+            }
+        }
+    }
+}
+
+pub struct OEguiSidePanelState {
+    open: bool
+}
+impl OEguiSidePanelState {
+    pub fn open(&self) -> bool {
+        self.open
+    }
+}
+
+pub struct OEguiTopBottomPanel {
+    side: TopBottomSide,
+    default_height: f32
+}
+impl OEguiTopBottomPanel {
+    pub fn new(side: TopBottomSide, default_height: f32) -> Self {
+        Self {
+            side,
+            default_height,
+        }
+    }
+}
+impl OEguiContainerTrait for OEguiTopBottomPanel {
+    type Args = ();
+
+    fn show<R, F: FnOnce(&mut Ui) -> R>(&self, id_str: &str, ctx: &Context, egui_engine: &Res<OEguiEngineWrapper>, window_query: &Query<&Window, With<PrimaryWindow>>, _args: &Self::Args, add_contents: F) {
+        let mutex_guard = egui_engine.get_mutex_guard();
+        let saved_state = mutex_guard.top_bottom_panel_states.get(id_str);
+        match saved_state {
+            None => {
+                drop(mutex_guard);
+                let mut egui_engine_mutex = egui_engine.get_mutex_guard();
+                egui_engine_mutex.top_bottom_panel_states.insert(id_str.to_string(), OEguiTopBottomPanelState { open: true });
+                return;
+            }
+            Some(saved_state) => {
+                let open = saved_state.open;
+                drop(mutex_guard);
+                egui::TopBottomPanel::new(self.side, id_str.to_string())
+                    .default_height(self.default_height)
+                    .show_animated(ctx, open, |ui| {
+                        add_contents(ui);
+                        let ui_contains_pointer = self.does_ui_contain_cursor(ui, 3.0, 3.0, 32.0, 10.0, window_query);
+                        if ui_contains_pointer {
+                            let mut egui_engine_mutex = egui_engine.get_mutex_guard();
+                            egui_engine_mutex.ui_contains_pointer = true;
+                        }
+                    });
+            }
+        }
+    }
+}
+
+pub struct OEguiTopBottomPanelState {
+    open: bool
+}
 
