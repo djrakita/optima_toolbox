@@ -15,6 +15,12 @@ pub enum O3DPoseType {
     ImplicitDualQuaternion, NalgebraIsometry3
 }
 
+pub trait O3DPoseCategoryTrait :
+    Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync
+{
+    type P<T: AD> : O3DPose<T>;
+}
+
 pub trait O3DPose<T: AD> :
     Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync
 {
@@ -139,6 +145,11 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
         }
     }
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct O3DPoseCategoryImplicitDualQuaternion;
+impl O3DPoseCategoryTrait for O3DPoseCategoryImplicitDualQuaternion {
+    type P<T: AD> = ImplicitDualQuaternion<T>;
+}
 
 impl<T: AD> O3DPose<T> for Isometry3<T> {
     type RotationType = UnitQuaternion<T>;
@@ -209,6 +220,11 @@ impl<T: AD> O3DPose<T> for Isometry3<T> {
     fn interpolate(&self, to: &Self, t: T) -> Self {
         self.lerp_slerp(to, t)
     }
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct O3DPoseCategoryIsometry3;
+impl O3DPoseCategoryTrait for O3DPoseCategoryIsometry3 {
+    type P<T: AD> = Isometry3<T>;
 }
 
 pub trait O3DLieAlgebraPose<T: AD> : O3DPose<T> {

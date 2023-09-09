@@ -27,7 +27,7 @@ fn main() {
     let opt_args = OpEnSimpleArgs::new(PANOCCache::new(2, 1e-5, 3), [1.,2.]);
     let mut solver = DerivBasedOptSolver::<Test, ForwardAD, OpEnSimple<_>>::new((), (), (), opt_args);
 
-    solver.opt_args_mut().state = [300., 4.];
+    solver.opt_args_mut().state = [0.5, 2.];
 
     let res = solver.optimize();
     println!("{:?}", res);

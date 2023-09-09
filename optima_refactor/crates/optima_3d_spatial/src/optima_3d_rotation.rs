@@ -14,6 +14,12 @@ pub enum O3DRotationType {
     NalgebraRotation3, NalgebraUnitQuaternion
 }
 
+pub trait O3DRotationCategoryTrait :
+    Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync
+{
+    type R<T: AD> : O3DRotation<T>;
+}
+
 /// Point is the "native vector" type that serve as the native type that this rotation multiplies by
 pub trait O3DRotation<T: AD> :
     Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync {
@@ -135,6 +141,11 @@ impl<T: AD> O3DRotation<T> for Rotation3<T> {
         self.slerp(to, t)
     }
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct O3DRotationCategoryRotation3;
+impl O3DRotationCategoryTrait for O3DRotationCategoryRotation3 {
+    type R<T: AD> = Rotation3<T>;
+}
 
 impl<T: AD> O3DRotation<T> for UnitQuaternion<T> {
     type Native3DVecType = Vector3<T>;
@@ -223,6 +234,11 @@ impl<T: AD> O3DRotation<T> for UnitQuaternion<T> {
     fn interpolate(&self, to: &Self, t: T) -> Self {
         self.slerp(to, t)
     }
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct O3DRotationCategoryUnitQuaternion;
+impl O3DRotationCategoryTrait for O3DRotationCategoryUnitQuaternion {
+    type R<T: AD> = UnitQuaternion<T>;
 }
 
 pub fn o3d_rotation_custom_serialize<S, T: AD, R: O3DRotation<T>>(value: &R, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {

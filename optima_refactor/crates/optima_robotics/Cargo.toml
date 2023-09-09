@@ -7,12 +7,14 @@ edition = "2021"
 
 [dependencies]
 ad_trait = { git = "https://github.com/djrakita/ad_trait" }
+# ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
 optima_file = { path = "../optima_file" }
 optima_utils = { path = "../optima_utils" }
 optima_3d_spatial = { path = "../optima_3d_spatial" }
 optima_linalg = { path = "../optima_linalg" }
 optima_3d_mesh = { path = "../optima_3d_mesh" }
 optima_console = { path = "../optima_console" }
+optima_optimization = { path = "../optima_optimization" }
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 urdf-rs = { version="0.7.2" }
 arrayvec = { version="0.7.4", features = ["serde"] }

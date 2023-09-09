@@ -13,6 +13,12 @@ pub enum O3DVecType {
     Arr, Vec, NalgebraVector3, NalgebraPoint3
 }
 
+pub trait O3DVecCategoryTrait :
+    Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync
+{
+    type V<T: AD>: O3DVec<T>;
+}
+
 pub trait O3DVec<T: AD> :
     Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync
 {
@@ -104,6 +110,11 @@ impl<T: AD> O3DVec<T> for [T; 3] {
         self.sub(other).norm()
     }
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct O3DVecCategoryArr;
+impl O3DVecCategoryTrait for O3DVecCategoryArr {
+    type V<T: AD> = [T; 3];
+}
 
 impl<T: AD> O3DVec<T> for Vec<T> {
     #[inline(always)]
@@ -170,6 +181,11 @@ impl<T: AD> O3DVec<T> for Vec<T> {
     fn dis(&self, other: &Self) -> T {
         self.sub(other).norm()
     }
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct O3DVecCategoryVec;
+impl O3DVecCategoryTrait for O3DVecCategoryVec {
+    type V<T: AD> = Vec<T>;
 }
 
 impl<T: AD> O3DVec<T> for Vector3<T> {
@@ -241,6 +257,11 @@ impl<T: AD> O3DVec<T> for Vector3<T> {
         (self - other).norm()
     }
 }
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct O3DVecCategoryVector3;
+impl O3DVecCategoryTrait for O3DVecCategoryVector3 {
+    type V<T: AD> = Vector3<T>;
+}
 
 impl<T: AD> O3DVec<T> for Point3<T> {
     #[inline(always)]
@@ -293,6 +314,11 @@ impl<T: AD> O3DVec<T> for Point3<T> {
     fn dis(&self, other: &Self) -> T {
         (self - other).norm()
     }
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct O3DVecCategoryPoint3;
+impl O3DVecCategoryTrait for O3DVecCategoryPoint3 {
+    type V<T: AD> = Point3<T>;
 }
 
 pub fn o3d_vec_custom_serialize<S, T: AD, V: O3DVec<T>>(value: &V, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
