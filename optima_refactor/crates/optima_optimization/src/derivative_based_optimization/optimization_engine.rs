@@ -3,19 +3,26 @@ use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFun
 use optimization_engine::core::SolverStatus;
 use optimization_engine::panoc::{PANOCCache, PANOCOptimizer};
 use optimization_engine::{constraints, Optimizer, Problem, SolverError};
-use optima_linalg::vecs_and_mats::OVec;
-use crate::GradientBasedOptimizerTrait;
-
+use optima_linalg::OVec;
+use crate::derivative_based_optimization::DerivBasedOptTrait;
 
 pub struct OpEnSimpleArgs<V: OVec<f64>> {
     pub cache: PANOCCache,
     pub state: V
 }
+impl<V: OVec<f64>> OpEnSimpleArgs<V> {
+    pub fn new(cache: PANOCCache, state: V) -> Self {
+        Self {
+            cache,
+            state,
+        }
+    }
+}
 
-pub struct OpEnSimple<V: OVec<f64>> { _phantom_data: PhantomData<V> }
-impl<V: OVec<f64>> GradientBasedOptimizerTrait for OpEnSimple<V> {
-    type OptArgs = OpEnSimpleArgs<V>;
+pub struct OpEnSimple<V: OVec<f64>>(PhantomData<V>);
+impl<V: OVec<f64>> DerivBasedOptTrait for OpEnSimple<V> {
     type OptOutput = SolverStatus;
+    type OptArgs = OpEnSimpleArgs<V>;
 
     fn optimize<D, E>(call_args: &D::ArgsType<f64>, grad_args: &D::ArgsType<E::T>, grad_method_data: &E::DerivativeMethodData, opt_args: &mut Self::OptArgs) -> Self::OptOutput where D: DifferentiableFunctionTrait, E: DerivativeMethodTrait {
         let df = |u: &[f64], grad: &mut [f64]| -> Result<(), SolverError> {

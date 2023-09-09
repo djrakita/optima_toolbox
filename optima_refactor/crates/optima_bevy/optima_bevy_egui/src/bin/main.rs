@@ -2,9 +2,9 @@ use std::sync::Mutex;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::{EguiContexts, EguiPlugin};
-use bevy_egui::egui::{Color32, Pos2, Visuals};
+use bevy_egui::egui::{Color32, Pos2, Rounding, Visuals};
 use bevy_egui::egui::panel::{Side, TopBottomSide};
-use optima_bevy_egui::{OEguiButton, OEguiContainerTrait, OEguiEngine, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSidePanel, OEguiSlider, OEguiTopBottomPanel, OEguiTopBottomPanelState, OEguiWindow};
+use optima_bevy_egui::{OEguiButton, OEguiContainerTrait, OEguiEngine, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSidePanel, OEguiSlider, OEguiTopBottomPanel, OEguiWindow};
 use optima_bevy_egui::OEguiWidgetTrait;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 
@@ -61,7 +61,6 @@ fn ui_example_system(mut contexts: EguiContexts, egui_engine: Res<OEguiEngineWra
             OEguiButton::new("hello")
                 .show("button4", ui, &egui_engine, &());
         });
-
 
     if keys.pressed(KeyCode::B) {
         egui_engine.get_mutex_guard().close_side_panel("side_panel");

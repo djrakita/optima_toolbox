@@ -1,9 +1,8 @@
 use ad_trait::AD;
-use ad_trait::differentiable_function::{DifferentiableFunctionTrait, FiniteDifferencing, ForwardADMulti};
-use ad_trait::forward_ad::adf::adf_f32x2;
+use ad_trait::differentiable_function::{DifferentiableFunctionTrait, ForwardAD};
 use optimization_engine::panoc::PANOCCache;
-use optima_optimization::GradientBasedOptimizerTrait;
-use optima_optimization::optimization_engine::{OpEnSimple, OpEnSimpleArgs};
+use optima_optimization::derivative_based_optimization::{DerivBasedOptSolver};
+use optima_optimization::derivative_based_optimization::optimization_engine::{OpEnSimple, OpEnSimpleArgs};
 
 pub struct Test;
 impl DifferentiableFunctionTrait for Test {
@@ -25,28 +24,11 @@ impl DifferentiableFunctionTrait for Test {
 }
 
 fn main() {
-    let mut a = OpEnSimpleArgs {
-        cache: PANOCCache::new(2, 1e-5, 3),
-        state: vec![3., 3.],
-    };
+    let opt_args = OpEnSimpleArgs::new(PANOCCache::new(2, 1e-5, 3), [1.,2.]);
+    let mut solver = DerivBasedOptSolver::<Test, ForwardAD, OpEnSimple<_>>::new((), (), (), opt_args);
 
-    let res = OpEnSimple::optimize::<Test, FiniteDifferencing>(&(), &(), &(), &mut a);
+    solver.opt_args_mut().state = [300., 4.];
+
+    let res = solver.optimize();
     println!("{:?}", res);
-
-    let mut a = OpEnSimpleArgs {
-        cache: PANOCCache::new(2, 1e-5, 3),
-        state: vec![3., 4.],
-    };
-
-    let res = OpEnSimple::optimize::<Test, ForwardADMulti<adf_f32x2>>(&(), &(), &(), &mut a);
-    println!("{:?}", res);
-
-    let mut a = OpEnSimpleArgs {
-        cache: PANOCCache::new(2, 1e-5, 3),
-        state: vec![2., 4.],
-    };
-
-    let res = OpEnSimple::optimize::<Test, ForwardADMulti<adf_f32x2>>(&(), &(), &(), &mut a);
-    println!("{:?}", res);
-    println!("{:?}", a.state);
 }

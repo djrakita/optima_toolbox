@@ -2,6 +2,7 @@ use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::math::Vec3;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use bevy_mod_picking::prelude::RaycastPickCamera;
 use crate::optima_bevy_utils::transform::TransformUtils;
 
 pub struct CameraActions;
@@ -10,11 +11,15 @@ impl CameraActions {
         let translation = TransformUtils::util_convert_z_up_vec3_to_y_up_bevy_vec3(location);
         let radius = translation.length();
 
-        commands.spawn(Camera3dBundle {
+        commands.spawn((Camera3dBundle {
             transform: Transform::from_translation(translation)
                 .looking_at(Vec3::ZERO, Vec3::Y),
             ..Default::default()
-        }).insert(PanOrbitCamera {
+        },
+                        RaycastPickCamera::default(),
+                        bevy_transform_gizmo::GizmoPickSource::default()
+
+        )).insert(PanOrbitCamera {
             radius,
             ..Default::default()
         });

@@ -3,13 +3,18 @@ use std::sync::{Mutex, MutexGuard};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::egui;
-use bevy_egui::egui::{Align2, Color32, Context, Id, Pos2, Response, Ui, Visuals};
+use bevy_egui::egui::{Align2, Color32, Context, Id, Pos2, Response, Ui};
 use bevy_egui::egui::panel::{Side, TopBottomSide};
 use optima_file::traits::{FromRonString, ToRonString};
 
 #[derive(Resource)]
 pub struct OEguiEngineWrapper(pub Mutex<OEguiEngine>);
 impl OEguiEngineWrapper {
+    pub fn new() -> Self {
+        Self {
+            0: Mutex::new(OEguiEngine::new()),
+        }
+    }
     pub fn get_mutex_guard(&self) -> MutexGuard<OEguiEngine> {
         self.0.lock().unwrap()
     }
@@ -125,17 +130,44 @@ impl OEguiEngine {
             }
         }
     }
-    pub fn set_style(&self, ctx: &Context) {
-        let mut visuals = Visuals::dark();
-        visuals.widgets.noninteractive.bg_fill = Color32::from_rgba_premultiplied(150, 20, 20, 10);
-        ctx.set_visuals(visuals);
+    pub fn set_style(ctx: &Context) {
+        let alpha = 150;
+        let alpha2 = 200;
+        // let blue = 100;
+
+        let mut style = (*ctx.style()).clone();
+        let c = style.visuals.window_fill.clone();
+        style.visuals.window_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha);
+        let c = style.visuals.panel_fill.clone();
+        style.visuals.panel_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha);
+        let c = style.visuals.widgets.noninteractive.bg_fill.clone();
+        style.visuals.widgets.noninteractive.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        style.visuals.widgets.noninteractive.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        let c = style.visuals.widgets.active.bg_fill.clone();
+        style.visuals.widgets.active.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        style.visuals.widgets.active.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        let c = style.visuals.widgets.open.bg_fill.clone();
+        style.visuals.widgets.open.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        style.visuals.widgets.open.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        let c = style.visuals.widgets.inactive.bg_fill.clone();
+        style.visuals.widgets.inactive.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        style.visuals.widgets.inactive.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        let c = style.visuals.widgets.hovered.bg_fill.clone();
+        style.visuals.widgets.hovered.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        style.visuals.widgets.hovered.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        style.visuals.window_stroke.color = Color32::from_rgba_unmultiplied(255, 255, 255, alpha);
+        style.visuals.window_stroke.width /= 2.0;
+        let mut s = style.visuals.window_shadow.clone();
+        s.extrusion += 100.0;
+
+        ctx.set_style(style);
     }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[macro_export]
-macro_rules! egui_engine_widget_helpers {
+macro_rules! egui_engine_helpers {
     ($fn_name: tt, $field_name: tt, $r: tt) => {
         #[allow(dead_code)]
         impl OEguiEngine {
@@ -147,11 +179,14 @@ macro_rules! egui_engine_widget_helpers {
     }
 }
 
-egui_engine_widget_helpers!(get_button_response, button_responses, OEguiButtonResponse);
-egui_engine_widget_helpers!(get_slider_response, slider_responses, OEguiSliderResponse);
-egui_engine_widget_helpers!(get_checkbox_response, checkbox_responses, OEguiCheckboxResponse);
-egui_engine_widget_helpers!(get_radiobutton_response, radiobutton_responses, OEguiRadiobuttonResponse);
-egui_engine_widget_helpers!(get_selector_response, selector_responses, OEguiSelectorResponse);
+egui_engine_helpers!(get_button_response, button_responses, OEguiButtonResponse);
+egui_engine_helpers!(get_slider_response, slider_responses, OEguiSliderResponse);
+egui_engine_helpers!(get_checkbox_response, checkbox_responses, OEguiCheckboxResponse);
+egui_engine_helpers!(get_radiobutton_response, radiobutton_responses, OEguiRadiobuttonResponse);
+egui_engine_helpers!(get_selector_response, selector_responses, OEguiSelectorResponse);
+egui_engine_helpers!(get_window_state, window_states, OEguiWindowState);
+egui_engine_helpers!(get_side_panel_state, side_panel_states, OEguiSidePanelState);
+egui_engine_helpers!(get_top_bottom_panel_state, top_bottom_panel_states, OEguiTopBottomPanelState);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -496,6 +531,8 @@ impl OEguiContainerTrait for OEguiWindow {
     type Args = ();
 
     fn show<R, F: FnOnce(&mut Ui) -> R>(&self, id_str: &str, ctx: &Context, egui_engine: &Res<OEguiEngineWrapper>, window_query: &Query<&Window, With<PrimaryWindow>>, _args: &Self::Args, add_contents: F ) {
+        OEguiEngine::set_style(ctx);
+
         let egui_engine_mutex = egui_engine.0.lock().unwrap();
         let saved_state = egui_engine_mutex.window_states.get(id_str);
         match saved_state {
@@ -581,6 +618,8 @@ impl OEguiContainerTrait for OEguiSidePanel {
     type Args = ();
 
     fn show<R, F: FnOnce(&mut Ui) -> R>(&self, id_str: &str, ctx: &Context, egui_engine: &Res<OEguiEngineWrapper>, window_query: &Query<&Window, With<PrimaryWindow>>, _args: &Self::Args, add_contents: F) {
+        OEguiEngine::set_style(ctx);
+
         let mutex_guard = egui_engine.get_mutex_guard();
         let saved_state = mutex_guard.side_panel_states.get(id_str);
         match saved_state {
@@ -633,6 +672,8 @@ impl OEguiContainerTrait for OEguiTopBottomPanel {
     type Args = ();
 
     fn show<R, F: FnOnce(&mut Ui) -> R>(&self, id_str: &str, ctx: &Context, egui_engine: &Res<OEguiEngineWrapper>, window_query: &Query<&Window, With<PrimaryWindow>>, _args: &Self::Args, add_contents: F) {
+        OEguiEngine::set_style(ctx);
+
         let mutex_guard = egui_engine.get_mutex_guard();
         let saved_state = mutex_guard.top_bottom_panel_states.get(id_str);
         match saved_state {
@@ -663,4 +704,10 @@ impl OEguiContainerTrait for OEguiTopBottomPanel {
 pub struct OEguiTopBottomPanelState {
     open: bool
 }
+impl OEguiTopBottomPanelState {
+    pub fn open(&self) -> bool {
+        self.open
+    }
+}
+
 
