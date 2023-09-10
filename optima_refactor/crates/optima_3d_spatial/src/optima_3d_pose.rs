@@ -8,7 +8,7 @@ use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeTuple;
 use serde_with::{DeserializeAs, SerializeAs};
 use crate::optima_3d_vec::O3DVec;
-use crate::optima_3d_rotation::{O3DRotation, O3DRotationConstructor};
+use crate::optima_3d_rotation::{O3DRotation, O3DRotationConstructor, ScaledAxis};
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum O3DPoseType {
@@ -24,6 +24,7 @@ pub trait O3DPoseCategoryTrait :
 pub trait O3DPose<T: AD> :
     Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync
 {
+    type Category: O3DPoseCategoryTrait;
     type RotationType: O3DRotation<T>;
 
     fn type_identifier() -> O3DPoseType;
@@ -49,10 +50,28 @@ pub trait O3DPose<T: AD> :
     fn displacement(&self, other: &Self) -> Self;
     fn dis(&self, other: &Self) -> T;
     fn interpolate(&self, to: &Self, t: T) -> Self;
+    fn to_other_generic_category<T2: AD, C: O3DPoseCategoryTrait>(&self) -> C::P<T2> {
+        let translation_slice = self.translation().as_slice();
+        let binding = self.rotation().scaled_axis_of_rotation();
+        let rotation_slice = binding.as_slice();
+        let s = [
+            translation_slice[0].to_constant(),
+            translation_slice[1].to_constant(),
+            translation_slice[2].to_constant(),
+            rotation_slice[0].to_constant(),
+            rotation_slice[1].to_constant(),
+            rotation_slice[2].to_constant()
+        ];
+        C::P::from_constructors( &[T2::constant(s[0]), T2::constant(s[1]), T2::constant(s[2])], &ScaledAxis([T2::constant(s[3]), T2::constant(s[4]), T2::constant(s[5])]))
+    }
+    fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as O3DPoseCategoryTrait>::P::<T2> {
+        self.to_other_generic_category::<T2, Self::Category>()
+    }
 }
 
 impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
 {
+    type Category = O3DPoseCategoryImplicitDualQuaternion;
     type RotationType = UnitQuaternion<T>;
 
     fn type_identifier() -> O3DPoseType {
@@ -152,6 +171,7 @@ impl O3DPoseCategoryTrait for O3DPoseCategoryImplicitDualQuaternion {
 }
 
 impl<T: AD> O3DPose<T> for Isometry3<T> {
+    type Category = O3DPoseCategoryIsometry3;
     type RotationType = UnitQuaternion<T>;
 
     fn type_identifier() -> O3DPoseType {

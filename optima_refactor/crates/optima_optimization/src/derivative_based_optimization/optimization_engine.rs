@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFunctionTrait};
 use optimization_engine::core::SolverStatus;
 use optimization_engine::panoc::{PANOCCache, PANOCOptimizer};
@@ -6,12 +5,12 @@ use optimization_engine::{constraints, Optimizer, Problem, SolverError};
 use optima_linalg::OVec;
 use crate::derivative_based_optimization::DerivBasedOptTrait;
 
-pub struct OpEnSimpleArgs<V: OVec<f64>> {
+pub struct OpEnSimpleArgs {
     pub cache: PANOCCache,
-    pub state: V
+    pub state: Vec<f64>
 }
-impl<V: OVec<f64>> OpEnSimpleArgs<V> {
-    pub fn new(cache: PANOCCache, state: V) -> Self {
+impl OpEnSimpleArgs {
+    pub fn new(cache: PANOCCache, state: Vec<f64>) -> Self {
         Self {
             cache,
             state,
@@ -20,12 +19,12 @@ impl<V: OVec<f64>> OpEnSimpleArgs<V> {
 }
 
 #[derive(Clone, Debug)]
-pub struct OpEnSimpleOutput<V: OVec<f64>> {
-    x_opt: V,
+pub struct OpEnSimpleOutput {
+    x_opt: Vec<f64>,
     solver_status: SolverStatus
 }
-impl<V: OVec<f64>> OpEnSimpleOutput<V> {
-    pub fn x_opt(&self) -> &V {
+impl OpEnSimpleOutput {
+    pub fn x_opt(&self) -> &Vec<f64> {
         &self.x_opt
     }
     pub fn solver_status(&self) -> SolverStatus {
@@ -33,10 +32,10 @@ impl<V: OVec<f64>> OpEnSimpleOutput<V> {
     }
 }
 
-pub struct OpEnSimple<V: OVec<f64>>(PhantomData<V>);
-impl<V: OVec<f64>> DerivBasedOptTrait for OpEnSimple<V> {
-    type OptOutput = OpEnSimpleOutput<V>;
-    type OptArgs = OpEnSimpleArgs<V>;
+pub struct OpEnSimple;
+impl DerivBasedOptTrait for OpEnSimple {
+    type OptOutput = OpEnSimpleOutput;
+    type OptArgs = OpEnSimpleArgs;
 
     fn optimize<D, E>(call_args: &D::ArgsType<f64>, grad_args: &D::ArgsType<E::T>, grad_method_data: &E::DerivativeMethodData, opt_args: &mut Self::OptArgs) -> Self::OptOutput where D: DifferentiableFunctionTrait, E: DerivativeMethodTrait {
         let df = |u: &[f64], grad: &mut [f64]| -> Result<(), SolverError> {

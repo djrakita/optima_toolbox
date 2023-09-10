@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ad_trait = { git = "https://github.com/djrakita/ad_trait" }
-# ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
+# ad_trait = { git = "https://github.com/djrakita/ad_trait" }
+ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
 optima_file = { path = "../optima_file" }
 optima_utils = { path = "../optima_utils" }
 optima_3d_spatial = { path = "../optima_3d_spatial" }
@@ -21,3 +21,4 @@ arrayvec = { version="0.7.4", features = ["serde"] }
 serde = { version="*", features = ["derive"] }
 serde_json = { version="*" }
 serde_with = { version="3.2.0" }
+optimization_engine = { version = "0.7.7" }

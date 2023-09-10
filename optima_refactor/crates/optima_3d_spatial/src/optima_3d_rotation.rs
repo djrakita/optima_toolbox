@@ -23,6 +23,7 @@ pub trait O3DRotationCategoryTrait :
 /// Point is the "native vector" type that serve as the native type that this rotation multiplies by
 pub trait O3DRotation<T: AD> :
     Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync {
+    type Category: O3DRotationCategoryTrait;
     type Native3DVecType: O3DVec<T>;
 
     fn type_identifier() -> O3DRotationType;
@@ -50,9 +51,17 @@ pub trait O3DRotation<T: AD> :
     fn displacement(&self, other: &Self) -> Self;
     fn dis(&self, other: &Self) -> T;
     fn interpolate(&self, to: &Self, t: T) -> Self;
+    fn to_other_generic_category<T2: AD, C: O3DRotationCategoryTrait>(&self) -> C::R<T2> {
+        let scaled_axis = self.scaled_axis_of_rotation().to_other_ad_type::<T2>();
+        C::R::from_scaled_axis_of_rotation(&scaled_axis)
+    }
+    fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as O3DRotationCategoryTrait>::R<T2> {
+        self.to_other_generic_category::<T2, Self::Category>()
+    }
 }
 
 impl<T: AD> O3DRotation<T> for Rotation3<T> {
+    type Category = O3DRotationCategoryRotation3;
     type Native3DVecType = Vector3<T>;
 
     #[inline(always)]
@@ -148,6 +157,7 @@ impl O3DRotationCategoryTrait for O3DRotationCategoryRotation3 {
 }
 
 impl<T: AD> O3DRotation<T> for UnitQuaternion<T> {
+    type Category = O3DRotationCategoryUnitQuaternion;
     type Native3DVecType = Vector3<T>;
 
     #[inline(always)]

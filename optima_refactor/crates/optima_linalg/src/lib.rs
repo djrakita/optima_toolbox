@@ -53,7 +53,13 @@ pub enum OVecType {
     Slice, Arr, Vec, ArrayVec, DVector, SVector, NDarray,
 }
 
+pub trait OVecCategoryTrait : Debug + Clone + Send + Sync {
+    type V<T: AD>: OVec<T>;
+}
+
 pub trait OVec<T: AD> : Debug + Clone + Send + Sync  {
+    type Category: OVecCategoryTrait;
+
     fn type_identifier() -> OVecType;
     fn from_slice_ovec(slice: &[T]) -> Self;
     fn as_slice_ovec(&self) -> &[T];
@@ -71,9 +77,18 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync  {
     fn to_constant_vec(&self) -> Vec<f64> {
         self.as_slice_ovec().iter().map(|x| x.to_constant()).collect()
     }
+    fn to_other_generic_category<T2: AD, C: OVecCategoryTrait>(&self) -> C::V<T2> {
+        let s: Vec<T2> = self.to_constant_vec().iter().map(|x| T2::constant(*x)).collect();
+        C::V::from_slice_ovec(&s)
+    }
+    fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as OVecCategoryTrait>::V<T2> {
+        self.to_other_generic_category::<T2, Self::Category>()
+    }
 }
 
-impl<T: AD> OVec<T> for &[T] {
+impl<'a, T: AD> OVec<T> for &'a [T] {
+    type Category = OVecCategorySliceRef<'a>;
+
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::Slice
@@ -135,8 +150,15 @@ impl<T: AD> OVec<T> for &[T] {
         <[T]>::len(self)
     }
 }
+#[derive(Debug, Clone)]
+pub struct OVecCategorySliceRef<'a>(&'a PhantomData<()>);
+impl<'a> OVecCategoryTrait for OVecCategorySliceRef<'a> {
+    type V<T: AD> = &'a [T];
+}
 
 impl<T: AD, const N: usize> OVec<T> for [T; N] {
+    type Category = OVecCategoryArr<N>;
+
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::Arr
@@ -208,8 +230,15 @@ impl<T: AD, const N: usize> OVec<T> for [T; N] {
         N
     }
 }
+#[derive(Debug, Clone)]
+pub struct OVecCategoryArr<const N: usize>;
+impl<const N: usize> OVecCategoryTrait for OVecCategoryArr<N> {
+    type V<T: AD> = [T; N];
+}
 
 impl<T: AD> OVec<T> for Vec<T> {
+    type Category = OVecCategoryVec;
+
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::Vec
@@ -280,8 +309,15 @@ impl<T: AD> OVec<T> for Vec<T> {
         self.len()
     }
 }
+#[derive(Debug, Clone)]
+pub struct OVecCategoryVec;
+impl OVecCategoryTrait for OVecCategoryVec {
+    type V<T: AD> = Vec<T>;
+}
 
 impl<T: AD, const M: usize> OVec<T> for ArrayVec<T, M> {
+    type Category = OVecCategoryArrayVec<M>;
+
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::ArrayVec
@@ -350,8 +386,15 @@ impl<T: AD, const M: usize> OVec<T> for ArrayVec<T, M> {
         self.len()
     }
 }
+#[derive(Debug, Clone)]
+pub struct OVecCategoryArrayVec<const M: usize>;
+impl<const M: usize> OVecCategoryTrait for OVecCategoryArrayVec<M> {
+    type V<T: AD> = ArrayVec<T, M>;
+}
 
 impl<T: AD> OVec<T> for DVector<T> {
+    type Category = OVecCategoryDVector;
+
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::DVector
@@ -412,8 +455,15 @@ impl<T: AD> OVec<T> for DVector<T> {
         self.len()
     }
 }
+#[derive(Debug, Clone)]
+pub struct OVecCategoryDVector;
+impl OVecCategoryTrait for OVecCategoryDVector {
+    type V<T: AD> = DVector<T>;
+}
 
 impl<T: AD, const N: usize> OVec<T> for SVector<T, N> {
+    type Category = OVecCategorySVector<N>;
+
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::SVector
@@ -474,8 +524,15 @@ impl<T: AD, const N: usize> OVec<T> for SVector<T, N> {
         self.len()
     }
 }
+#[derive(Debug, Clone)]
+pub struct OVecCategorySVector<const N: usize>;
+impl<const N: usize> OVecCategoryTrait for OVecCategorySVector<N> {
+    type V<T: AD> = SVector<T, N>;
+}
 
 impl<T: AD> OVec<T> for ArrayBase<OwnedRepr<T>, Ix1> {
+    type Category = OVecCategoryNDarray;
+
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::NDarray
@@ -535,6 +592,11 @@ impl<T: AD> OVec<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     fn len(&self) -> usize {
         self.len()
     }
+}
+#[derive(Debug, Clone)]
+pub struct OVecCategoryNDarray;
+impl OVecCategoryTrait for OVecCategoryNDarray {
+    type V<T: AD> = ArrayBase<OwnedRepr<T>, Ix1>;
 }
 
 // Custom serialization for types implementing the `OVec` trait
@@ -682,7 +744,13 @@ pub enum OMatType {
     DMatrix, NDMatrix
 }
 
+pub trait OMatCategoryTrait : Debug + Clone + Send + Sync {
+    type M<T: AD>: OMat<T>;
+}
+
 pub trait OMat<T: AD> : Debug + Clone + Send + Sync  {
+    type Category : OMatCategoryTrait;
+
     type VecMulInType;
     type VecMulOutType;
     type MatMulInType;
@@ -698,9 +766,18 @@ pub trait OMat<T: AD> : Debug + Clone + Send + Sync  {
     fn scalar_mul(&self, scalar: T) -> Self;
     /// (rows, cols)
     fn dims(&self) -> (usize, usize);
+    fn to_other_generic_category<T2: AD, C: OMatCategoryTrait>(&self) -> C::M<T2> {
+        let column_major_slice = self.as_column_major_slice().to_other_generic_category::<T2, OVecCategoryVec>();
+        let dims = self.dims();
+        C::M::from_column_major_slice(&column_major_slice, dims.0, dims.1)
+    }
+    fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as OMatCategoryTrait>::M<T2> {
+        self.to_other_generic_category::<T2, Self::Category>()
+    }
 }
 
 impl<T: AD> OMat<T> for DMatrix<T> {
+    type Category = OMatCategoryDMatrix;
     type VecMulInType = DVector<T>;
     type VecMulOutType = DVector<T>;
     type MatMulInType = DMatrix<T>;
@@ -751,8 +828,14 @@ impl<T: AD> OMat<T> for DMatrix<T> {
         self.shape()
     }
 }
+#[derive(Debug, Clone)]
+pub struct OMatCategoryDMatrix;
+impl OMatCategoryTrait for OMatCategoryDMatrix {
+    type M<T: AD> = DMatrix<T>;
+}
 
 impl<T: AD> OMat<T> for ArrayBase<OwnedRepr<T>, Dim<[Ix; 2]>> {
+    type Category = OMatCategoryNDarray;
     type VecMulInType = ArrayBase<OwnedRepr<T>, Ix1>;
     type VecMulOutType = ArrayBase<OwnedRepr<T>, Ix1>;
     type MatMulInType = ArrayBase<OwnedRepr<T>, Dim<[Ix; 2]>>;
@@ -802,6 +885,11 @@ impl<T: AD> OMat<T> for ArrayBase<OwnedRepr<T>, Dim<[Ix; 2]>> {
     fn dims(&self) -> (usize, usize) {
         (self.nrows(), self.ncols())
     }
+}
+#[derive(Debug, Clone)]
+pub struct OMatCategoryNDarray;
+impl OMatCategoryTrait for OMatCategoryNDarray {
+    type M<T: AD> = ArrayBase<OwnedRepr<T>, Dim<[Ix; 2]>>;
 }
 
 // Custom serialization for types implementing the `OMat` trait

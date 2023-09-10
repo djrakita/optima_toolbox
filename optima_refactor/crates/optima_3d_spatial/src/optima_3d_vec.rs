@@ -22,6 +22,8 @@ pub trait O3DVecCategoryTrait :
 pub trait O3DVec<T: AD> :
     Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync
 {
+    type Category: O3DVecCategoryTrait;
+
     fn type_identifier() -> O3DVecType;
     fn x(&self) -> T;
     fn y(&self) -> T;
@@ -36,9 +38,20 @@ pub trait O3DVec<T: AD> :
     fn dot(&self, other: &Self) -> T;
     fn cross(&self, other: &Self) -> Self;
     fn dis(&self, other: &Self) -> T;
+    fn to_other_generic_category<T2: AD, C: O3DVecCategoryTrait>(&self) -> C::V<T2> {
+        let x = self.x().to_constant();
+        let y = self.y().to_constant();
+        let z = self.z().to_constant();
+        C::V::from_slice(&[T2::constant(x), T2::constant(y), T2::constant(z)])
+    }
+    fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as O3DVecCategoryTrait>::V<T2> {
+        self.to_other_generic_category::<T2, Self::Category>()
+    }
 }
 
 impl<T: AD> O3DVec<T> for [T; 3] {
+    type Category = O3DVecCategoryArr;
+
     #[inline(always)]
     fn type_identifier() -> O3DVecType { O3DVecType::Arr }
 
@@ -117,6 +130,8 @@ impl O3DVecCategoryTrait for O3DVecCategoryArr {
 }
 
 impl<T: AD> O3DVec<T> for Vec<T> {
+    type Category = O3DVecCategoryVec;
+
     #[inline(always)]
     fn type_identifier() -> O3DVecType { O3DVecType::Vec }
 
@@ -189,6 +204,8 @@ impl O3DVecCategoryTrait for O3DVecCategoryVec {
 }
 
 impl<T: AD> O3DVec<T> for Vector3<T> {
+    type Category = O3DVecCategoryVector3;
+
     fn type_identifier() -> O3DVecType {
         O3DVecType::NalgebraVector3
     }
@@ -264,6 +281,8 @@ impl O3DVecCategoryTrait for O3DVecCategoryVector3 {
 }
 
 impl<T: AD> O3DVec<T> for Point3<T> {
+    type Category = O3DVecCategoryPoint3;
+
     #[inline(always)]
     fn type_identifier() -> O3DVecType { O3DVecType::NalgebraPoint3 }
 
