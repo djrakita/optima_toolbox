@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use ad_trait::*;
 use nalgebra::{Isometry3};
 use serde::{Serialize, Deserialize};
-use optima_3d_spatial::optima_3d_pose::O3DPose;
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
 use optima_utils::arr_storage::*;
 use crate::utils::get_urdf_path_from_chain_name;
 use serde_with::*;
@@ -84,9 +84,8 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
         let json_str = self.to_json_string();
         OChain::<T2, P2, L2>::from_json_string(&json_str)
     }
-    pub fn to_new_generic_types_default<T2: AD>(&self) -> OChainDefault<T2> {
-        let json_str = self.to_json_string();
-        OChainDefault::<T2>::from_json_string(&json_str)
+    pub fn to_new_ad_type<T2: AD>(&self) -> OChain<T2, <P::Category as O3DPoseCategoryTrait>::P<T2>, L> {
+        self.to_new_generic_types::<T2, <P::Category as O3DPoseCategoryTrait>::P<T2>, L>()
     }
     #[inline(always)]
     pub fn get_link_idx_from_link_name(&self, link_name: &str) -> usize {

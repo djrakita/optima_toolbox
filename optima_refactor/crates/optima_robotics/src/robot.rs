@@ -2,7 +2,7 @@ use serde::{Serialize, Deserialize};
 use std::marker::PhantomData;
 use ad_trait::AD;
 use nalgebra::Isometry3;
-use optima_3d_spatial::optima_3d_pose::O3DPose;
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
 use optima_linalg::{NalgebraLinalg, OLinalgTrait, OVec};
 use serde_with::*;
 use optima_file::traits::{FromJsonString, ToJsonString};
@@ -49,9 +49,8 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
         let json_str = self.to_json_string();
         ORobot::<T2, P2, L2>::from_json_string(&json_str)
     }
-    pub fn to_new_generic_types_default<T2: AD>(&self) -> ORobotDefault<T2> {
-        let json_str = self.to_json_string();
-        ORobotDefault::<T2>::from_json_string(&json_str)
+    pub fn to_new_ad_type<T2: AD>(&self) -> ORobot<T2, <P::Category as O3DPoseCategoryTrait>::P<T2>, L> {
+        self.to_new_generic_types::<T2, <P::Category as O3DPoseCategoryTrait>::P<T2>, L>()
     }
     pub fn add_chain(&mut self, chain: OChain<T, P, L>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, origin: &P, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>) {
         assert!(parent_chain_idx <= self.chain_wrappers.len());
