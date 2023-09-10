@@ -1,8 +1,8 @@
 use ad_trait::AD;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
-use optima_3d_spatial::optima_3d_pose::O3DPose;
-use optima_linalg::{OLinalgTrait, OVec};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
+use optima_linalg::{OLinalgCategoryTrait, OVec};
 use optima_robotics::chain::{ChainFKResult, OChain};
 use optima_robotics::robot::ORobot;
 use optima_robotics::robotics_traits::ChainableTrait;
@@ -12,11 +12,11 @@ use crate::OptimaBevyTrait;
 
 pub struct RoboticsActions;
 impl RoboticsActions {
-    pub fn action_spawn_robot_as_stl_meshes<T: AD, P: O3DPose<T>, L: OLinalgTrait>(robot: &ORobot<T, P, L>,
-                                                                                   commands: &mut Commands,
-                                                                                   asset_server: &AssetServer,
-                                                                                   materials: &mut Assets<StandardMaterial>,
-                                                                                   robot_instance_idx: usize) {
+    pub fn action_spawn_robot_as_stl_meshes<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(robot: &ORobot<T, C, L>,
+                                                                                                     commands: &mut Commands,
+                                                                                                     asset_server: &AssetServer,
+                                                                                                     materials: &mut Assets<StandardMaterial>,
+                                                                                                     robot_instance_idx: usize) {
         let num_dofs = robot.num_dofs();
         let robot_fk_res = robot.forward_kinematics(&vec![T::zero(); num_dofs], None);
 
@@ -25,13 +25,13 @@ impl RoboticsActions {
             Self::action_spawn_chain_links_as_stl_meshes(chain_wrapper.chain(), chain_fk_res, commands, asset_server, materials, robot_instance_idx, chain_idx);
         });
     }
-    pub fn action_spawn_chain_links_as_stl_meshes<T: AD, P: O3DPose<T>, L: OLinalgTrait>(chain: &OChain<T, P, L>,
-                                                                                         fk_res: &ChainFKResult<T, P>,
-                                                                                         commands: &mut Commands,
-                                                                                         asset_server: &AssetServer,
-                                                                                         materials: &mut Assets<StandardMaterial>,
-                                                                                         robot_instance_idx: usize,
-                                                                                         chain_idx: usize) {
+    pub fn action_spawn_chain_links_as_stl_meshes<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(chain: &OChain<T, C, L>,
+                                                                                                           fk_res: &ChainFKResult<T, C::P<T>>,
+                                                                                                           commands: &mut Commands,
+                                                                                                           asset_server: &AssetServer,
+                                                                                                           materials: &mut Assets<StandardMaterial>,
+                                                                                                           robot_instance_idx: usize,
+                                                                                                           chain_idx: usize) {
         chain.links().iter().enumerate().for_each(|(link_idx, link)| {
             if link.is_present_in_model() {
                 let stl_mesh_file_path = link.stl_mesh_file_path();
@@ -59,10 +59,10 @@ impl RoboticsActions {
             }
         });
     }
-    pub fn action_set_state_of_robot<T: AD, P: O3DPose<T>, L: OLinalgTrait, V: OVec<T>>(robot: &ORobot<T, P, L>,
-                                                                                        state: &V,
-                                                                                        robot_instance_idx: usize,
-                                                                                        query: &mut Query<(&LinkMeshID, &mut Transform)>) {
+    pub fn action_set_state_of_robot<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, V: OVec<T>>(robot: &ORobot<T, C, L>,
+                                                                                                          state: &V,
+                                                                                                          robot_instance_idx: usize,
+                                                                                                          query: &mut Query<(&LinkMeshID, &mut Transform)>) {
         let robot_fk_res = robot.forward_kinematics(state, None);
 
         for (link_mesh_id, mut transform) in query.iter_mut() {
@@ -75,7 +75,7 @@ impl RoboticsActions {
                 let link = &robot.chain_wrappers()[chain_idx].chain().links()[link_idx];
                 let pose = robot_fk_res.get_chain_fk_result(chain_idx).as_ref().unwrap().get_link_pose(link_idx).as_ref().unwrap();
                 let visual_offset = link.visual()[0].origin().pose();
-                *transform = TransformUtils::util_convert_3d_pose_to_y_up_bevy_transform( & (pose.mul(visual_offset)) );
+                *transform = TransformUtils::util_convert_3d_pose_to_y_up_bevy_transform(&(pose.mul(visual_offset)));
             }
         }
     }
@@ -83,16 +83,16 @@ impl RoboticsActions {
 
 pub struct RoboticsSystems;
 impl RoboticsSystems {
-    pub fn system_spawn_robot_links_as_stl_meshes<T: AD, P: O3DPose<T> + 'static, L: OLinalgTrait + 'static>(robot: Res<BevyORobot<T, P, L>>,
-                                                                                                             mut commands: Commands,
-                                                                                                             asset_server: Res<AssetServer>,
-                                                                                                             mut materials: ResMut<Assets<StandardMaterial>>) {
+    pub fn system_spawn_robot_links_as_stl_meshes<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(robot: Res<BevyORobot<T, C, L>>,
+                                                                                                                               mut commands: Commands,
+                                                                                                                               asset_server: Res<AssetServer>,
+                                                                                                                               mut materials: ResMut<Assets<StandardMaterial>>) {
         let robot = &robot.0;
         RoboticsActions::action_spawn_robot_as_stl_meshes(robot, &mut commands, &*asset_server, &mut *materials, 0);
     }
-    pub fn system_robot_state_updater<T: AD, P: O3DPose<T> + 'static, L: OLinalgTrait + 'static>(robot: Res<BevyORobot<T, P, L>>,
-                                                                                                 mut updater: ResMut<UpdaterRobotState>,
-                                                                                                 mut query: Query<(&LinkMeshID, &mut Transform)>) {
+    pub fn system_robot_state_updater<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(robot: Res<BevyORobot<T, C, L>>,
+                                                                                                                   mut updater: ResMut<UpdaterRobotState>,
+                                                                                                                   mut query: Query<(&LinkMeshID, &mut Transform)>) {
         while updater.robot_state_update_requests.len() > 0 {
             let robot = &robot.0;
             let request = updater.robot_state_update_requests.pop().unwrap();
@@ -108,20 +108,20 @@ pub trait BevyRoboticsTrait {
     fn bevy_display(&self);
 }
 
-impl<T: AD, P: O3DPose<T> + 'static, L: OLinalgTrait + 'static> BevyRoboticsTrait for ORobot<T, P, L> {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> BevyRoboticsTrait for ORobot<T, C, L> {
     fn bevy_display(&self) {
         App::new()
             .optima_bevy_base()
             .optima_bevy_robotics_base(self.clone())
             .optima_bevy_pan_orbit_camera()
             .optima_bevy_starter_lights()
-            .optima_bevy_spawn_robot::<T, P, L>()
+            .optima_bevy_spawn_robot::<T, C, L>()
             .optima_bevy_robotics_scene_visuals_starter()
             .run();
     }
 }
 
-impl<T: AD, P: O3DPose<T> + 'static, L: OLinalgTrait + 'static> BevyRoboticsTrait for OChain<T, P, L> {
+impl<T: AD, C: O3DPoseCategoryTrait  + 'static, L: OLinalgCategoryTrait + 'static> BevyRoboticsTrait for OChain<T, C, L> {
     fn bevy_display(&self) {
         let robot = ORobot::new_from_single_chain(self.clone());
         robot.bevy_display();
@@ -152,4 +152,4 @@ impl UpdaterRobotState {
 }
 
 #[derive(Resource)]
-pub struct BevyORobot<T: AD, P: O3DPose<T> + Send, L: OLinalgTrait>(pub ORobot<T, P, L>);
+pub struct BevyORobot<T: AD, C: O3DPoseCategoryTrait + Send + 'static, L: OLinalgCategoryTrait>(pub ORobot<T, C, L>);

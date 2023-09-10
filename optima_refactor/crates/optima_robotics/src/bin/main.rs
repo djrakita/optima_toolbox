@@ -3,8 +3,8 @@ use ad_trait::forward_ad::adf::{adf_f32x16, adf_f32x2, adf_f32x4, adf_f32x8, adf
 use ad_trait::forward_ad::adfn::adfn;
 use nalgebra::Isometry3;
 use optimization_engine::panoc::PANOCCache;
-use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3};
-use optima_linalg::{NalgebraLinalg, NdarrayLinalg};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryImplicitDualQuaternion, O3DPoseCategoryIsometry3, O3DPoseCategoryTrait};
+use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategoryNDarray};
 use optima_optimization::derivative_based_optimization::DerivBasedOptSolver;
 use optima_optimization::derivative_based_optimization::optimization_engine::{OpEnSimple, OpEnSimpleArgs};
 use optima_robotics::robot::{ORobot, ORobotDefault};
@@ -12,15 +12,17 @@ use optima_robotics::robotics_optimization_solvers::{SimpleIKArgs, SimpleIKFunct
 
 type DerivativeMethod = ForwardADMulti<adf_f32x8>;
 type DerivativeT = <DerivativeMethod as DerivativeMethodTrait>::T;
-type Linalg = NdarrayLinalg;
+type LinalgCategory = OLinalgCategoryNDarray;
+type PoseCategory = O3DPoseCategoryImplicitDualQuaternion;
+type PoseType = <PoseCategory as O3DPoseCategoryTrait>::P<f64>;
 
 fn main() {
-    let robot1 = ORobot::<f64, Isometry3<_>, Linalg>::new_from_single_chain_name("ur5");
+    let robot1 = ORobot::<f64, PoseCategory, LinalgCategory>::new_from_single_chain_name("ur5");
     let robot2 = robot1.to_new_ad_type::<DerivativeT>();
-    let goal_pose1 = Isometry3::from_constructors(&[0.1,0.,0.7], &[0.,0.,0.]);
+    let goal_pose1 = PoseType::from_constructors(&[0.1,0.,0.7], &[0.,0.,0.]);
     let goal_pose2 = goal_pose1.to_other_ad_type::<DerivativeT>();
 
-    let mut ik = DerivBasedOptSolver::<SimpleIKFunction<O3DPoseCategoryIsometry3, Linalg>, DerivativeMethod, OpEnSimple>::new(
+    let mut ik = DerivBasedOptSolver::<SimpleIKFunction<PoseCategory, LinalgCategory>, DerivativeMethod, OpEnSimple>::new(
         SimpleIKArgs::new(robot1, 1, 9, goal_pose1),
         SimpleIKArgs::new(robot2, 1, 9, goal_pose2),
         (),

@@ -3,32 +3,31 @@ use std::marker::PhantomData;
 use ad_trait::AD;
 use nalgebra::Isometry3;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
-use optima_linalg::{NalgebraLinalg, OLinalgTrait, OVec};
+use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategoryTrait, OVec};
 use serde_with::*;
 use optima_file::traits::{FromJsonString, ToJsonString};
 use crate::chain::{ChainFKResult, OChain};
 use crate::robotics_components::*;
 use crate::robotics_traits::{ChainableTrait, JointTrait};
 
-pub type ORobotDefault<T> = ORobot<T, Isometry3<T>, NalgebraLinalg>;
+pub type ORobotDefault<T> = ORobot<T, Isometry3<T>, OLinalgCategoryNalgebra>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ORobot<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
-    #[serde(deserialize_with = "Vec::<OChainWrapper<T, P, L>>::deserialize")]
-    chain_wrappers: Vec<OChainWrapper<T, P, L>>,
-    #[serde(deserialize_with = "Vec::<OMacroJoint<T, P>>::deserialize")]
-    macro_joints: Vec<OMacroJoint<T, P>>,
+pub struct ORobot<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
+    #[serde(deserialize_with = "Vec::<OChainWrapper<T, C, L>>::deserialize")]
+    chain_wrappers: Vec<OChainWrapper<T, C, L>>,
+    #[serde(deserialize_with = "Vec::<OMacroJoint<T, C>>::deserialize")]
+    macro_joints: Vec<OMacroJoint<T, C>>,
     kinematic_hierarchy: Vec<Vec<usize>>,
     num_dofs: usize,
     base_chain_idx: usize,
     dof_to_joint_and_sub_dof_idxs: Vec<RobotJointIdx>,
-    _phantom_data: PhantomData<(T, P, L)>,
+    _phantom_data: PhantomData<(T, C, L)>,
 }
-
-impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T, C, L> {
     pub fn new_empty() -> Self {
         Self {
-            chain_wrappers: vec![OChainWrapper::<T, P, L>::new_world_chain()],
+            chain_wrappers: vec![OChainWrapper::<T, C, L>::new_world_chain()],
             macro_joints: vec![],
             kinematic_hierarchy: vec![],
             num_dofs: usize::default(),
@@ -37,22 +36,22 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
             _phantom_data: Default::default(),
         }
     }
-    pub fn new_from_single_chain(chain: OChain<T, P, L>) -> Self {
+    pub fn new_from_single_chain(chain: OChain<T, C, L>) -> Self {
         let mut out = Self::new_empty();
-        out.add_chain(chain, 0, 0, &P::identity(), [T::zero(); 3], OJointType::Fixed, OJointLimit::default());
+        out.add_chain(chain, 0, 0, &C::P::<T>::identity(), [T::zero(); 3], OJointType::Fixed, OJointLimit::default());
         out
     }
     pub fn new_from_single_chain_name(chain_name: &str) -> Self {
         Self::new_from_single_chain(OChain::from_urdf(chain_name))
     }
-    pub fn to_new_generic_types<T2: AD, P2: O3DPose<T2>, L2: OLinalgTrait>(&self) -> ORobot<T2, P2, L2> {
+    pub fn to_new_generic_types<T2: AD, C2: O3DPoseCategoryTrait, L2: OLinalgCategoryTrait>(&self) -> ORobot<T2, C2, L2> {
         let json_str = self.to_json_string();
-        ORobot::<T2, P2, L2>::from_json_string(&json_str)
+        ORobot::<T2, C2, L2>::from_json_string(&json_str)
     }
-    pub fn to_new_ad_type<T2: AD>(&self) -> ORobot<T2, <P::Category as O3DPoseCategoryTrait>::P<T2>, L> {
-        self.to_new_generic_types::<T2, <P::Category as O3DPoseCategoryTrait>::P<T2>, L>()
+    pub fn to_new_ad_type<T2: AD>(&self) -> ORobot<T2, C, L> {
+        self.to_new_generic_types::<T2, C, L>()
     }
-    pub fn add_chain(&mut self, chain: OChain<T, P, L>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, origin: &P, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>) {
+    pub fn add_chain(&mut self, chain: OChain<T, C, L>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, origin: &C::P<T>, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>) {
         assert!(parent_chain_idx <= self.chain_wrappers.len());
         assert!(parent_link_idx_in_parent_chain <= self.chain_wrappers[parent_chain_idx].chain.links().len());
 
@@ -79,10 +78,10 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
 
         self.setup();
     }
-    pub fn chain_wrappers(&self) -> &Vec<OChainWrapper<T, P, L>> {
+    pub fn chain_wrappers(&self) -> &Vec<OChainWrapper<T, C, L>> {
         &self.chain_wrappers
     }
-    pub fn macro_joints(&self) -> &Vec<OMacroJoint<T, P>> {
+    pub fn macro_joints(&self) -> &Vec<OMacroJoint<T, C>> {
         &self.macro_joints
     }
     pub fn kinematic_hierarchy(&self) -> &Vec<Vec<usize>> {
@@ -95,28 +94,28 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
         self.base_chain_idx
     }
     #[inline]
-    pub fn get_macro_joint_transform<V: OVec<T>>(&self, state: &V, macro_joint_idx: usize) -> P {
+    pub fn get_macro_joint_transform<V: OVec<T>>(&self, state: &V, macro_joint_idx: usize) -> C::P<T> {
         self.macro_joints[macro_joint_idx].get_joint_transform(state, &self.macro_joints)
     }
     #[inline(always)]
-    pub fn get_macro_joint_fixed_offset_transform(&self, macro_joint_idx: usize) -> &P {
+    pub fn get_macro_joint_fixed_offset_transform(&self, macro_joint_idx: usize) -> &C::P<T> {
         self.macro_joints[macro_joint_idx].get_joint_fixed_offset_transform()
     }
     #[inline]
-    pub fn get_macro_joint_variable_transform<V: OVec<T>>(&self, state: &V, macro_joint_idx: usize) -> P {
+    pub fn get_macro_joint_variable_transform<V: OVec<T>>(&self, state: &V, macro_joint_idx: usize) -> C::P<T> {
         self.macro_joints[macro_joint_idx].get_joint_variable_transform(state, &self.macro_joints)
     }
     #[inline]
     pub fn dof_to_joint_and_sub_dof_idxs(&self) -> &Vec<RobotJointIdx> {
         &self.dof_to_joint_and_sub_dof_idxs
     }
-    pub fn forward_kinematics<V: OVec<T>>(&self, state: &V, base_offset: Option<&P>) -> RobotFKResult<T, P> {
+    pub fn forward_kinematics<V: OVec<T>>(&self, state: &V, base_offset: Option<&C::P<T>>) -> RobotFKResult<T, C::P<T>> {
         assert_eq!(self.num_dofs(), state.len(), "The state length {} must match the number of dofs {}", state.len(), self.num_dofs());
 
         let mut out = vec![None; self.chain_wrappers.len()];
 
         let base_pose = match base_offset {
-            None => { P::identity() }
+            None => { C::P::<T>::identity() }
             Some(base_offset) => { base_offset.to_owned() }
         };
 
@@ -149,7 +148,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
 
         RobotFKResult { chain_fk_results: out, _phantom_data: Default::default() }
     }
-    pub fn forward_kinematics_floating_chain<V: OVec<T>>(&self, state: &V, start_chain_idx: usize, end_chain_idx: usize, base_offset: Option<&P>) -> RobotFKResult<T, P> {
+    pub fn forward_kinematics_floating_chain<V: OVec<T>>(&self, state: &V, start_chain_idx: usize, end_chain_idx: usize, base_offset: Option<&C::P<T>>) -> RobotFKResult<T, C::P<T>> {
         let mut out = vec![None; self.chain_wrappers.len()];
 
         let chain_path = &self.chain_wrappers[start_chain_idx].chain_connection_paths[end_chain_idx];
@@ -157,7 +156,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
             None => {}
             Some(chain_path) => {
                 let base_pose = match base_offset {
-                    None => { P::identity() }
+                    None => { C::P::<T>::identity() }
                     Some(base_offset) => { base_offset.to_owned() }
                 };
                 chain_path.iter().enumerate().for_each(|(i, chain_idx)| {
@@ -199,7 +198,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
         self.set_dof_to_joint_and_sub_dof_idxs();
     }
 }
-impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobot<T, C, L> {
     fn set_chain_info(&mut self) {
         let chain_info = self.compute_chain_info();
 
@@ -301,9 +300,9 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ORobot<T, P, L> {
         self.dof_to_joint_and_sub_dof_idxs = dof_to_joint_and_sub_dof_idxs;
     }
 }
-impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ChainableTrait<T, P> for ORobot<T, P, L> {
-    type LinkType = OChainWrapper<T, P, L>;
-    type JointType = OMacroJoint<T, P>;
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ChainableTrait<T, C> for ORobot<T, C, L> {
+    type LinkType = OChainWrapper<T, C, L>;
+    type JointType = OMacroJoint<T, C>;
 
     fn links(&self) -> &Vec<Self::LinkType> {
         &self.chain_wrappers
@@ -315,9 +314,9 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ChainableTrait<T, P> for ORobot<T, P
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OChainWrapper<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
-    #[serde(deserialize_with = "OChain::<T, P, L>::deserialize")]
-    chain: OChain<T, P, L>,
+pub struct OChainWrapper<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
+    #[serde(deserialize_with = "OChain::<T, C, L>::deserialize")]
+    chain: OChain<T, C, L>,
     chain_idx: usize,
     pub(crate) parent_macro_joint_idx: Option<usize>,
     pub(crate) children_macro_joint_idxs: Vec<usize>,
@@ -328,8 +327,7 @@ pub struct OChainWrapper<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     dof_idxs: Vec<usize>,
     dof_idxs_range: Option<(usize, usize)>,
 }
-
-impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChainWrapper<T, P, L> {
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OChainWrapper<T, C, L> {
     fn new_world_chain() -> Self {
         Self {
             chain: OChain::new_world_chain(),
@@ -345,7 +343,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChainWrapper<T, P, L> {
         }
     }
     #[inline(always)]
-    pub fn chain(&self) -> &OChain<T, P, L> {
+    pub fn chain(&self) -> &OChain<T, C, L> {
         &self.chain
     }
     #[inline(always)]
@@ -390,7 +388,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChainWrapper<T, P, L> {
     }
 }
 
-impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OChain<T, C, L> {
     pub(crate) fn new_world_chain() -> Self {
         Self::from_manual("world", vec![OLink::new_manual("world_link", vec![], vec![], OInertial::new_zeros())], vec![])
     }

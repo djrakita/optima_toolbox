@@ -2,10 +2,10 @@ use std::marker::PhantomData;
 use serde::{Serialize, Deserialize};
 use ad_trait::AD;
 use urdf_rs::{Collision, Color, Dynamics, Geometry, Inertial, Joint, JointLimit, JointType, Link, Material, Mimic, Pose, SafetyController, Texture, Visual};
-use optima_3d_spatial::optima_3d_pose::O3DPose;
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
 use optima_3d_spatial::optima_3d_rotation::{O3DRotation};
 use optima_3d_spatial::optima_3d_vec::O3DVec;
-use optima_linalg::{OLinalgTrait, OMat};
+use optima_linalg::{OLinalgCategoryTrait, OMat};
 use serde_with::*;
 use crate::robotics_traits::JointTrait;
 use ad_trait::SerdeAD;
@@ -57,7 +57,7 @@ impl ChainInfo {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OLink<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
+pub struct OLink<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> {
     pub (crate) is_present_in_model: bool,
     pub (crate) link_idx: usize,
     name: String,
@@ -66,10 +66,10 @@ pub struct OLink<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     pub (crate) parent_link_idx: Option<usize>,
     pub (crate) children_link_idxs: Vec<usize>,
     pub (crate) link_connection_paths: Vec<Option<Vec<usize>>>,
-    #[serde(deserialize_with = "Vec::<OCollision<T, P>>::deserialize")]
-    collision: Vec<OCollision<T, P>>,
-    #[serde(deserialize_with = "Vec::<OVisual<T, P>>::deserialize")]
-    visual: Vec<OVisual<T, P>>,
+    #[serde(deserialize_with = "Vec::<OCollision<T, C>>::deserialize")]
+    collision: Vec<OCollision<T, C>>,
+    #[serde(deserialize_with = "Vec::<OVisual<T, C>>::deserialize")]
+    visual: Vec<OVisual<T, C>>,
     #[serde(deserialize_with = "OInertial::<T, L>::deserialize")]
     inertial: OInertial<T, L>,
     pub (crate) original_mesh_file_path: Option<OStemCellPath>,
@@ -77,7 +77,7 @@ pub struct OLink<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
     pub (crate) convex_hull_file_path: Option<OStemCellPath>,
     pub (crate) convex_decomposition_file_paths: Vec<OStemCellPath>
 }
-impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
     pub (crate) fn from_link(link: &Link) -> Self {
         Self {
             is_present_in_model: true,
@@ -97,7 +97,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
             convex_decomposition_file_paths: vec![],
         }
     }
-    pub fn new_manual(name: &str, collision: Vec<OCollision<T, P>>, visual: Vec<OVisual<T, P>>, inertial: OInertial<T, L>) -> Self {
+    pub fn new_manual(name: &str, collision: Vec<OCollision<T, C>>, visual: Vec<OVisual<T, C>>, inertial: OInertial<T, L>) -> Self {
         Self {
             is_present_in_model: true,
             link_idx: usize::default(),
@@ -128,10 +128,10 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
     pub fn name(&self) -> &str {
         &self.name
     }
-    pub fn collision(&self) -> &Vec<OCollision<T, P>> {
+    pub fn collision(&self) -> &Vec<OCollision<T, C>> {
         &self.collision
     }
-    pub fn visual(&self) -> &Vec<OVisual<T, P>> {
+    pub fn visual(&self) -> &Vec<OVisual<T, C>> {
         &self.visual
     }
     pub fn inertial(&self) -> &OInertial<T, L> {
@@ -153,15 +153,15 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OLink<T, P, L> {
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OJoint<T: AD, P: O3DPose<T>> {
+pub struct OJoint<T: AD, C: O3DPoseCategoryTrait> {
     pub (crate) is_present_in_model: bool,
     pub (crate) joint_idx: usize,
     name: String,
     joint_type: OJointType,
     #[serde_as(as = "Option::<Vec<SerdeAD<T>>>")]
     pub (crate) fixed_values: Option<Vec<T>>,
-    #[serde(deserialize_with = "OPose::<T, P>::deserialize")]
-    origin: OPose<T, P>,
+    #[serde(deserialize_with = "OPose::<T, C>::deserialize")]
+    origin: OPose<T, C>,
     #[serde_as(as = "[SerdeAD<T>; 3]")]
     axis: [T; 3],
     parent_link: String,
@@ -179,7 +179,7 @@ pub struct OJoint<T: AD, P: O3DPose<T>> {
     #[serde(deserialize_with = "Option::<OSafetyController<T>>::deserialize")]
     safety_controller: Option<OSafetyController<T>>
 }
-impl<T: AD, P: O3DPose<T>> OJoint<T, P> {
+impl<T: AD, C: O3DPoseCategoryTrait> OJoint<T, C> {
     pub (crate) fn from_joint(joint: &Joint) -> Self {
         let axis: Vec<T> = joint.axis.xyz.0.iter().map(|x| T::constant(*x)).collect();
 
@@ -212,7 +212,7 @@ impl<T: AD, P: O3DPose<T>> OJoint<T, P> {
             }
         }
     }
-    pub fn new_manual(name: &str, joint_type: OJointType, origin: P, axis: [T; 3], parent_link: &str, child_link: &str, limit: OJointLimit<T>, dynamics: Option<ODynamics<T>>, mimic: Option<OMimic<T>>, safety_controller: Option<OSafetyController<T>>) -> Self {
+    pub fn new_manual(name: &str, joint_type: OJointType, origin: C::P<T>, axis: [T; 3], parent_link: &str, child_link: &str, limit: OJointLimit<T>, dynamics: Option<ODynamics<T>>, mimic: Option<OMimic<T>>, safety_controller: Option<OSafetyController<T>>) -> Self {
         Self {
             is_present_in_model: true,
             joint_idx: usize::default(),
@@ -272,14 +272,14 @@ impl<T: AD, P: O3DPose<T>> OJoint<T, P> {
     pub fn fixed_values(&self) -> &Option<Vec<T>> {
         &self.fixed_values
     }
-    pub fn origin(&self) -> &OPose<T, P> {
+    pub fn origin(&self) -> &OPose<T, C> {
         &self.origin
     }
     pub fn axis(&self) -> &[T; 3] {
         &self.axis
     }
 }
-impl<T: AD, P: O3DPose<T>> JointTrait<T, P> for OJoint<T, P> {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static> JointTrait<T, C> for OJoint<T, C> {
     #[inline(always)]
     fn joint_idx(&self) -> usize {
         self.joint_idx
@@ -306,7 +306,7 @@ impl<T: AD, P: O3DPose<T>> JointTrait<T, P> for OJoint<T, P> {
     }
 
     #[inline(always)]
-    fn origin(&self) -> &OPose<T, P> {
+    fn origin(&self) -> &OPose<T, C> {
         &self.origin
     }
 
@@ -348,10 +348,10 @@ impl<T: AD, P: O3DPose<T>> JointTrait<T, P> for OJoint<T, P> {
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OMacroJoint<T: AD, P: O3DPose<T>> {
+pub struct OMacroJoint<T: AD, C: O3DPoseCategoryTrait> {
     macro_joint_idx: usize,
-    #[serde(deserialize_with = "OPose::<T, P>::deserialize")]
-    origin: OPose<T, P>,
+    #[serde(deserialize_with = "OPose::<T, C>::deserialize")]
+    origin: OPose<T, C>,
     #[serde_as(as = "[SerdeAD<T>; 3]")]
     axis: [T; 3],
     joint_type: OJointType,
@@ -372,8 +372,8 @@ pub struct OMacroJoint<T: AD, P: O3DPose<T>> {
     safety_controller: Option<OSafetyController<T>>,
     _phantom_data: PhantomData<T>
 }
-impl<T: AD, P: O3DPose<T>> OMacroJoint<T, P> {
-    pub (crate) fn new(macro_joint_idx: usize, origin: OPose<T, P>, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, child_chain_idx: usize) -> Self {
+impl<T: AD, C: O3DPoseCategoryTrait> OMacroJoint<T, C> {
+    pub (crate) fn new(macro_joint_idx: usize, origin: OPose<T, C>, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, child_chain_idx: usize) -> Self {
         Self {
             macro_joint_idx,
             origin,
@@ -395,7 +395,7 @@ impl<T: AD, P: O3DPose<T>> OMacroJoint<T, P> {
     pub fn macro_joint_idx(&self) -> usize {
         self.macro_joint_idx
     }
-    pub fn origin(&self) -> &OPose<T, P> {
+    pub fn origin(&self) -> &OPose<T, C> {
         &self.origin
     }
     pub fn axis(&self) -> &[T; 3] {
@@ -414,7 +414,7 @@ impl<T: AD, P: O3DPose<T>> OMacroJoint<T, P> {
         self.child_chain_idx
     }
 }
-impl<T: AD, P: O3DPose<T>> JointTrait<T, P> for OMacroJoint<T, P> {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static> JointTrait<T, C> for OMacroJoint<T, C> {
     #[inline(always)]
     fn joint_idx(&self) -> usize {
         self.macro_joint_idx
@@ -441,7 +441,7 @@ impl<T: AD, P: O3DPose<T>> JointTrait<T, P> for OMacroJoint<T, P> {
     }
 
     #[inline(always)]
-    fn origin(&self) -> &OPose<T, P> {
+    fn origin(&self) -> &OPose<T, C> {
         &self.origin
     }
 
@@ -483,7 +483,7 @@ impl<T: AD, P: O3DPose<T>> JointTrait<T, P> for OMacroJoint<T, P> {
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OInertial<T: AD, L: OLinalgTrait> {
+pub struct OInertial<T: AD, L: OLinalgCategoryTrait> {
     #[serde_as(as = "SerdeOMat<T, L::MatType<T>>")]
     inertial_matrix: L::MatType<T>,
     #[serde_as(as = "SerdeAD<T>")]
@@ -499,7 +499,7 @@ pub struct OInertial<T: AD, L: OLinalgTrait> {
     #[serde_as(as = "SerdeAD<T>")]
     izz: T
 }
-impl<T: AD, L: OLinalgTrait> OInertial<T, L> {
+impl<T: AD, L: OLinalgCategoryTrait> OInertial<T, L> {
     pub (crate) fn from_inertial(inertial: &Inertial) -> Self {
         let mat_slice = [
             T::constant(inertial.inertia.ixx),
@@ -577,13 +577,13 @@ impl<T: AD, L: OLinalgTrait> OInertial<T, L> {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OCollision<T: AD, P: O3DPose<T>> {
+pub struct OCollision<T: AD, C: O3DPoseCategoryTrait> {
     geometry: OGeometry,
     name: Option<String>,
-    #[serde(deserialize_with = "OPose::<T, P>::deserialize")]
-    origin: OPose<T, P>
+    #[serde(deserialize_with = "OPose::<T, C>::deserialize")]
+    origin: OPose<T, C>
 }
-impl<T: AD, P: O3DPose<T>> OCollision<T, P> {
+impl<T: AD, C: O3DPoseCategoryTrait> OCollision<T, C> {
     pub (crate) fn from_collision(collision: &Collision) -> Self {
         Self {
             geometry: OGeometry::from_geometry(&collision.geometry),
@@ -600,37 +600,21 @@ impl<T: AD, P: O3DPose<T>> OCollision<T, P> {
     pub fn name(&self) -> &Option<String> {
         &self.name
     }
-    pub fn origin(&self) -> &OPose<T, P> {
+    pub fn origin(&self) -> &OPose<T, C> {
         &self.origin
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OVisual<T: AD, P: O3DPose<T>> {
+pub struct OVisual<T: AD, C: O3DPoseCategoryTrait> {
     name: Option<String>,
     material: Option<OMaterial>,
-    #[serde(deserialize_with = "OPose::<T, P>::deserialize")]
-    origin: OPose<T, P>,
+    #[serde(deserialize_with = "OPose::<T, C>::deserialize")]
+    origin: OPose<T, C>,
     #[serde(deserialize_with = "OGeometry::deserialize")]
     geometry: OGeometry
 }
-
-impl<T: AD, P: O3DPose<T>> OVisual<T, P> {
-    pub fn name(&self) -> &Option<String> {
-        &self.name
-    }
-    pub fn material(&self) -> &Option<OMaterial> {
-        &self.material
-    }
-    pub fn origin(&self) -> &OPose<T, P> {
-        &self.origin
-    }
-    pub fn geometry(&self) -> &OGeometry {
-        &self.geometry
-    }
-}
-
-impl<T: AD, P: O3DPose<T>> OVisual<T, P> {
+impl<T: AD, C: O3DPoseCategoryTrait> OVisual<T, C> {
     pub (crate) fn from_visual(visual: &Visual) -> Self {
         Self {
             name: match &visual.name {
@@ -644,6 +628,18 @@ impl<T: AD, P: O3DPose<T>> OVisual<T, P> {
             origin: OPose::from_pose(&visual.origin),
             geometry: OGeometry::from_geometry(&visual.geometry)
         }
+    }
+    pub fn name(&self) -> &Option<String> {
+        &self.name
+    }
+    pub fn material(&self) -> &Option<OMaterial> {
+        &self.material
+    }
+    pub fn origin(&self) -> &OPose<T, C> {
+        &self.origin
+    }
+    pub fn geometry(&self) -> &OGeometry {
+        &self.geometry
     }
 }
 
@@ -722,16 +718,16 @@ impl OGeometry {
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OPose<T: AD, P: O3DPose<T>> {
-    #[serde_as(as = "SerdeO3DPose<T, P>")]
-    pub (crate) pose: P,
+pub struct OPose<T: AD, C: O3DPoseCategoryTrait> {
+    #[serde_as(as = "SerdeO3DPose<T, C::P<T>>")]
+    pub (crate) pose: C::P<T>,
     #[serde_as(as = "[SerdeAD<T>; 3]")]
     pub (crate) rpy: [T; 3],
     #[serde_as(as = "[SerdeAD<T>; 3]")]
     pub (crate) xyz: [T; 3]
 }
-impl<T: AD, P: O3DPose<T>> OPose<T, P> {
-    pub fn from_o3d_pose(pose: &P) -> Self {
+impl<T: AD, C: O3DPoseCategoryTrait> OPose<T, C> {
+    pub fn from_o3d_pose(pose: &C::P<T>) -> Self {
         let rpy = pose.rotation().euler_angles();
         let xyz = pose.translation().to_arr();
 
@@ -745,7 +741,7 @@ impl<T: AD, P: O3DPose<T>> OPose<T, P> {
         let rpy: Vec<T> = pose.rpy.0.iter().map(|x| T::constant(*x)).collect();
         let xyz: Vec<T> = pose.xyz.0.iter().map(|x| T::constant(*x)).collect();
 
-        let pose = P::from_constructors(&xyz, &rpy);
+        let pose = C::P::from_constructors(&xyz, &rpy);
 
         Self {
             pose,
@@ -753,7 +749,7 @@ impl<T: AD, P: O3DPose<T>> OPose<T, P> {
             xyz: [xyz[0], xyz[1], xyz[2]]
         }
     }
-    pub fn pose(&self) -> &P {
+    pub fn pose(&self) -> &C::P<T> {
         &self.pose
     }
     pub fn rpy(&self) -> &[T; 3] {

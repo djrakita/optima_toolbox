@@ -2,18 +2,18 @@ use std::marker::PhantomData;
 use ad_trait::AD;
 use ad_trait::differentiable_function::{DifferentiableFunctionTrait};
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
-use optima_linalg::OLinalgTrait;
+use optima_linalg::OLinalgCategoryTrait;
 use optima_optimization::derivative_based_optimization::{DerivBasedOptSolver};
 use crate::robot::ORobot;
 
-pub struct SimpleIKArgs<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
-    robot: ORobot<T, P, L>,
+pub struct SimpleIKArgs<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
+    robot: ORobot<T, C, L>,
     pub chain_idx: usize,
     pub link_idx: usize,
-    pub goal_pose: P
+    pub goal_pose: C::P<T>
 }
-impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> SimpleIKArgs<T, P, L> {
-    pub fn new(robot: ORobot<T, P, L>, chain_idx: usize, link_idx: usize, goal_pose: P) -> Self {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> SimpleIKArgs<T, C, L> {
+    pub fn new(robot: ORobot<T, C, L>, chain_idx: usize, link_idx: usize, goal_pose: C::P<T>) -> Self {
         Self {
             robot,
             chain_idx,
@@ -21,14 +21,14 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> SimpleIKArgs<T, P, L> {
             goal_pose,
         }
     }
-    pub fn robot(&self) -> &ORobot<T, P, L> {
+    pub fn robot(&self) -> &ORobot<T, C, L> {
         &self.robot
     }
 }
 
-pub struct SimpleIKFunction<C: O3DPoseCategoryTrait, L: OLinalgTrait>(PhantomData<(C, L)>);
-impl<C: O3DPoseCategoryTrait, L: OLinalgTrait> DifferentiableFunctionTrait for SimpleIKFunction<C, L> {
-    type ArgsType<T: AD> = SimpleIKArgs<T, C::P<T>, L>;
+pub struct SimpleIKFunction<C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait>(PhantomData<(C, L)>);
+impl<C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> DifferentiableFunctionTrait for SimpleIKFunction<C, L> {
+    type ArgsType<T: AD> = SimpleIKArgs<T, C, L>;
 
     fn call<T1: AD>(inputs: &[T1], args: &Self::ArgsType<T1>) -> Vec<T1> {
         let fk_res = args.robot.forward_kinematics(&inputs, None);

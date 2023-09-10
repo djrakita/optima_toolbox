@@ -15,7 +15,7 @@ pub enum OLinalgType {
     Nalgebra, NDarray
 }
 
-pub trait OLinalgTrait : Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync {
+pub trait OLinalgCategoryTrait: Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync {
     type VecType<T: AD>: OVec<T>;
     type MatType<T: AD>: OMat<T, VecMulInType=Self::VecType<T>, VecMulOutType=Self::VecType<T>, MatMulInType=Self::MatType<T>, MatMulOutType=Self::MatType<T>>;
 
@@ -23,8 +23,8 @@ pub trait OLinalgTrait : Clone + Debug + Serialize + for<'a> Deserialize<'a> + S
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct NalgebraLinalg;
-impl OLinalgTrait for NalgebraLinalg {
+pub struct OLinalgCategoryNalgebra;
+impl OLinalgCategoryTrait for OLinalgCategoryNalgebra {
     type VecType<T: AD> = DVector<T>;
     type MatType<T: AD> = DMatrix<T>;
 
@@ -35,8 +35,8 @@ impl OLinalgTrait for NalgebraLinalg {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct NdarrayLinalg;
-impl OLinalgTrait for NdarrayLinalg {
+pub struct OLinalgCategoryNDarray;
+impl OLinalgCategoryTrait for OLinalgCategoryNDarray {
     type VecType<T: AD> = ArrayBase<OwnedRepr<T>, Ix1>;
     type MatType<T: AD> = ArrayBase<OwnedRepr<T>, Dim<[Ix; 2]>>;
 

@@ -12,28 +12,28 @@ use optima_3d_mesh::{SaveToSTL, ToTriMesh};
 use optima_console::output::{oprint, PrintColor, PrintMode};
 use optima_file::path::{OAssetLocation, OPath, OPathMatchingPattern, OPathMatchingStopCondition, OStemCellPath};
 use optima_file::traits::{FromJsonString, ToJsonString};
-use optima_linalg::{NalgebraLinalg, OLinalgTrait, OVec};
+use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategoryTrait, OVec};
 use crate::robotics_components::*;
 use crate::robotics_traits::{ChainableTrait, JointTrait};
 
-pub type OChainDefault<T> = OChain<T, Isometry3<T>, NalgebraLinalg>;
+pub type OChainDefault<T> = OChain<T, Isometry3<T>, OLinalgCategoryNalgebra>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OChain<T: AD, P: O3DPose<T>, L: OLinalgTrait> {
+pub struct OChain<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
     chain_name: String,
-    #[serde(deserialize_with = "Vec::<OLink<T, P, L>>::deserialize")]
-    links: Vec<OLink<T, P, L>>,
-    #[serde(deserialize_with = "Vec::<OJoint<T, P>>::deserialize")]
-    joints: Vec<OJoint<T, P>>,
+    #[serde(deserialize_with = "Vec::<OLink<T, C, L>>::deserialize")]
+    links: Vec<OLink<T, C, L>>,
+    #[serde(deserialize_with = "Vec::<OJoint<T, C>>::deserialize")]
+    joints: Vec<OJoint<T, C>>,
     link_name_to_link_idx_map: HashMap<String, usize>,
     joint_name_to_joint_idx_map: HashMap<String, usize>,
     base_link_idx: usize,
     kinematic_hierarchy: Vec<Vec<usize>>,
     num_dofs: usize,
     dof_to_joint_and_sub_dof_idxs: Vec<(usize, usize)>,
-    phantom_data: PhantomData<(T, P)>
+    phantom_data: PhantomData<(T, C)>
 }
-impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> OChain<T, C, L> {
     pub fn from_urdf(chain_name: &str) -> Self {
         let urdf_path = get_urdf_path_from_chain_name(chain_name);
         let urdf = urdf_path.load_urdf();
@@ -51,7 +51,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
 
         Self::from_manual(chain_name, links, joints)
     }
-    pub fn from_manual(chain_name: &str, links: Vec<OLink<T, P, L>>, joints: Vec<OJoint<T, P>>) -> Self {
+    pub fn from_manual(chain_name: &str, links: Vec<OLink<T, C, L>>, joints: Vec<OJoint<T, C>>) -> Self {
         let mut link_name_to_link_idx_map = HashMap::new();
         let mut joint_name_to_joint_idx_map = HashMap::new();
 
@@ -80,12 +80,12 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
 
         out
     }
-    pub fn to_new_generic_types<T2: AD, P2: O3DPose<T2>, L2: OLinalgTrait>(&self) -> OChain<T2, P2, L2> {
+    pub fn to_new_generic_types<T2: AD, C2: O3DPoseCategoryTrait, L2: OLinalgCategoryTrait>(&self) -> OChain<T2, C2, L2> {
         let json_str = self.to_json_string();
-        OChain::<T2, P2, L2>::from_json_string(&json_str)
+        OChain::<T2, C2, L2>::from_json_string(&json_str)
     }
-    pub fn to_new_ad_type<T2: AD>(&self) -> OChain<T2, <P::Category as O3DPoseCategoryTrait>::P<T2>, L> {
-        self.to_new_generic_types::<T2, <P::Category as O3DPoseCategoryTrait>::P<T2>, L>()
+    pub fn to_new_ad_type<T2: AD>(&self) -> OChain<T2, C, L> {
+        self.to_new_generic_types::<T2, C, L>()
     }
     #[inline(always)]
     pub fn get_link_idx_from_link_name(&self, link_name: &str) -> usize {
@@ -132,26 +132,26 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
     }
     */
     #[inline]
-    pub fn get_joint_transform<V: OVec<T>>(&self, state: &V, joint_idx: usize) -> P {
+    pub fn get_joint_transform<V: OVec<T>>(&self, state: &V, joint_idx: usize) -> C::P<T> {
         self.joints[joint_idx].get_joint_transform(state, &self.joints)
     }
     #[inline(always)]
-    pub fn get_joint_fixed_offset_transform(&self, joint_idx: usize) -> &P {
+    pub fn get_joint_fixed_offset_transform(&self, joint_idx: usize) -> &C::P<T> {
         self.joints[joint_idx].get_joint_fixed_offset_transform()
     }
     #[inline]
-    pub fn get_joint_variable_transform<V: OVec<T>>(&self, state: &V, joint_idx: usize) -> P {
+    pub fn get_joint_variable_transform<V: OVec<T>>(&self, state: &V, joint_idx: usize) -> C::P<T> {
         self.joints[joint_idx].get_joint_variable_transform(state, &self.joints)
     }
     #[inline]
     pub fn dof_to_joint_and_sub_dof_idxs(&self) -> &Vec<(usize, usize)> {
         &self.dof_to_joint_and_sub_dof_idxs
     }
-    pub fn forward_kinematics<V: OVec<T>>(&self, state: &V, base_offset: Option<&P>) -> ChainFKResult<T, P> {
+    pub fn forward_kinematics<V: OVec<T>>(&self, state: &V, base_offset: Option<&C::P<T>>) -> ChainFKResult<T, C::P<T>> {
         let mut out = vec![ None; self.links.len() ];
 
         let base_pose = match base_offset {
-            None => { P::identity() }
+            None => { C::P::<T>::identity() }
             Some(base_offset) => { base_offset.to_owned() }
         };
 
@@ -171,11 +171,11 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
 
         ChainFKResult { link_poses: out, _phantom_data: Default::default() }
     }
-    pub fn forward_kinematics_floating_chain<V: OVec<T>>(&self, state: &V, start_link_idx: usize, end_link_idx: usize, base_offset: Option<&P>) -> ChainFKResult<T, P> {
+    pub fn forward_kinematics_floating_chain<V: OVec<T>>(&self, state: &V, start_link_idx: usize, end_link_idx: usize, base_offset: Option<&C::P<T>>) -> ChainFKResult<T, C::P<T>> {
         let mut out = vec![ None; self.links.len() ];
 
         let base_pose = match base_offset {
-            None => { P::identity() }
+            None => { C::P::<T>::identity() }
             Some(base_offset) => { base_offset.to_owned() }
         };
 
@@ -213,7 +213,7 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
         self.set_link_convex_decomposition_mesh_file_paths();
     }
 }
-impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OChain<T, C, L> {
     fn set_link_and_joint_idxs(&mut self) {
         self.links.iter_mut().enumerate().for_each(|(i, x)| {
            x.link_idx = i;
@@ -434,9 +434,9 @@ impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OChain<T, P, L> {
         });
     }
 }
-impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> ChainableTrait<T, P> for OChain<T, P, L> {
-    type LinkType = OLink<T, P, L>;
-    type JointType = OJoint<T, P>;
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ChainableTrait<T, C> for OChain<T, C, L> {
+    type LinkType = OLink<T, C, L>;
+    type JointType = OJoint<T, C>;
 
     #[inline(always)]
     fn links(&self) -> &Vec<Self::LinkType> {

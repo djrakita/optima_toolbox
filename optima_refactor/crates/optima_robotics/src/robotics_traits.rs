@@ -1,17 +1,17 @@
 use ad_trait::AD;
-use optima_3d_spatial::optima_3d_pose::O3DPose;
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
 use optima_3d_spatial::optima_3d_rotation::ScaledAxis;
-use optima_linalg::{OLinalgTrait, OVec};
+use optima_linalg::{OVec};
 use optima_utils::arr_storage::ImmutArrTraitRaw;
 use crate::robotics_components::{ChainInfo, ODynamics, OJointType, OMimic, OPose, OSafetyController};
 
-pub trait JointTrait<T: AD, P: O3DPose<T>> {
+pub trait JointTrait<T: AD, C: O3DPoseCategoryTrait + 'static> {
     fn joint_idx(&self) -> usize;
     fn parent_link_idx(&self) -> usize;
     fn child_link_idx(&self) -> usize;
     fn joint_type(&self) -> &OJointType;
     fn axis(&self) -> &[T; 3];
-    fn origin(&self) -> &OPose<T, P>;
+    fn origin(&self) -> &OPose<T, C>;
     fn mimic(&self) -> &Option<OMimic<T>>;
     fn dynamics(&self) -> &Option<ODynamics<T>>;
     fn safety_controller(&self) -> &Option<OSafetyController<T>>;
@@ -20,45 +20,45 @@ pub trait JointTrait<T: AD, P: O3DPose<T>> {
     fn dof_idxs(&self) -> &Vec<usize>;
     fn dof_idxs_range(&self) -> &Option<(usize, usize)>;
     #[inline]
-    fn get_variable_transform_from_joint_values_subslice(&self, joint_values_subslice: &[T]) -> P {
+    fn get_variable_transform_from_joint_values_subslice(&self, joint_values_subslice: &[T]) -> C::P<T> {
         return match &self.joint_type() {
             OJointType::Revolute => {
                 assert_eq!(joint_values_subslice.len(), 1);
                 let axis = self.axis();
                 let axis = axis.scalar_mul(&joint_values_subslice[0]);
-                P::from_constructors(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
+                C::P::<T>::from_constructors(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
             }
             OJointType::Continuous => {
                 assert_eq!(joint_values_subslice.len(), 1);
                 let axis = self.axis();
                 let axis = axis.scalar_mul(&joint_values_subslice[0]);
-                P::from_constructors(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
+                C::P::<T>::from_constructors(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
             }
             OJointType::Prismatic => {
                 assert_eq!(joint_values_subslice.len(), 1);
                 let axis = self.axis();
                 let axis = axis.scalar_mul(&joint_values_subslice[0]);
-                P::from_constructors(&axis, &[T::zero(), T::zero(), T::zero()])
+                C::P::<T>::from_constructors(&axis, &[T::zero(), T::zero(), T::zero()])
             }
             OJointType::Fixed => {
-                P::identity()
+                C::P::<T>::identity()
             }
             OJointType::Floating => {
                 assert_eq!(joint_values_subslice.len(), 6);
-                P::from_constructors(&[joint_values_subslice[0], joint_values_subslice[1], joint_values_subslice[2]], &ScaledAxis([joint_values_subslice[3], joint_values_subslice[4], joint_values_subslice[5]]))
+                C::P::<T>::from_constructors(&[joint_values_subslice[0], joint_values_subslice[1], joint_values_subslice[2]], &ScaledAxis([joint_values_subslice[3], joint_values_subslice[4], joint_values_subslice[5]]))
             }
             OJointType::Planar => {
                 assert_eq!(joint_values_subslice.len(), 2);
-                P::from_constructors(&[joint_values_subslice[0], joint_values_subslice[1], T::zero()], &[T::zero(), T::zero(), T::zero()])
+                C::P::<T>::from_constructors(&[joint_values_subslice[0], joint_values_subslice[1], T::zero()], &[T::zero(), T::zero(), T::zero()])
             }
             OJointType::Spherical => {
                 assert_eq!(joint_values_subslice.len(), 3);
-                P::from_constructors(&[T::zero(), T::zero(), T::zero()], &ScaledAxis([joint_values_subslice[0], joint_values_subslice[1], joint_values_subslice[2]]))
+                C::P::<T>::from_constructors(&[T::zero(), T::zero(), T::zero()], &ScaledAxis([joint_values_subslice[0], joint_values_subslice[1], joint_values_subslice[2]]))
             }
         }
     }
     #[inline]
-    fn get_joint_variable_transform<V: OVec<T>>(&self, state: &V, all_joints: &Vec<Self>) -> P where Self: Sized {
+    fn get_joint_variable_transform<V: OVec<T>>(&self, state: &V, all_joints: &Vec<Self>) -> C::P<T> where Self: Sized {
         let joint = self;
         if let Some(mimic) = &joint.mimic() {
             let mimic_joint_idx = mimic.joint_idx();
@@ -82,7 +82,7 @@ pub trait JointTrait<T: AD, P: O3DPose<T>> {
         } else {
             let range = joint.dof_idxs_range();
             return match range {
-                None => { P::identity() }
+                None => { C::P::<T>::identity() }
                 Some(range) => {
                     let subslice = state.subslice(range.0, range.1);
                     joint.get_variable_transform_from_joint_values_subslice(subslice)
@@ -91,19 +91,19 @@ pub trait JointTrait<T: AD, P: O3DPose<T>> {
         }
     }
     #[inline]
-    fn get_joint_fixed_offset_transform(&self) -> &P {
+    fn get_joint_fixed_offset_transform(&self) -> &C::P<T> {
         self.origin().pose()
     }
     #[inline]
-    fn get_joint_transform<V: OVec<T>>(&self, state: &V, all_joints: &Vec<Self>) -> P where Self: Sized {
+    fn get_joint_transform<V: OVec<T>>(&self, state: &V, all_joints: &Vec<Self>) -> C::P<T> where Self: Sized {
         // self.get_joint_fixed_offset_transform(joint_idx).mul(&self.get_joint_variable_transform(state, joint_idx))
         self.get_joint_fixed_offset_transform().mul(&self.get_joint_variable_transform(state, all_joints))
     }
 }
 
-pub trait ChainableTrait<T: AD, P: O3DPose<T>> {
+pub trait ChainableTrait<T: AD, C: O3DPoseCategoryTrait + 'static> {
     type LinkType;
-    type JointType : JointTrait<T, P>;
+    type JointType : JointTrait<T, C>;
 
     fn links(&self) -> &Vec<Self::LinkType>;
     fn joints(&self) -> &Vec<Self::JointType>;
@@ -216,14 +216,18 @@ pub trait ChainableTrait<T: AD, P: O3DPose<T>> {
     }
 }
 
+/*
 pub trait OForwardKinematicsTrait<T: AD, P: O3DPose<T>> {
     fn forward_kinematics<V: OVec<T>>(&self, state: &V, base_offset: Option<&P>) -> Vec<Vec<Option<P>>>;
     fn forward_kinematics_floating_chain<V: OVec<T>>(&self, state: &V, start_link_idx: usize, end_link_idx: usize, base_offset: Option<&P>) -> Vec<Vec<Option<P>>>;
 }
+*/
 
-pub trait OJacobianTrait<T: AD, P: O3DPose<T>, L: OLinalgTrait> : OForwardKinematicsTrait<T, P> {
+/*
+pub trait OJacobianTrait<T: AD, P: O3DPose<T>, L: OLinalgCategoryTrait> : OForwardKinematicsTrait<T, P> {
     fn jacobian<V: OVec<T>>(&self, state: &V, start_link_idx: Option<usize>, end_link_idx: usize) -> L::MatType<T>;
 }
+*/
 
 /*
 #[derive(Clone, Debug)]
