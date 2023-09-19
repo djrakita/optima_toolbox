@@ -4,7 +4,7 @@ use bevy::window::PrimaryWindow;
 use bevy_egui::egui::panel::Side;
 use bevy_egui::EguiContexts;
 use optima_bevy::OptimaBevyTrait;
-use optima_bevy_egui::{OEguiButton, OEguiContainerTrait, OEguiEngineWrapper, OEguiSidePanel, OEguiWidgetTrait};
+use optima_bevy_egui::{OEguiButton, OEguiContainerTrait, OEguiEngineWrapper, OEguiSidePanel, OEguiTextbox, OEguiWidgetTrait};
 
 /*
 #[derive(Default)]
@@ -35,5 +35,8 @@ fn test_system(mut contexts: EguiContexts, egui_engine: Res<OEguiEngineWrapper>,
         .show("test", contexts.ctx_mut(), &egui_engine, &window_query, &(), |ui| {
             OEguiButton::new("tester")
                 .show("tester", ui, &egui_engine, &());
+
+            OEguiTextbox::new(false)
+                .show("text", ui, &egui_engine, &());
         });
 }

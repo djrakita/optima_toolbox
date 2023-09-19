@@ -1,7 +1,9 @@
 use ad_trait::AD;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
+use bevy_egui::egui::Ui;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
+use optima_bevy_egui::OEguiEngineWrapper;
 use optima_linalg::{OLinalgCategoryTrait, OVec};
 use optima_robotics::chain::{ChainFKResult, OChain};
 use optima_robotics::robot::ORobot;
@@ -32,7 +34,7 @@ impl RoboticsActions {
                                                                                                            materials: &mut Assets<StandardMaterial>,
                                                                                                            robot_instance_idx: usize,
                                                                                                            chain_idx: usize) {
-        chain.links().iter().enumerate().for_each(|(link_idx, link)| {
+        chain.chainable_link_objects().iter().enumerate().for_each(|(link_idx, link)| {
             if link.is_present_in_model() {
                 let stl_mesh_file_path = link.stl_mesh_file_path();
                 if let Some(stl_mesh_file_path) = stl_mesh_file_path {
@@ -72,12 +74,17 @@ impl RoboticsActions {
             if link_mesh_id.robot_instance_idx == robot_instance_idx {
                 let chain_idx = link_mesh_id.chain_idx;
                 let link_idx = link_mesh_id.link_idx;
-                let link = &robot.chain_wrappers()[chain_idx].chain().links()[link_idx];
+                let link = &robot.chain_wrappers()[chain_idx].chain().chainable_link_objects()[link_idx];
                 let pose = robot_fk_res.get_chain_fk_result(chain_idx).as_ref().unwrap().get_link_pose(link_idx).as_ref().unwrap();
                 let visual_offset = link.visual()[0].origin().pose();
                 *transform = TransformUtils::util_convert_3d_pose_to_y_up_bevy_transform(&(pose.mul(visual_offset)));
             }
         }
+    }
+    pub fn action_robot_joint_sliders_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(_robot: &ORobot<T, C, L>,
+                                                                                                    _egui_engine: &Res<OEguiEngineWrapper>,
+                                                                                                    _ui: &mut Ui) {
+        todo!()
     }
 }
 

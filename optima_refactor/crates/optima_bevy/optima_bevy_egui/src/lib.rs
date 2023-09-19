@@ -29,7 +29,8 @@ pub struct OEguiEngine {
     slider_responses: HashMap<String, OEguiSliderResponse>,
     checkbox_responses: HashMap<String, OEguiCheckboxResponse>,
     radiobutton_responses: HashMap<String, OEguiRadiobuttonResponse>,
-    selector_responses: HashMap<String, OEguiSelectorResponse>
+    selector_responses: HashMap<String, OEguiSelectorResponse>,
+    textbox_responses: HashMap<String, OEguiTextboxResponse>
 }
 impl OEguiEngine {
     pub fn new() -> Self {
@@ -43,6 +44,7 @@ impl OEguiEngine {
             checkbox_responses: Default::default(),
             radiobutton_responses: Default::default(),
             selector_responses: Default::default(),
+            textbox_responses: Default::default(),
         }
     }
     pub fn reset_on_frame(&mut self) {
@@ -184,6 +186,7 @@ egui_engine_helpers!(get_slider_response, slider_responses, OEguiSliderResponse)
 egui_engine_helpers!(get_checkbox_response, checkbox_responses, OEguiCheckboxResponse);
 egui_engine_helpers!(get_radiobutton_response, radiobutton_responses, OEguiRadiobuttonResponse);
 egui_engine_helpers!(get_selector_response, selector_responses, OEguiSelectorResponse);
+egui_engine_helpers!(get_textbox_response, textbox_responses, OEguiTextboxResponse);
 egui_engine_helpers!(get_window_state, window_states, OEguiWindowState);
 egui_engine_helpers!(get_side_panel_state, side_panel_states, OEguiSidePanelState);
 egui_engine_helpers!(get_top_bottom_panel_state, top_bottom_panel_states, OEguiTopBottomPanelState);
@@ -470,6 +473,54 @@ impl OEguiSelectorResponse {
 
 pub enum OEguiSelectorMode {
     RadioButtons, Checkboxes, SelectionText, ComboBox
+}
+
+pub struct OEguiTextbox {
+    multiline: bool
+}
+impl OEguiTextbox {
+    pub fn new(multiline: bool) -> Self {
+        Self {
+            multiline
+        }
+    }
+}
+impl OEguiWidgetTrait for OEguiTextbox {
+    type Args = ();
+
+    fn show(&self, id_str: &str, ui: &mut Ui, egui_engine: &Res<OEguiEngineWrapper>, _args: &Self::Args) {
+
+        let mut mutex_guard = egui_engine.get_mutex_guard();
+        let stored_response = mutex_guard.textbox_responses.get(id_str);
+        let mut curr_string = match stored_response {
+            None => { "".to_string() }
+            Some(stored_response) => { stored_response.text.clone() }
+        };
+
+        let response = if self.multiline {
+            ui.text_edit_multiline(&mut curr_string)
+        } else {
+            ui.text_edit_singleline(&mut curr_string)
+        };
+
+        mutex_guard.textbox_responses.insert(id_str.to_string(), OEguiTextboxResponse {
+            widget_response: response,
+            text: curr_string,
+        });
+    }
+}
+
+pub struct OEguiTextboxResponse {
+    widget_response: Response,
+    text: String
+}
+impl OEguiTextboxResponse {
+    pub fn widget_response(&self) -> &Response {
+        &self.widget_response
+    }
+    pub fn text(&self) -> &str {
+        &self.text
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

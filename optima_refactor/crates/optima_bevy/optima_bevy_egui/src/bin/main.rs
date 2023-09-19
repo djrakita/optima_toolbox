@@ -2,9 +2,9 @@ use std::sync::Mutex;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_egui::{EguiContexts, EguiPlugin};
-use bevy_egui::egui::{Color32, Pos2, Rounding, Visuals};
+use bevy_egui::egui::{Color32, Pos2, Visuals};
 use bevy_egui::egui::panel::{Side, TopBottomSide};
-use optima_bevy_egui::{OEguiButton, OEguiContainerTrait, OEguiEngine, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSidePanel, OEguiSlider, OEguiTopBottomPanel, OEguiWindow};
+use optima_bevy_egui::{OEguiButton, OEguiContainerTrait, OEguiEngine, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSidePanel, OEguiSlider, OEguiTextbox, OEguiTextboxResponse, OEguiTopBottomPanel, OEguiWindow};
 use optima_bevy_egui::OEguiWidgetTrait;
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 
@@ -29,10 +29,6 @@ fn ui_example_system(mut contexts: EguiContexts, egui_engine: Res<OEguiEngineWra
         egui_engine.get_mutex_guard().set_position_of_window("window", Pos2::new(1000.,500.));
     }
 
-    let mut visuals = Visuals::dark();
-    visuals.widgets.noninteractive.bg_fill = Color32::from_rgba_premultiplied(150, 20, 20, 10);
-    contexts.ctx_mut().set_visuals(visuals);
-
     if keys.pressed(KeyCode::Space) {
         egui_engine.get_mutex_guard().set_position_of_window("window", Pos2::new(500.,500.));
     }
@@ -53,6 +49,9 @@ fn ui_example_system(mut contexts: EguiContexts, egui_engine: Res<OEguiEngineWra
         .show("side_panel", contexts.ctx_mut(), &egui_engine, &window_query, &(), |ui| {
             OEguiButton::new("hello")
                 .show("button3", ui, &egui_engine, &());
+
+            OEguiTextbox::new(true)
+                .show("text", ui, &egui_engine, &());
         });
 
 

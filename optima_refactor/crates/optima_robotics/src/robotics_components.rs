@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use serde::{Serialize, Deserialize};
 use ad_trait::AD;
@@ -7,8 +8,9 @@ use optima_3d_spatial::optima_3d_rotation::{O3DRotation};
 use optima_3d_spatial::optima_3d_vec::O3DVec;
 use optima_linalg::{OLinalgCategoryTrait, OMat};
 use serde_with::*;
-use crate::robotics_traits::JointTrait;
+use crate::robotics_traits::{JointTrait};
 use ad_trait::SerdeAD;
+use serde::de::DeserializeOwned;
 use optima_linalg::SerdeOMat;
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
 use optima_file::path::OStemCellPath;
@@ -57,10 +59,10 @@ impl ChainInfo {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OLink<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> {
+pub struct OLink<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug + Serialize + DeserializeOwned> {
     pub (crate) is_present_in_model: bool,
     pub (crate) link_idx: usize,
-    name: String,
+    pub (crate) name: String,
     pub (crate) parent_joint_idx: Option<usize>,
     pub (crate) children_joint_idxs: Vec<usize>,
     pub (crate) parent_link_idx: Option<usize>,
@@ -75,9 +77,11 @@ pub struct OLink<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> {
     pub (crate) original_mesh_file_path: Option<OStemCellPath>,
     pub (crate) stl_mesh_file_path: Option<OStemCellPath>,
     pub (crate) convex_hull_file_path: Option<OStemCellPath>,
-    pub (crate) convex_decomposition_file_paths: Vec<OStemCellPath>
+    pub (crate) convex_decomposition_file_paths: Vec<OStemCellPath>,
+    #[serde(deserialize_with = "A::deserialize")]
+    pub auxiliary_info: A
 }
-impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L, ()> {
     pub (crate) fn from_link(link: &Link) -> Self {
         Self {
             is_present_in_model: true,
@@ -95,9 +99,12 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
             stl_mesh_file_path: None,
             convex_hull_file_path: None,
             convex_decomposition_file_paths: vec![],
+            auxiliary_info: (),
         }
     }
-    pub fn new_manual(name: &str, collision: Vec<OCollision<T, C>>, visual: Vec<OVisual<T, C>>, inertial: OInertial<T, L>) -> Self {
+}
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug + Serialize + DeserializeOwned> OLink<T, C, L, A> {
+    pub fn new_manual(name: &str, collision: Vec<OCollision<T, C>>, visual: Vec<OVisual<T, C>>, inertial: OInertial<T, L>, auxiliary_info: A) -> Self {
         Self {
             is_present_in_model: true,
             link_idx: usize::default(),
@@ -114,6 +121,28 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
             stl_mesh_file_path: None,
             convex_hull_file_path: None,
             convex_decomposition_file_paths: vec![],
+            auxiliary_info,
+        }
+    }
+    pub fn to_new_auxiliary_info_type<A2: Clone + Debug + Serialize + DeserializeOwned>(&self, auxiliary_info: A2) -> OLink<T, C, L, A2> {
+        // OLink::new_manual(self.name(), self.collision.clone(), self.visual.clone(), self.inertial.clone(), auxiliary_info)
+        OLink {
+            is_present_in_model: self.is_present_in_model,
+            link_idx: self.link_idx,
+            name: self.name.clone(),
+            parent_joint_idx: self.parent_joint_idx.clone(),
+            children_joint_idxs: self.children_joint_idxs.clone(),
+            parent_link_idx: self.parent_link_idx.clone(),
+            children_link_idxs: self.children_link_idxs.clone(),
+            link_connection_paths: self.link_connection_paths.clone(),
+            collision: self.collision.clone(),
+            visual: self.visual.clone(),
+            inertial: self.inertial.clone(),
+            original_mesh_file_path: self.original_mesh_file_path.clone(),
+            stl_mesh_file_path: self.stl_mesh_file_path.clone(),
+            convex_hull_file_path: self.convex_hull_file_path.clone(),
+            convex_decomposition_file_paths: self.convex_decomposition_file_paths.clone(),
+            auxiliary_info,
         }
     }
     #[inline(always)]
@@ -149,6 +178,9 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
     pub fn convex_decomposition_file_paths(&self) -> &Vec<OStemCellPath> {
         &self.convex_decomposition_file_paths
     }
+    pub fn auxiliary_info(&self) -> &A {
+        &self.auxiliary_info
+    }
 }
 
 #[serde_as]
@@ -156,28 +188,28 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
 pub struct OJoint<T: AD, C: O3DPoseCategoryTrait> {
     pub (crate) is_present_in_model: bool,
     pub (crate) joint_idx: usize,
-    name: String,
-    joint_type: OJointType,
+    pub (crate) name: String,
+    pub (crate) joint_type: OJointType,
     #[serde_as(as = "Option::<Vec<SerdeAD<T>>>")]
     pub (crate) fixed_values: Option<Vec<T>>,
     #[serde(deserialize_with = "OPose::<T, C>::deserialize")]
-    origin: OPose<T, C>,
+    pub (crate) origin: OPose<T, C>,
     #[serde_as(as = "[SerdeAD<T>; 3]")]
-    axis: [T; 3],
-    parent_link: String,
+    pub (crate) axis: [T; 3],
+    pub (crate) parent_link: String,
     pub (crate) parent_link_idx: usize,
-    child_link: String,
+    pub (crate) child_link: String,
     pub (crate) child_link_idx: usize,
     pub (crate) dof_idxs: Vec<usize>,
     pub (crate) dof_idxs_range: Option<(usize, usize)>,
     #[serde(deserialize_with = "OJointLimit::<T>::deserialize")]
-    limit: OJointLimit<T>,
+    pub (crate) limit: OJointLimit<T>,
     #[serde(deserialize_with = "Option::<ODynamics::<T>>::deserialize")]
-    dynamics: Option<ODynamics<T>>,
+    pub (crate) dynamics: Option<ODynamics<T>>,
     #[serde(deserialize_with = "Option::<OMimic<T>>::deserialize")]
     pub (crate) mimic: Option<OMimic<T>>,
     #[serde(deserialize_with = "Option::<OSafetyController<T>>::deserialize")]
-    safety_controller: Option<OSafetyController<T>>
+    pub (crate) safety_controller: Option<OSafetyController<T>>
 }
 impl<T: AD, C: O3DPoseCategoryTrait> OJoint<T, C> {
     pub (crate) fn from_joint(joint: &Joint) -> Self {
@@ -281,6 +313,11 @@ impl<T: AD, C: O3DPoseCategoryTrait> OJoint<T, C> {
 }
 impl<T: AD, C: O3DPoseCategoryTrait + 'static> JointTrait<T, C> for OJoint<T, C> {
     #[inline(always)]
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    #[inline(always)]
     fn joint_idx(&self) -> usize {
         self.joint_idx
     }
@@ -308,6 +345,11 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static> JointTrait<T, C> for OJoint<T, C>
     #[inline(always)]
     fn origin(&self) -> &OPose<T, C> {
         &self.origin
+    }
+
+    #[inline(always)]
+    fn limit(&self) -> &OJointLimit<T> {
+        &self.limit
     }
 
     #[inline(always)]
@@ -375,7 +417,7 @@ pub struct OMacroJoint<T: AD, C: O3DPoseCategoryTrait> {
 impl<T: AD, C: O3DPoseCategoryTrait> OMacroJoint<T, C> {
     pub (crate) fn new(macro_joint_idx: usize, origin: OPose<T, C>, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, child_chain_idx: usize) -> Self {
         Self {
-            macro_joint_idx,
+            macro_joint_idx: macro_joint_idx,
             origin,
             axis,
             joint_type,
@@ -413,8 +455,16 @@ impl<T: AD, C: O3DPoseCategoryTrait> OMacroJoint<T, C> {
     pub fn child_chain_idx(&self) -> usize {
         self.child_chain_idx
     }
+    pub fn safety_controller(&self) -> &Option<OSafetyController<T>> {
+        &self.safety_controller
+    }
 }
 impl<T: AD, C: O3DPoseCategoryTrait + 'static> JointTrait<T, C> for OMacroJoint<T, C> {
+    #[inline(always)]
+    fn name(&self) -> &str {
+        todo!()
+    }
+
     #[inline(always)]
     fn joint_idx(&self) -> usize {
         self.macro_joint_idx
@@ -443,6 +493,11 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static> JointTrait<T, C> for OMacroJoint<
     #[inline(always)]
     fn origin(&self) -> &OPose<T, C> {
         &self.origin
+    }
+
+    #[inline(always)]
+    fn limit(&self) -> &OJointLimit<T> {
+        &self.limit
     }
 
     #[inline(always)]
@@ -857,28 +912,29 @@ impl<T: AD> ODynamics<T> {
     }
 }
 
+/// the Vec<...> is for all sub dofs (i.e., a floating joint will have six values for all fields)
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OJointLimit<T: AD> {
-    #[serde_as(as = "SerdeAD<T>")]
-    effort: T,
-    #[serde_as(as = "SerdeAD<T>")]
-    lower: T,
-    #[serde_as(as = "SerdeAD<T>")]
-    upper: T,
-    #[serde_as(as = "SerdeAD<T>")]
-    velocity: T
+    #[serde_as(as = "Vec<SerdeAD<T>>")]
+    effort: Vec<T>,
+    #[serde_as(as = "Vec<SerdeAD<T>>")]
+    lower: Vec<T>,
+    #[serde_as(as = "Vec<SerdeAD<T>>")]
+    upper: Vec<T>,
+    #[serde_as(as = "Vec<SerdeAD<T>>")]
+    velocity: Vec<T>
 }
 impl<T: AD> OJointLimit<T> {
     pub (crate) fn from_joint_limit(joint_limit: &JointLimit) -> Self {
         Self {
-            effort:   T::constant(joint_limit.effort),
-            lower:    T::constant(joint_limit.lower),
-            upper:    T::constant(joint_limit.upper),
-            velocity: T::constant(joint_limit.velocity)
+            effort:   vec![T::constant(joint_limit.effort)],
+            lower:    vec![ T::constant(joint_limit.lower)],
+            upper:    vec![ T::constant(joint_limit.upper)],
+            velocity: vec![ T::constant(joint_limit.velocity)]
         }
     }
-    pub fn new_manual(effort: T, lower: T, upper: T, velocity: T) -> Self {
+    pub fn new_manual(effort: Vec<T>, lower: Vec<T>, upper: Vec<T>, velocity: Vec<T>) -> Self {
         Self {
             effort,
             lower,
@@ -886,26 +942,30 @@ impl<T: AD> OJointLimit<T> {
             velocity,
         }
     }
-    pub fn effort(&self) -> &T {
+    #[inline]
+    pub fn effort(&self) -> &Vec<T> {
         &self.effort
     }
-    pub fn lower(&self) -> &T {
+    #[inline]
+    pub fn lower(&self) -> &Vec<T> {
         &self.lower
     }
-    pub fn upper(&self) -> &T {
+    #[inline]
+    pub fn upper(&self) -> &Vec<T> {
         &self.upper
     }
-    pub fn velocity(&self) -> &T {
+    #[inline]
+    pub fn velocity(&self) -> &Vec<T> {
         &self.velocity
     }
 }
 impl<T: AD> Default for OJointLimit<T> {
     fn default() -> Self {
         Self {
-            effort: T::zero(),
-            lower: T::zero(),
-            upper: T::zero(),
-            velocity: T::zero(),
+            effort: vec![T::zero()],
+            lower: vec![T::zero()],
+            upper: vec![T::zero()],
+            velocity: vec![T::zero()],
         }
     }
 }

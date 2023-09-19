@@ -74,14 +74,17 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
     type Category = O3DPoseCategoryImplicitDualQuaternion;
     type RotationType = UnitQuaternion<T>;
 
+    #[inline(always)]
     fn type_identifier() -> O3DPoseType {
         O3DPoseType::ImplicitDualQuaternion
     }
 
+    #[inline(always)]
     fn identity() -> Self {
         Self::from_constructors(&[T::zero(), T::zero(), T::zero()], &[T::zero(), T::zero(), T::zero()])
     }
 
+    #[inline(always)]
     fn from_translation_and_rotation<V: O3DVec<T>, R: O3DRotation<T>>(location: &V, orientation: &R) -> Self {
         let location = Vector3::from_column_slice(location.as_slice());
         let orientation = UnitQuaternion::from_scaled_axis(Vector3::from_column_slice(&orientation.scaled_axis_of_rotation()));
@@ -91,6 +94,7 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
         }
     }
 
+    #[inline(always)]
     fn from_constructors<V: O3DVec<T>, RC: O3DRotationConstructor<T, Self::RotationType>>(translation: &V, rotation_constructor: &RC) -> Self {
         let translation = Vector3::from_column_slice(translation.as_slice());
         let rotation = rotation_constructor.construct();
@@ -101,30 +105,37 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
         }
     }
 
+    #[inline(always)]
     fn translation(&self) -> &Vector3<T> {
         &self.translation
     }
 
+    #[inline(always)]
     fn rotation(&self) -> &UnitQuaternion<T> {
         &self.rotation
     }
 
+    #[inline(always)]
     fn update_translation(&mut self, translation: &[T]) {
         self.translation = Vector3::from_column_slice(translation);
     }
 
+    #[inline(always)]
     fn update_rotation_constructor<RC: O3DRotationConstructor<T, UnitQuaternion<T>>>(&mut self, orientation: &RC) {
         self.rotation = orientation.construct();
     }
 
+    #[inline(always)]
     fn update_rotation_native(&mut self, orientation: &UnitQuaternion<T>) {
         self.rotation = orientation.clone();
     }
 
+    #[inline(always)]
     fn update_rotation_direct<R: O3DRotation<T>>(&mut self, orientation: &R) {
         self.rotation = UnitQuaternion::from_scaled_axis(Vector3::from_column_slice(&orientation.scaled_axis_of_rotation()));
     }
 
+    #[inline]
     fn mul(&self, other: &Self) -> Self {
         let orientation = &self.rotation * &other.rotation;
         let location = &self.rotation * &other.translation + &self.translation;
@@ -135,6 +146,7 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
         }
     }
 
+    #[inline]
     fn inverse(&self) -> Self {
         let orientation = self.rotation.inverse();
         let location = &orientation * -&self.translation;
@@ -145,15 +157,18 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
         }
     }
 
+    #[inline]
     fn displacement(&self, other: &Self) -> Self {
         self.inverse().mul(other)
     }
 
+    #[inline]
     fn dis(&self, other: &Self) -> T {
         let l = self.displacement(other).ln();
         l.norm()
     }
 
+    #[inline]
     fn interpolate(&self, to: &Self, t: T) -> Self {
         let orientation = self.rotation.slerp(&to.rotation, t);
         let location = (T::one() - t).mul_by_nalgebra_matrix_ref(&self.translation) + t.mul_by_nalgebra_matrix_ref(&to.translation);

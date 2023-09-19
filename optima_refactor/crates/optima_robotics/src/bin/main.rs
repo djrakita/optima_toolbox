@@ -12,21 +12,22 @@ use optima_robotics::robotics_optimization_solvers::{SimpleIKArgs, SimpleIKFunct
 
 type DerivativeMethod = ForwardADMulti<adf_f32x8>;
 type DerivativeT = <DerivativeMethod as DerivativeMethodTrait>::T;
-type LinalgCategory = OLinalgCategoryNDarray;
+type LinalgCategory = OLinalgCategoryNalgebra;
 type PoseCategory = O3DPoseCategoryImplicitDualQuaternion;
 type PoseType = <PoseCategory as O3DPoseCategoryTrait>::P<f64>;
+const NUM_DOFS : usize = 6;
 
 fn main() {
-    let robot1 = ORobot::<f64, PoseCategory, LinalgCategory>::new_from_single_chain_name("ur5");
+    let robot1 = ORobot::<f64, PoseCategory, LinalgCategory>::new_from_single_chain_name("z1");
     let robot2 = robot1.to_new_ad_type::<DerivativeT>();
     let goal_pose1 = PoseType::from_constructors(&[0.1,0.,0.7], &[0.,0.,0.]);
     let goal_pose2 = goal_pose1.to_other_ad_type::<DerivativeT>();
 
     let mut ik = DerivBasedOptSolver::<SimpleIKFunction<PoseCategory, LinalgCategory>, DerivativeMethod, OpEnSimple>::new(
-        SimpleIKArgs::new(robot1, 1, 9, goal_pose1),
-        SimpleIKArgs::new(robot2, 1, 9, goal_pose2),
+        SimpleIKArgs::new(robot1, 1, 6, goal_pose1),
+        SimpleIKArgs::new(robot2, 1, 6, goal_pose2),
         (),
-        OpEnSimpleArgs::new(PANOCCache::new(6, 1e-3, 3), vec![0.001; 6])
+        OpEnSimpleArgs::new(PANOCCache::new(NUM_DOFS, 1e-4, 3), vec![0.02; NUM_DOFS])
     );
 
     let res = ik.optimize();
