@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use ad_trait::*;
 use serde::{Serialize, Deserialize};
@@ -19,7 +19,7 @@ use crate::robotics_traits::{JointTrait};
 
 pub type OChainDefault<T> = OChain<T, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, ()>;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OChain<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait, A: Clone + Debug + Serialize + DeserializeOwned> {
     chain_name: String,
     #[serde(deserialize_with = "Vec::<OLink<T, C, L, A>>::deserialize")]
@@ -116,6 +116,20 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait, A: Clone
         out.set_all_sub_dof_idxs();
         out.set_dof_to_joint_and_sub_dof_idxs();
         out
+    }
+    pub (crate) fn new_empty() -> Self {
+        Self {
+            chain_name: "".to_string(),
+            links: vec![],
+            joints: vec![],
+            link_name_to_link_idx_map: Default::default(),
+            joint_name_to_joint_idx_map: Default::default(),
+            base_link_idx: 0,
+            kinematic_hierarchy: vec![],
+            num_dofs: 0,
+            dof_to_joint_and_sub_dof_idxs: vec![],
+            phantom_data: Default::default(),
+        }
     }
     pub fn to_new_generic_types<T2: AD, C2: O3DPoseCategoryTrait, L2: OLinalgCategoryTrait>(&self) -> OChain<T2, C2, L2, A> {
         let json_str = self.to_json_string();
@@ -481,6 +495,29 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug +
                 link.convex_decomposition_file_paths = files.clone();
             }
         });
+    }
+}
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug + Serialize + DeserializeOwned> Debug for OChain<T, C, L, A> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut s = "".to_string();
+
+        s += "{{\n";
+        s += &format!("  OChain\n");
+        s += &format!("  Chain name: {}\n", self.chain_name);
+        s += &format!("  Num DOFS: {}\n", self.num_dofs);
+        self.links.iter().for_each(|x| {
+            let binding = format!("{:?}\n", x);
+            s += &binding;
+        });
+        self.joints.iter().for_each(|x| {
+            let binding = format!("{:?}\n", x);
+            s += &binding;
+        });
+
+        s += "}}";
+
+        f.write_str(&s)?;
+        Ok(())
     }
 }
 

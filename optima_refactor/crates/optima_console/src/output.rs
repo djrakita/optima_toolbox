@@ -5,6 +5,32 @@ use colored::Colorize;
 use pbr::ProgressBar;
 use std::io::Stdout;
 
+#[macro_export]
+macro_rules! tab {
+    ($s:expr) => {{
+        let mut out = String::new();
+        let mut lines = $s.lines().peekable();
+        while let Some(line) = lines.next() {
+            out += &format!("\t{}", line);
+            if lines.peek().is_some() {
+                out += "\n";
+            }
+        }
+        out
+    }};
+    ($s:expr, $tabs:expr) => {{
+        let mut out = String::new();
+        let mut lines = $s.lines().peekable();
+        while let Some(line) = lines.next() {
+            out += &format!("{}{}", $tabs, line);
+            if lines.peek().is_some() {
+                out += "\n";
+            }
+        }
+        out
+    }};
+}
+
 pub const NUM_SPACES_PER_TAB: usize = 10;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

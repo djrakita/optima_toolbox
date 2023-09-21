@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use serde::{Serialize, Deserialize};
 use ad_trait::AD;
@@ -58,7 +58,7 @@ impl ChainInfo {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OLink<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug + Serialize + DeserializeOwned> {
     pub (crate) is_present_in_model: bool,
     pub (crate) link_idx: usize,
@@ -182,9 +182,27 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug +
         &self.auxiliary_info
     }
 }
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug + Serialize + DeserializeOwned> Debug for OLink<T, C, L, A> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut s = "".to_string();
+
+        s += &format!("{{\n");
+        s += &format!("  OLink\n");
+        s += &format!("  Link name: {}\n", self.name());
+        s += &format!("  Link idx: {}\n", self.link_idx());
+        s += &format!("  Parent Link idx: {:?}\n", self.parent_link_idx);
+        s += &format!("  Children Link idxs: {:?}\n", self.children_link_idxs);
+        s += &format!("  Parent Joint idx: {:?}\n", self.parent_joint_idx);
+        s += &format!("  Children Joint idxs: {:?}\n", self.children_joint_idxs);
+        s += &format!("}}");
+
+        f.write_str(&s)?;
+        Ok(())
+    }
+}
 
 #[serde_as]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OJoint<T: AD, C: O3DPoseCategoryTrait> {
     pub (crate) is_present_in_model: bool,
     pub (crate) joint_idx: usize,
@@ -385,6 +403,25 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static> JointTrait<T, C> for OJoint<T, C>
     #[inline(always)]
     fn dof_idxs_range(&self) -> &Option<(usize, usize)> {
         &self.dof_idxs_range
+    }
+}
+impl<T: AD, C: O3DPoseCategoryTrait + 'static> Debug for OJoint<T, C> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut s = "".to_string();
+
+        s += &format!("{{\n");
+        s += &format!("  OJoint\n");
+        s += &format!("  Joint name: {}\n", self.name());
+        s += &format!("  Joint idx: {}\n", self.joint_idx());
+        s += &format!("  Joint Type: {:?}\n", self.joint_type);
+        s += &format!("  Axis: {:?}\n", self.axis);
+        s += &format!("  DOF idxs: {:?}\n", self.dof_idxs);
+        s += &format!("  Parent Link idx: {:?}\n", self.parent_link_idx);
+        s += &format!("  Child Link idx: {:?}\n", self.child_link_idx);
+        s += &format!("}}");
+
+        f.write_str(&s)?;
+        Ok(())
     }
 }
 

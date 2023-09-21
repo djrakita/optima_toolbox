@@ -24,6 +24,8 @@ pub struct ORobot<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTr
     num_dofs: usize,
     base_chain_idx: usize,
     dof_to_joint_and_sub_dof_idxs: Vec<RobotJointIdx>,
+    #[serde(deserialize_with = "OChain::<T, C, L, RobotLinkAuxInfo>::deserialize")]
+    robot_as_single_chain: OChain<T, C, L, RobotLinkAuxInfo>,
     _phantom_data: PhantomData<(T, C, L)>,
 }
 impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T, C, L> {
@@ -35,6 +37,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
             num_dofs: usize::default(),
             base_chain_idx: usize::default(),
             dof_to_joint_and_sub_dof_idxs: vec![],
+            robot_as_single_chain: OChain::new_empty(),
             _phantom_data: Default::default(),
         }
     }
@@ -84,20 +87,29 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
 
         self.setup();
     }
+    #[inline(always)]
     pub fn chain_wrappers(&self) -> &Vec<OChainWrapper<T, C, L>> {
         &self.chain_wrappers
     }
+    #[inline(always)]
     pub fn macro_joints(&self) -> &Vec<OMacroJoint<T, C>> {
         &self.macro_joints
     }
+    #[inline(always)]
     pub fn kinematic_hierarchy_of_chains(&self) -> &Vec<Vec<usize>> {
         &self.kinematic_hierarchy_of_chains
     }
+    #[inline(always)]
     pub fn num_dofs(&self) -> usize {
         self.num_dofs
     }
+    #[inline(always)]
     pub fn base_chain_idx(&self) -> usize {
         self.base_chain_idx
+    }
+    #[inline(always)]
+    pub fn robot_as_single_chain(&self) -> &OChain<T, C, L, RobotLinkAuxInfo> {
+        &self.robot_as_single_chain
     }
     #[inline]
     pub fn get_macro_joint_transform<V: OVec<T>>(&self, state: &V, macro_joint_idx: usize) -> C::P<T> {
@@ -197,7 +209,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
 
         RobotFKResult { chain_fk_results: out, _phantom_data: Default::default() }
     }
-    pub fn get_robot_as_single_chain(&self) -> OChain<T, C, L, RobotLinkAuxInfo> {
+    pub (crate) fn get_robot_as_single_chain(&self) -> OChain<T, C, L, RobotLinkAuxInfo> {
         let mut links = vec![];
         let mut joints = vec![];
 
@@ -256,6 +268,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
         self.set_num_dofs();
         self.set_all_sub_dof_idxs();
         self.set_dof_to_joint_and_sub_dof_idxs();
+        self.set_robot_as_single_chain();
     }
 }
 impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobot<T, C, L> {
@@ -358,6 +371,9 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobot<T, C, L> {
         });
 
         self.dof_to_joint_and_sub_dof_idxs = dof_to_joint_and_sub_dof_idxs;
+    }
+    fn set_robot_as_single_chain(&mut self) {
+        self.robot_as_single_chain = self.get_robot_as_single_chain();
     }
 }
 
