@@ -7,7 +7,6 @@ use optima_bevy_egui::OEguiEngineWrapper;
 use optima_linalg::{OLinalgCategoryTrait, OVec};
 use optima_robotics::chain::{ChainFKResult, OChain};
 use optima_robotics::robot::ORobot;
-use optima_robotics::robotics_traits::ChainableTrait;
 use crate::optima_bevy_utils::file::get_asset_path_str_from_ostemcellpath;
 use crate::optima_bevy_utils::transform::TransformUtils;
 use crate::OptimaBevyTrait;

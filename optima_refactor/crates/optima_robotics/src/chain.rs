@@ -10,6 +10,7 @@ use crate::utils::get_urdf_path_from_chain_name;
 use serde_with::*;
 use optima_3d_mesh::{SaveToSTL, ToTriMesh};
 use optima_console::output::{oprint, PrintColor, PrintMode};
+use optima_console::tab;
 use optima_file::path::{OAssetLocation, OPath, OPathMatchingPattern, OPathMatchingStopCondition, OStemCellPath};
 use optima_file::traits::{FromJsonString, ToJsonString};
 use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategoryTrait, OVec};
@@ -262,6 +263,28 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait, A: Clone
 
         ChainFKResult { link_poses: out, _phantom_data: Default::default() }
     }
+    pub fn get_links_string(&self) -> String {
+        let mut s = "".to_string();
+        let mut it = self.links.iter().peekable();
+        while let Some(link) = it.next() {
+            s += &format!("{:?}", link);
+            if it.peek().is_some() {
+                s += "\n";
+            }
+        };
+        s
+    }
+    pub fn get_joints_string(&self) -> String {
+        let mut s = "".to_string();
+        let mut it = self.joints.iter().peekable();
+        while let Some(joint) = it.next() {
+            s += &format!("{:?}", joint);
+            if it.peek().is_some() {
+                s += "\n";
+            }
+        };
+        s
+    }
     fn setup(&mut self) {
         self.set_link_and_joint_idxs();
         self.assign_joint_connection_indices();
@@ -505,16 +528,20 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug +
         s += &format!("  OChain\n");
         s += &format!("  Chain name: {}\n", self.chain_name);
         s += &format!("  Num DOFS: {}\n", self.num_dofs);
-        self.links.iter().for_each(|x| {
-            let binding = format!("{:?}\n", x);
-            s += &binding;
-        });
-        self.joints.iter().for_each(|x| {
-            let binding = format!("{:?}\n", x);
-            s += &binding;
-        });
-
-        s += "}}";
+        s += "//////////////////////////////////////////////////////////////////////////////////////";
+        s += "\n";
+        s += &format!("  Links:\n");
+        let binding = self.get_links_string();
+        s += &tab!(binding);
+        s += "\n";
+        s += "//////////////////////////////////////////////////////////////////////////////////////";
+        s += "\n";
+        s += &format!("  Joints:\n");
+        let binding = self.get_joints_string();
+        s += &tab!(binding);
+        s += "\n";
+        s += "//////////////////////////////////////////////////////////////////////////////////////";
+        s += "\n}}";
 
         f.write_str(&s)?;
         Ok(())

@@ -194,6 +194,11 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug +
         s += &format!("  Children Link idxs: {:?}\n", self.children_link_idxs);
         s += &format!("  Parent Joint idx: {:?}\n", self.parent_joint_idx);
         s += &format!("  Children Joint idxs: {:?}\n", self.children_joint_idxs);
+        s += &format!("  Auxiliary info: {:?}\n", self.auxiliary_info);
+        s += &format!("  Original mesh file path: {:?}\n", self.original_mesh_file_path);
+        s += &format!("  Stl mesh file path: {:?}\n", self.stl_mesh_file_path);
+        s += &format!("  Convex hull file path: {:?}\n", self.convex_hull_file_path);
+        s += &format!("  Num convex subcomponents: {:?}\n", self.convex_decomposition_file_paths.len());
         s += &format!("}}");
 
         f.write_str(&s)?;
