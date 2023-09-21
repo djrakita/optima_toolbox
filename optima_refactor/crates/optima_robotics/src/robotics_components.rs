@@ -10,7 +10,6 @@ use optima_linalg::{OLinalgCategoryTrait, OMat};
 use serde_with::*;
 use crate::robotics_traits::{JointTrait};
 use ad_trait::SerdeAD;
-use serde::de::DeserializeOwned;
 use optima_linalg::SerdeOMat;
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
 use optima_file::path::OStemCellPath;
@@ -59,9 +58,11 @@ impl ChainInfo {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct OLink<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug + Serialize + DeserializeOwned> {
+pub struct OLink<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> {
     pub (crate) is_present_in_model: bool,
     pub (crate) link_idx: usize,
+    pub (crate) sub_chain_idx: usize,
+    pub (crate) link_idx_in_sub_chain: usize,
     pub (crate) name: String,
     pub (crate) parent_joint_idx: Option<usize>,
     pub (crate) children_joint_idxs: Vec<usize>,
@@ -78,14 +79,14 @@ pub struct OLink<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clo
     pub (crate) stl_mesh_file_path: Option<OStemCellPath>,
     pub (crate) convex_hull_file_path: Option<OStemCellPath>,
     pub (crate) convex_decomposition_file_paths: Vec<OStemCellPath>,
-    #[serde(deserialize_with = "A::deserialize")]
-    pub auxiliary_info: A
 }
-impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L, ()> {
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
     pub (crate) fn from_link(link: &Link) -> Self {
         Self {
             is_present_in_model: true,
             link_idx: usize::default(),
+            sub_chain_idx: 0,
+            link_idx_in_sub_chain: usize::default(),
             name: String::from(&link.name),
             parent_joint_idx: None,
             children_joint_idxs: vec![],
@@ -99,15 +100,14 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L, ()>
             stl_mesh_file_path: None,
             convex_hull_file_path: None,
             convex_decomposition_file_paths: vec![],
-            auxiliary_info: (),
         }
     }
-}
-impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug + Serialize + DeserializeOwned> OLink<T, C, L, A> {
-    pub fn new_manual(name: &str, collision: Vec<OCollision<T, C>>, visual: Vec<OVisual<T, C>>, inertial: OInertial<T, L>, auxiliary_info: A) -> Self {
+    pub fn new_manual(name: &str, collision: Vec<OCollision<T, C>>, visual: Vec<OVisual<T, C>>, inertial: OInertial<T, L>) -> Self {
         Self {
             is_present_in_model: true,
             link_idx: usize::default(),
+            sub_chain_idx: 0,
+            link_idx_in_sub_chain: usize::default(),
             name: name.into(),
             parent_joint_idx: None,
             children_joint_idxs: vec![],
@@ -121,28 +121,6 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug +
             stl_mesh_file_path: None,
             convex_hull_file_path: None,
             convex_decomposition_file_paths: vec![],
-            auxiliary_info,
-        }
-    }
-    pub fn to_new_auxiliary_info_type<A2: Clone + Debug + Serialize + DeserializeOwned>(&self, auxiliary_info: A2) -> OLink<T, C, L, A2> {
-        // OLink::new_manual(self.name(), self.collision.clone(), self.visual.clone(), self.inertial.clone(), auxiliary_info)
-        OLink {
-            is_present_in_model: self.is_present_in_model,
-            link_idx: self.link_idx,
-            name: self.name.clone(),
-            parent_joint_idx: self.parent_joint_idx.clone(),
-            children_joint_idxs: self.children_joint_idxs.clone(),
-            parent_link_idx: self.parent_link_idx.clone(),
-            children_link_idxs: self.children_link_idxs.clone(),
-            link_connection_paths: self.link_connection_paths.clone(),
-            collision: self.collision.clone(),
-            visual: self.visual.clone(),
-            inertial: self.inertial.clone(),
-            original_mesh_file_path: self.original_mesh_file_path.clone(),
-            stl_mesh_file_path: self.stl_mesh_file_path.clone(),
-            convex_hull_file_path: self.convex_hull_file_path.clone(),
-            convex_decomposition_file_paths: self.convex_decomposition_file_paths.clone(),
-            auxiliary_info,
         }
     }
     #[inline(always)]
@@ -152,6 +130,14 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug +
     #[inline(always)]
     pub fn link_idx(&self) -> usize {
         self.link_idx
+    }
+    #[inline(always)]
+    pub fn sub_chain_idx(&self) -> usize {
+        self.sub_chain_idx
+    }
+    #[inline(always)]
+    pub fn link_idx_in_sub_chain(&self) -> usize {
+        self.link_idx_in_sub_chain
     }
     #[inline(always)]
     pub fn name(&self) -> &str {
@@ -178,11 +164,8 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug +
     pub fn convex_decomposition_file_paths(&self) -> &Vec<OStemCellPath> {
         &self.convex_decomposition_file_paths
     }
-    pub fn auxiliary_info(&self) -> &A {
-        &self.auxiliary_info
-    }
 }
-impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug + Serialize + DeserializeOwned> Debug for OLink<T, C, L, A> {
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> Debug for OLink<T, C, L> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut s = "".to_string();
 
@@ -190,11 +173,12 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug +
         s += &format!("  OLink\n");
         s += &format!("  Link name: {}\n", self.name());
         s += &format!("  Link idx: {}\n", self.link_idx());
+        s += &format!("  Sub chain idx: {}\n", self.sub_chain_idx);
+        s += &format!("  Link idx in sub chain: {}\n", self.link_idx_in_sub_chain);
         s += &format!("  Parent Link idx: {:?}\n", self.parent_link_idx);
         s += &format!("  Children Link idxs: {:?}\n", self.children_link_idxs);
         s += &format!("  Parent Joint idx: {:?}\n", self.parent_joint_idx);
         s += &format!("  Children Joint idxs: {:?}\n", self.children_joint_idxs);
-        s += &format!("  Auxiliary info: {:?}\n", self.auxiliary_info);
         s += &format!("  Original mesh file path: {:?}\n", self.original_mesh_file_path);
         s += &format!("  Stl mesh file path: {:?}\n", self.stl_mesh_file_path);
         s += &format!("  Convex hull file path: {:?}\n", self.convex_hull_file_path);

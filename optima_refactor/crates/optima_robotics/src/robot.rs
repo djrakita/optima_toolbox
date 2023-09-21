@@ -10,9 +10,9 @@ use optima_file::traits::{FromJsonString, ToJsonString};
 use crate::chain::{ChainFKResult, OChain};
 use crate::robotics_components::*;
 use crate::robotics_functions::compute_chain_info;
-use crate::robotics_traits::{JointTrait};
+use crate::robotics_traits::{AsChainTrait, JointTrait};
 
-pub type ORobotDefault<T> = ORobot<T, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>;
+pub type ORobotDefault = ORobot<f64, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ORobot<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
@@ -24,8 +24,8 @@ pub struct ORobot<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTr
     num_dofs: usize,
     base_chain_idx: usize,
     dof_to_joint_and_sub_dof_idxs: Vec<RobotJointIdx>,
-    #[serde(deserialize_with = "OChain::<T, C, L, RobotLinkAuxInfo>::deserialize")]
-    robot_as_single_chain: OChain<T, C, L, RobotLinkAuxInfo>,
+    #[serde(deserialize_with = "OChain::<T, C, L>::deserialize")]
+    robot_as_single_chain: OChain<T, C, L>,
     _phantom_data: PhantomData<(T, C, L)>,
 }
 impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T, C, L> {
@@ -41,7 +41,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
             _phantom_data: Default::default(),
         }
     }
-    pub fn new_from_single_chain(chain: OChain<T, C, L, ()>) -> Self {
+    pub fn new_from_single_chain(chain: OChain<T, C, L>) -> Self {
         let mut out = Self::new_empty();
         out.add_chain(chain, 0, 0, &C::P::<T>::identity(), [T::zero(); 3], OJointType::Fixed, OJointLimit::default());
         out
@@ -56,7 +56,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
     pub fn to_new_ad_type<T2: AD>(&self) -> ORobot<T2, C, L> {
         self.to_new_generic_types::<T2, C, L>()
     }
-    pub fn add_chain(&mut self, chain: OChain<T, C, L, ()>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, origin: &C::P<T>, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>) {
+    pub fn add_chain(&mut self, chain: OChain<T, C, L>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, origin: &C::P<T>, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>) {
         assert!(parent_chain_idx <= self.chain_wrappers.len());
         assert!(parent_link_idx_in_parent_chain <= self.chain_wrappers[parent_chain_idx].chain.joints().len());
         assert!(limit.upper().len() >= joint_type.num_dofs());
@@ -106,10 +106,6 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
     #[inline(always)]
     pub fn base_chain_idx(&self) -> usize {
         self.base_chain_idx
-    }
-    #[inline(always)]
-    pub fn robot_as_single_chain(&self) -> &OChain<T, C, L, RobotLinkAuxInfo> {
-        &self.robot_as_single_chain
     }
     #[inline]
     pub fn get_macro_joint_transform<V: OVec<T>>(&self, state: &V, macro_joint_idx: usize) -> C::P<T> {
@@ -209,7 +205,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
 
         RobotFKResult { chain_fk_results: out, _phantom_data: Default::default() }
     }
-    pub (crate) fn get_robot_as_single_chain(&self) -> OChain<T, C, L, RobotLinkAuxInfo> {
+    pub (crate) fn get_robot_as_single_chain(&self) -> OChain<T, C, L> {
         let mut links = vec![];
         let mut joints = vec![];
 
@@ -221,7 +217,10 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
                 chain_and_link_idx_to_new_link_name_mapping.insert((chain_idx as usize, link_idx_in_chain as usize), link_name.clone());
                 let mut new_link = link.clone();
                 new_link.name = link_name.clone();
-                links.push(new_link.to_new_auxiliary_info_type(RobotLinkAuxInfo { chain_idx, link_idx_in_chain }));
+                new_link.sub_chain_idx = chain_idx;
+                new_link.link_idx_in_sub_chain = link_idx_in_chain;
+                links.push(new_link);
+                // links.push(new_link.to_new_auxiliary_info_type(RobotLinkAuxInfo { chain_idx, link_idx_in_chain }));
                 // links.push(OLink::new_manual(&link_name, link.collision().clone(), link.visual().clone(), link.inertial().clone(), RobotLinkAuxInfo { chain_idx, link_idx_in_chain }))
             });
         });
@@ -376,11 +375,17 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobot<T, C, L> {
         self.robot_as_single_chain = self.get_robot_as_single_chain();
     }
 }
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> AsChainTrait<T, C, L> for ORobot<T, C, L> {
+    #[inline(always)]
+    fn as_chain(&self) -> &OChain<T, C, L> {
+        &self.robot_as_single_chain
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OChainWrapper<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
-    #[serde(deserialize_with = "OChain::<T, C, L, ()>::deserialize")]
-    chain: OChain<T, C, L, ()>,
+    #[serde(deserialize_with = "OChain::<T, C, L>::deserialize")]
+    chain: OChain<T, C, L>,
     chain_idx: usize,
     pub(crate) parent_macro_joint_idx: Option<usize>,
     pub(crate) children_macro_joint_idxs: Vec<usize>,
@@ -407,7 +412,7 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OChainWrapper<T, C
         }
     }
     #[inline(always)]
-    pub fn chain(&self) -> &OChain<T, C, L, ()> {
+    pub fn chain(&self) -> &OChain<T, C, L> {
         &self.chain
     }
     #[inline(always)]
@@ -451,9 +456,9 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OChainWrapper<T, C
         &self.dof_idxs_range
     }
 }
-impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OChain<T, C, L, ()> {
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OChain<T, C, L> {
     pub(crate) fn new_world_chain() -> Self {
-        Self::from_manual("world", vec![OLink::new_manual("world_link", vec![], vec![], OInertial::new_zeros(), ())], vec![])
+        Self::from_manual("world", vec![OLink::new_manual("world_link", vec![], vec![], OInertial::new_zeros())], vec![])
     }
 }
 

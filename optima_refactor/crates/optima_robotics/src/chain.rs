@@ -3,7 +3,6 @@ use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use ad_trait::*;
 use serde::{Serialize, Deserialize};
-use serde::de::DeserializeOwned;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3, O3DPoseCategoryTrait};
 use optima_utils::arr_storage::*;
 use crate::utils::get_urdf_path_from_chain_name;
@@ -16,15 +15,15 @@ use optima_file::traits::{FromJsonString, ToJsonString};
 use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategoryTrait, OVec};
 use crate::robotics_components::*;
 use crate::robotics_functions::compute_chain_info;
-use crate::robotics_traits::{JointTrait};
+use crate::robotics_traits::{AsChainTrait, JointTrait};
 
-pub type OChainDefault<T> = OChain<T, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, ()>;
+pub type OChainDefault = OChain<f64, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>;
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct OChain<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait, A: Clone + Debug + Serialize + DeserializeOwned> {
+pub struct OChain<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
     chain_name: String,
-    #[serde(deserialize_with = "Vec::<OLink<T, C, L, A>>::deserialize")]
-    links: Vec<OLink<T, C, L, A>>,
+    #[serde(deserialize_with = "Vec::<OLink<T, C, L>>::deserialize")]
+    links: Vec<OLink<T, C, L>>,
     #[serde(deserialize_with = "Vec::<OJoint<T, C>>::deserialize")]
     joints: Vec<OJoint<T, C>>,
     link_name_to_link_idx_map: HashMap<String, usize>,
@@ -35,7 +34,7 @@ pub struct OChain<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTr
     dof_to_joint_and_sub_dof_idxs: Vec<(usize, usize)>,
     phantom_data: PhantomData<(T, C)>
 }
-impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> OChain<T, C, L, ()> {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> OChain<T, C, L> {
     pub fn from_urdf(chain_name: &str) -> Self {
         let urdf_path = get_urdf_path_from_chain_name(chain_name);
         let urdf = urdf_path.load_urdf();
@@ -54,8 +53,8 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> OChain<T
         Self::from_manual(chain_name, links, joints)
     }
 }
-impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait, A: Clone + Debug + Serialize + DeserializeOwned> OChain<T, C, L, A> {
-    pub fn from_manual(chain_name: &str, links: Vec<OLink<T, C, L, A>>, joints: Vec<OJoint<T, C>>) -> Self {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> OChain<T, C, L> {
+    pub fn from_manual(chain_name: &str, links: Vec<OLink<T, C, L>>, joints: Vec<OJoint<T, C>>) -> Self {
         let mut link_name_to_link_idx_map = HashMap::new();
         let mut joint_name_to_joint_idx_map = HashMap::new();
 
@@ -84,7 +83,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait, A: Clone
 
         out
     }
-    pub (crate) fn from_manual_no_mesh_setup(chain_name: &str, links: Vec<OLink<T, C, L, A>>, joints: Vec<OJoint<T, C>>) -> Self {
+    pub (crate) fn from_manual_no_mesh_setup(chain_name: &str, links: Vec<OLink<T, C, L>>, joints: Vec<OJoint<T, C>>) -> Self {
         let mut link_name_to_link_idx_map = HashMap::new();
         let mut joint_name_to_joint_idx_map = HashMap::new();
 
@@ -132,11 +131,11 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait, A: Clone
             phantom_data: Default::default(),
         }
     }
-    pub fn to_new_generic_types<T2: AD, C2: O3DPoseCategoryTrait, L2: OLinalgCategoryTrait>(&self) -> OChain<T2, C2, L2, A> {
+    pub fn to_new_generic_types<T2: AD, C2: O3DPoseCategoryTrait, L2: OLinalgCategoryTrait>(&self) -> OChain<T2, C2, L2> {
         let json_str = self.to_json_string();
-        OChain::<T2, C2, L2, A>::from_json_string(&json_str)
+        OChain::<T2, C2, L2>::from_json_string(&json_str)
     }
-    pub fn to_new_ad_type<T2: AD>(&self) -> OChain<T2, C, L, A> {
+    pub fn to_new_ad_type<T2: AD>(&self) -> OChain<T2, C, L> {
         self.to_new_generic_types::<T2, C, L>()
     }
     #[inline(always)]
@@ -152,7 +151,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait, A: Clone
         self.num_dofs
     }
     #[inline(always)]
-    pub fn links(&self) -> &Vec<OLink<T, C, L, A>> {
+    pub fn links(&self) -> &Vec<OLink<T, C, L>> {
         &self.links
     }
     #[inline(always)]
@@ -299,10 +298,11 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait, A: Clone
         self.set_link_convex_decomposition_mesh_file_paths();
     }
 }
-impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug + Serialize + DeserializeOwned> OChain<T, C, L, A> {
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OChain<T, C, L> {
     fn set_link_and_joint_idxs(&mut self) {
         self.links.iter_mut().enumerate().for_each(|(i, x)| {
             x.link_idx = i;
+            x.link_idx_in_sub_chain = i;
         });
 
         self.joints.iter_mut().enumerate().for_each(|(i, x)| {
@@ -520,7 +520,13 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug +
         });
     }
 }
-impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, A: Clone + Debug + Serialize + DeserializeOwned> Debug for OChain<T, C, L, A> {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> AsChainTrait<T, C, L> for OChain<T, C, L> {
+    #[inline(always)]
+    fn as_chain(&self) -> &OChain<T, C, L> {
+        self
+    }
+}
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> Debug for OChain<T, C, L> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut s = "".to_string();
 
@@ -849,7 +855,6 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait, LinkType
     }
 }
 */
-
 /*
 impl<T: AD, P: O3DPose<T>, L: OLinalgTrait> OForwardKinematicsTrait<T, P> for OChain<T, P, L> {
     fn forward_kinematics<V: OVec<T>>(&self, state: &V, base_offset: Option<&P>) -> Vec<Vec<Option<P>>> {
