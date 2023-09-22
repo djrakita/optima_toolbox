@@ -20,7 +20,7 @@ pub mod optima_bevy_utils;
 
 pub trait OptimaBevyTrait {
     fn optima_bevy_base(&mut self) -> &mut Self;
-    fn optima_bevy_robotics_base2<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, A: AsChainTrait<T, C, L>>(&mut self, as_chain: A) -> &mut Self;
+    fn optima_bevy_robotics_base<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, A: AsChainTrait<T, C, L>>(&mut self, as_chain: A) -> &mut Self;
     fn optima_bevy_pan_orbit_camera(&mut self) -> &mut Self;
     fn optima_bevy_starter_lights(&mut self) -> &mut Self;
     fn optima_bevy_spawn_chain<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(&mut self) -> &mut Self;
@@ -59,7 +59,7 @@ impl OptimaBevyTrait for App {
 
         self
     }
-    fn optima_bevy_robotics_base2<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, A: AsChainTrait<T, C, L>>(&mut self, as_chain: A) -> &mut Self {
+    fn optima_bevy_robotics_base<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, A: AsChainTrait<T, C, L>>(&mut self, as_chain: A) -> &mut Self {
         self
             .insert_resource(BevyOChain(as_chain.as_chain().clone()))
             .insert_resource(UpdaterChainState::new())
@@ -70,7 +70,7 @@ impl OptimaBevyTrait for App {
     fn optima_bevy_pan_orbit_camera(&mut self) -> &mut Self {
         self
             .add_systems(Startup, CameraSystems::system_spawn_pan_orbit_camera)
-            .add_systems(Update, CameraSystems::system_pan_orbit_camera);
+            .add_systems(PostUpdate, CameraSystems::system_pan_orbit_camera.in_set(BevySystemSet::Camera));
 
         self
     }
@@ -94,8 +94,15 @@ impl OptimaBevyTrait for App {
     fn optima_bevy_egui(&mut self) -> &mut Self {
         self
             .add_plugins(EguiPlugin)
-            .insert_resource(OEguiEngineWrapper::new());
+            .insert_resource(OEguiEngineWrapper::new())
+            .add_systems(Last, |egui_engine: Res<OEguiEngineWrapper>| { egui_engine.get_mutex_guard().reset_on_frame() });
 
         self
     }
+}
+
+#[derive(Clone, Debug, SystemSet, Hash, PartialEq, Eq)]
+pub enum BevySystemSet {
+    Camera,
+    GUI
 }

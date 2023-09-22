@@ -133,34 +133,35 @@ impl OEguiEngine {
         }
     }
     pub fn set_style(ctx: &Context) {
-        let alpha = 150;
-        let alpha2 = 200;
+        let alpha = 130;
+        // let alpha2 = 200;
         // let blue = 100;
 
+        catppuccin_egui::set_theme(ctx, catppuccin_egui::MACCHIATO);
         let mut style = (*ctx.style()).clone();
-        let c = style.visuals.window_fill.clone();
-        style.visuals.window_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha);
+        // let c = style.visuals.window_fill.clone();
+        // style.visuals.window_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha);
         let c = style.visuals.panel_fill.clone();
         style.visuals.panel_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha);
-        let c = style.visuals.widgets.noninteractive.bg_fill.clone();
-        style.visuals.widgets.noninteractive.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
-        style.visuals.widgets.noninteractive.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
-        let c = style.visuals.widgets.active.bg_fill.clone();
-        style.visuals.widgets.active.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
-        style.visuals.widgets.active.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
-        let c = style.visuals.widgets.open.bg_fill.clone();
-        style.visuals.widgets.open.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
-        style.visuals.widgets.open.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
-        let c = style.visuals.widgets.inactive.bg_fill.clone();
-        style.visuals.widgets.inactive.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
-        style.visuals.widgets.inactive.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
-        let c = style.visuals.widgets.hovered.bg_fill.clone();
-        style.visuals.widgets.hovered.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
-        style.visuals.widgets.hovered.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
-        style.visuals.window_stroke.color = Color32::from_rgba_unmultiplied(255, 255, 255, alpha);
-        style.visuals.window_stroke.width /= 2.0;
-        let mut s = style.visuals.window_shadow.clone();
-        s.extrusion += 100.0;
+        // let c = style.visuals.widgets.noninteractive.bg_fill.clone();
+        // style.visuals.widgets.noninteractive.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        // style.visuals.widgets.noninteractive.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        // let c = style.visuals.widgets.active.bg_fill.clone();
+        // style.visuals.widgets.active.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        // style.visuals.widgets.active.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        // let c = style.visuals.widgets.open.bg_fill.clone();
+        // style.visuals.widgets.open.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        // style.visuals.widgets.open.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        // let c = style.visuals.widgets.inactive.bg_fill.clone();
+        // style.visuals.widgets.inactive.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        // style.visuals.widgets.inactive.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        // let c = style.visuals.widgets.hovered.bg_fill.clone();
+        // style.visuals.widgets.hovered.bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        // style.visuals.widgets.hovered.weak_bg_fill = Color32::from_rgba_unmultiplied(c.r(), c.g(), c.b(), alpha2);
+        // style.visuals.window_stroke.color = Color32::from_rgba_unmultiplied(255, 255, 255, alpha);
+        // style.visuals.window_stroke.width /= 2.0;
+        // let mut s = style.visuals.window_shadow.clone();
+        // s.extrusion += 100.0;
 
         ctx.set_style(style);
     }

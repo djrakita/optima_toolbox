@@ -1,14 +1,19 @@
 use ad_trait::AD;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
+use bevy_egui::egui::panel::Side;
+use bevy_egui::egui::Ui;
+use bevy_egui::{egui, EguiContexts};
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
+use optima_bevy_egui::{OEguiContainerTrait, OEguiEngineWrapper, OEguiSidePanel, OEguiSlider, OEguiWidgetTrait};
 use optima_linalg::{OLinalgCategoryTrait, OVec};
 use optima_robotics::chain::{ChainFKResult, OChain};
 use optima_robotics::robot::ORobot;
 use optima_robotics::robotics_traits::AsChainTrait;
 use crate::optima_bevy_utils::file::get_asset_path_str_from_ostemcellpath;
 use crate::optima_bevy_utils::transform::TransformUtils;
-use crate::OptimaBevyTrait;
+use crate::{BevySystemSet, OptimaBevyTrait};
 
 pub struct RoboticsActions;
 impl RoboticsActions {
@@ -63,6 +68,45 @@ impl RoboticsActions {
             }
         }
     }
+    pub fn action_chain_joint_sliders_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(chain: &OChain<T, C, L>,
+                                                                                                    updater: &mut ResMut<UpdaterChainState>,
+                                                                                                    egui_engine: &Res<OEguiEngineWrapper>,
+                                                                                                    ui: &mut Ui) {
+
+        ui.heading("Joint Sliders");
+        ui.group(|ui| {
+            egui::ScrollArea::vertical()
+                .max_height(500.)
+                .show(ui, |ui| {
+                    chain.joints().iter().for_each(|joint| {
+                        let dof_idxs = joint.dof_idxs();
+                        for (i, dof_idx) in dof_idxs.iter().enumerate() {
+                            let label = format!("joint_slider_dof_{}", dof_idx);
+                            let lower = joint.limit().lower()[i];
+                            let upper = joint.limit().upper()[i];
+
+                            ui.label(format!("DOF idx {}", dof_idx));
+                            OEguiSlider::new(lower.to_constant(), upper.to_constant())
+                                .show(&label, ui, &egui_engine, &());
+                        }
+                    });
+                });
+        });
+
+
+        let mutex_guard = egui_engine.get_mutex_guard();
+
+        let num_dofs = chain.num_dofs();
+        let mut curr_state = vec![T::zero(); chain.num_dofs()];
+        for i in 0..num_dofs {
+            let label = format!("joint_slider_dof_{}", i);
+            let response = mutex_guard.get_slider_response(&label).expect("error");
+            let value = response.slider_value();
+            curr_state[i] = T::constant(value);
+        }
+
+        updater.add_update_request(0, &OVec::to_other_ad_type::<T>(&curr_state));
+    }
 }
 
 pub struct RoboticsSystems;
@@ -86,6 +130,16 @@ impl RoboticsSystems {
             RoboticsActions::action_set_state_of_chain(chain, &request_state, request.0, &mut query);
         }
     }
+    pub fn system_chain_joint_sliders_egui<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(chain: Res<BevyOChain<T, C, L>>,
+                                                                                                                        mut contexts: EguiContexts,
+                                                                                                                        mut updater: ResMut<UpdaterChainState>,
+                                                                                                                        egui_engine: Res<OEguiEngineWrapper>,
+                                                                                                                        window_query: Query<&Window, With<PrimaryWindow>>) {
+        OEguiSidePanel::new(Side::Left, 400.0)
+            .show("joint_sliders_side_panel", contexts.ctx_mut(), &egui_engine, &window_query, &(), |ui| {
+                RoboticsActions::action_chain_joint_sliders_egui(&chain.0, &mut updater, &egui_engine, ui);
+            });
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -96,15 +150,16 @@ pub trait BevyRoboticsTrait {
 
 impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> BevyRoboticsTrait for OChain<T, C, L> {
     fn bevy_display(&self) {
+
         App::new()
             .optima_bevy_base()
-            // .optima_bevy_robotics_base(self.clone())
-            .optima_bevy_robotics_base2(self.clone())
+            .optima_bevy_robotics_base(self.clone())
             .optima_bevy_pan_orbit_camera()
             .optima_bevy_starter_lights()
-            // .optima_bevy_spawn_robot::<T, C, L>()
             .optima_bevy_spawn_chain::<T, C, L>()
             .optima_bevy_robotics_scene_visuals_starter()
+            .optima_bevy_egui()
+            .add_systems(Update, RoboticsSystems::system_chain_joint_sliders_egui::<T, C, L>.before(BevySystemSet::Camera))
             .run();
     }
 }

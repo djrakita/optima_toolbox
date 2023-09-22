@@ -3,11 +3,13 @@ use bevy::math::Vec3;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_mod_picking::prelude::RaycastPickCamera;
+use optima_bevy_egui::{OEguiEngineWrapper};
 use crate::optima_bevy_utils::transform::TransformUtils;
 
 pub struct CameraActions;
 impl CameraActions {
-    pub fn action_spawn_pan_orbit_camera(commands: &mut Commands, location: Vec3) {
+    pub fn action_spawn_pan_orbit_camera(commands: &mut Commands,location: Vec3) {
+
         let translation = TransformUtils::util_convert_z_up_vec3_to_y_up_bevy_vec3(location);
         let radius = translation.length();
 
@@ -37,7 +39,11 @@ impl CameraSystems {
         input_mouse: Res<Input<MouseButton>>,
         input_keyboard: Res<Input<KeyCode>>,
         window_query: Query<&Window, With<PrimaryWindow>>,
+        egui_engine: Res<OEguiEngineWrapper>,
         mut query: Query<(&mut PanOrbitCamera, &mut Transform, &Projection)>) {
+
+        if egui_engine.get_mutex_guard().ui_contains_pointer() { return; }
+
         let Ok(window) = window_query.get_single() else { return };
         let size = Vec2::new(window.width() as f32, window.height() as f32);
 

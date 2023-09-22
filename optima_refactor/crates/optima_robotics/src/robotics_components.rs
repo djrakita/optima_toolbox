@@ -284,38 +284,61 @@ impl<T: AD, C: O3DPoseCategoryTrait> OJoint<T, C> {
     pub fn joint_type(&self) -> &OJointType {
         &self.joint_type
     }
+    #[inline(always)]
     pub fn parent_link(&self) -> &str {
         &self.parent_link
     }
+    #[inline(always)]
     pub fn parent_link_idx(&self) -> usize {
         self.parent_link_idx
     }
+    #[inline(always)]
     pub fn child_link(&self) -> &str {
         &self.child_link
     }
+    #[inline(always)]
     pub fn child_link_idx(&self) -> usize {
         self.child_link_idx
     }
+    #[inline(always)]
     pub fn limit(&self) -> &OJointLimit<T> {
         &self.limit
     }
+    #[inline(always)]
     pub fn dynamics(&self) -> &Option<ODynamics<T>> {
         &self.dynamics
     }
+    #[inline(always)]
     pub fn mimic(&self) -> &Option<OMimic<T>> {
         &self.mimic
     }
+    #[inline(always)]
     pub fn safety_controller(&self) -> &Option<OSafetyController<T>> {
         &self.safety_controller
     }
+    #[inline(always)]
     pub fn fixed_values(&self) -> &Option<Vec<T>> {
         &self.fixed_values
     }
+    #[inline(always)]
     pub fn origin(&self) -> &OPose<T, C> {
         &self.origin
     }
+    #[inline(always)]
     pub fn axis(&self) -> &[T; 3] {
         &self.axis
+    }
+    #[inline(always)]
+    pub fn joint_idx(&self) -> usize {
+        self.joint_idx
+    }
+    #[inline(always)]
+    pub fn dof_idxs(&self) -> &Vec<usize> {
+        &self.dof_idxs
+    }
+    #[inline(always)]
+    pub fn dof_idxs_range(&self) -> Option<(usize, usize)> {
+        self.dof_idxs_range
     }
 }
 impl<T: AD, C: O3DPoseCategoryTrait + 'static> JointTrait<T, C> for OJoint<T, C> {
