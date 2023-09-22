@@ -6,6 +6,7 @@ use bevy::window::PrimaryWindow;
 use bevy_egui::egui::panel::Side;
 use bevy_egui::egui::Ui;
 use bevy_egui::{egui, EguiContexts};
+use bevy_prototype_debug_lines::DebugLines;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_3d_spatial::optima_3d_vec::O3DVec;
@@ -131,7 +132,7 @@ impl RoboticsActions {
     }
     pub fn action_chain_link_vis_panel_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(chain: &OChain<T, C, L>,
                                                                                                      chain_state_engine: &ChainStateEngine,
-                                                                                                     gizmos: &mut Gizmos,
+                                                                                                     lines: &mut ResMut<DebugLines>,
                                                                                                      egui_engine: &Res<OEguiEngineWrapper>,
                                                                                                      ui: &mut Ui) {
         let chain_state = chain_state_engine.get_chain_state(0);
@@ -152,7 +153,7 @@ impl RoboticsActions {
         });
 
         ui.label("link axis display length");
-        OEguiSlider::new(0.1, 1.0)
+        OEguiSlider::new(0.04, 1.0)
             .show("link_axis_display_length", ui, egui_engine, &());
 
         ui.group(|ui| {
@@ -196,9 +197,9 @@ impl RoboticsActions {
 
                                 let location_as_vec = Vec3::new(location.x().to_constant() as f32, location.y().to_constant() as f32, location.z().to_constant() as f32);
 
-                                ViewportVisualsActions::action_draw_gpu_line_optima_space(gizmos, location_as_vec, location_as_vec + x_as_vec, Color::rgb(1., 0., 0.), 4.0, 10, 1);
-                                ViewportVisualsActions::action_draw_gpu_line_optima_space(gizmos, location_as_vec, location_as_vec + y_as_vec, Color::rgb(0., 1., 0.), 4.0, 10, 1);
-                                ViewportVisualsActions::action_draw_gpu_line_optima_space(gizmos, location_as_vec, location_as_vec + z_as_vec, Color::rgb(0., 0., 1.), 4.0, 10, 1);
+                                ViewportVisualsActions::action_draw_gpu_line_optima_space(lines, location_as_vec, location_as_vec + x_as_vec, Color::rgb(1., 0., 0.), 4.0, 10, 1, 0.0);
+                                ViewportVisualsActions::action_draw_gpu_line_optima_space(lines, location_as_vec, location_as_vec + y_as_vec, Color::rgb(0., 1., 0.), 4.0, 10, 1, 0.0);
+                                ViewportVisualsActions::action_draw_gpu_line_optima_space(lines, location_as_vec, location_as_vec + z_as_vec, Color::rgb(0., 0., 1.), 4.0, 10, 1, 0.0);
                             }
 
                             ui.separator();
@@ -234,7 +235,7 @@ impl RoboticsSystems {
         }
     }
     pub fn system_chain_main_info_panel_egui<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(chain: Res<BevyOChain<T, C, L>>,
-                                                                                                                          mut gizmos: Gizmos,
+                                                                                                                          mut lines: ResMut<DebugLines>,
                                                                                                                           mut contexts: EguiContexts,
                                                                                                                           mut chain_state_engine: ResMut<ChainStateEngine>,
                                                                                                                           egui_engine: Res<OEguiEngineWrapper>,
@@ -245,7 +246,7 @@ impl RoboticsSystems {
                     .show(ui, |ui| {
                         RoboticsActions::action_chain_joint_sliders_egui(&chain.0, &mut *chain_state_engine, &egui_engine, ui);
                         ui.separator();
-                        RoboticsActions::action_chain_link_vis_panel_egui(&chain.0, & *chain_state_engine, &mut gizmos, &egui_engine, ui);
+                        RoboticsActions::action_chain_link_vis_panel_egui(&chain.0, & *chain_state_engine, &mut lines, &egui_engine, ui);
                     });
             });
     }

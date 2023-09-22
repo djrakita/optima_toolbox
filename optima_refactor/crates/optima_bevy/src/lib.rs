@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_mod_picking::debug::{DebugPickingMode};
 use bevy_mod_picking::DefaultPickingPlugins;
+use bevy_prototype_debug_lines::DebugLinesPlugin;
 use bevy_stl::StlPlugin;
 use bevy_transform_gizmo::TransformGizmoPlugin;
 use optima_3d_spatial::optima_3d_pose::{O3DPoseCategoryTrait};
@@ -55,7 +56,8 @@ impl OptimaBevyTrait for App {
                 |mut next: ResMut<NextState<_>>| next.set(DebugPickingMode::Disabled)
             )
             .add_plugins(TransformGizmoPlugin::default())
-            .add_plugins(StlPlugin);
+            .add_plugins(StlPlugin)
+            .add_plugins(DebugLinesPlugin::default());
 
         self
     }
