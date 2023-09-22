@@ -70,6 +70,15 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync  {
     fn add(&self, other: &Self) -> Self;
     fn sub(&self, other: &Self) -> Self;
     fn scalar_mul(&self, scalar: &T) -> Self;
+    fn scalar_div(&self, scalar: &T) -> Self;
+    fn lp_norm(&self, p: &T) -> T {
+        let mut out = T::zero();
+        self.as_slice_ovec().iter().for_each(|x| { out += x.powf(*p); });
+        out.powf(p.recip())
+    }
+    fn normalize(&self) -> Self {
+        self.scalar_div(&self.lp_norm(&T::constant(2.0)))
+    }
     fn get_element(&self, i: usize) -> &T;
     fn get_element_mut(&mut self, i: usize) -> &mut T;
     fn set_element(&mut self, i: usize, element: T);
@@ -129,6 +138,9 @@ impl<'a, T: AD> OVec<T> for &'a [T] {
     fn scalar_mul(&self, _scalar: &T) -> Self {
         panic!("cannot do general math on slice")
     }
+
+    #[inline]
+    fn scalar_div(&self, _scalar: &T) -> Self { panic!("cannot do general math on slice") }
 
     #[inline]
     fn get_element(&self, i: usize) -> &T {
@@ -211,6 +223,13 @@ impl<T: AD, const N: usize> OVec<T> for [T; N] {
     }
 
     #[inline]
+    fn scalar_div(&self, scalar: &T) -> Self {
+        let mut out = self.clone();
+        out.iter_mut().for_each(|x| *x /= *scalar);
+        out
+    }
+
+    #[inline]
     fn get_element(&self, i: usize) -> &T {
         &self[i]
     }
@@ -269,7 +288,7 @@ impl<T: AD> OVec<T> for Vec<T> {
     #[inline]
     fn add(&self, other: &Self) -> Self {
         assert_eq!(self.len(), other.len());
-        let mut out = Vec::with_capacity(self.len());
+        let mut out = vec![T::zero(); self.len()];
         out.iter_mut().enumerate().for_each(|(i, x)| *x = self[i]+other[i]);
         out
     }
@@ -277,7 +296,7 @@ impl<T: AD> OVec<T> for Vec<T> {
     #[inline]
     fn sub(&self, other: &Self) -> Self {
         assert_eq!(self.len(), other.len());
-        let mut out = Vec::with_capacity(self.len());
+        let mut out = vec![T::zero(); self.len()];
         out.iter_mut().enumerate().for_each(|(i, x)| *x = self[i]-other[i]);
         out
     }
@@ -286,6 +305,13 @@ impl<T: AD> OVec<T> for Vec<T> {
     fn scalar_mul(&self, scalar: &T) -> Self {
         let mut out = self.clone();
         out.iter_mut().for_each(|x| *x *= *scalar);
+        out
+    }
+
+    #[inline]
+    fn scalar_div(&self, scalar: &T) -> Self {
+        let mut out = self.clone();
+        out.iter_mut().for_each(|x| *x /= *scalar);
         out
     }
 
@@ -367,6 +393,13 @@ impl<T: AD, const M: usize> OVec<T> for ArrayVec<T, M> {
     }
 
     #[inline]
+    fn scalar_div(&self, scalar: &T) -> Self {
+        let mut out = self.clone();
+        out.iter_mut().for_each(|x| *x /= *scalar);
+        out
+    }
+
+    #[inline]
     fn get_element(&self, i: usize) -> &T {
         &self[i]
     }
@@ -433,6 +466,11 @@ impl<T: AD> OVec<T> for DVector<T> {
     #[inline]
     fn scalar_mul(&self, scalar: &T) -> Self {
         scalar.mul_by_nalgebra_matrix_ref(self)
+    }
+
+    #[inline]
+    fn scalar_div(&self, scalar: &T) -> Self {
+        (T::one() / *scalar).mul_by_nalgebra_matrix_ref(self)
     }
 
     #[inline]
@@ -504,6 +542,10 @@ impl<T: AD, const N: usize> OVec<T> for SVector<T, N> {
         scalar.mul_by_nalgebra_matrix_ref(self)
     }
 
+    fn scalar_div(&self, scalar: &T) -> Self {
+        (T::one() / *scalar).mul_by_nalgebra_matrix_ref(self)
+    }
+
     #[inline]
     fn get_element(&self, i: usize) -> &T {
         &self[i]
@@ -571,6 +613,10 @@ impl<T: AD> OVec<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     #[inline]
     fn scalar_mul(&self, scalar: &T) -> Self {
         scalar.mul_by_ndarray_matrix_ref(self)
+    }
+
+    fn scalar_div(&self, scalar: &T) -> Self {
+        (T::one() / *scalar).mul_by_ndarray_matrix_ref(self)
     }
 
     #[inline]

@@ -171,26 +171,30 @@ impl OEguiEngine {
 
 #[macro_export]
 macro_rules! egui_engine_helpers {
-    ($fn_name: tt, $field_name: tt, $r: tt) => {
+    ($fn_name: tt, $fn_name_mut: tt, $field_name: tt, $r: tt) => {
         #[allow(dead_code)]
         impl OEguiEngine {
             pub fn $fn_name(&self, id_str: &str) -> Option<&$r> {
                 let response = self.$field_name.get(id_str);
                 return response;
             }
+            pub fn $fn_name_mut(&mut self, id_str:&str) -> Option<&mut $r> {
+                let response = self.$field_name.get_mut(id_str);
+                return response;
+            }
         }
     }
 }
 
-egui_engine_helpers!(get_button_response, button_responses, OEguiButtonResponse);
-egui_engine_helpers!(get_slider_response, slider_responses, OEguiSliderResponse);
-egui_engine_helpers!(get_checkbox_response, checkbox_responses, OEguiCheckboxResponse);
-egui_engine_helpers!(get_radiobutton_response, radiobutton_responses, OEguiRadiobuttonResponse);
-egui_engine_helpers!(get_selector_response, selector_responses, OEguiSelectorResponse);
-egui_engine_helpers!(get_textbox_response, textbox_responses, OEguiTextboxResponse);
-egui_engine_helpers!(get_window_state, window_states, OEguiWindowState);
-egui_engine_helpers!(get_side_panel_state, side_panel_states, OEguiSidePanelState);
-egui_engine_helpers!(get_top_bottom_panel_state, top_bottom_panel_states, OEguiTopBottomPanelState);
+egui_engine_helpers!(get_button_response, get_button_response_mut, button_responses, OEguiButtonResponse);
+egui_engine_helpers!(get_slider_response, get_slider_response_mut, slider_responses, OEguiSliderResponse);
+egui_engine_helpers!(get_checkbox_response, get_checkbox_response_mut, checkbox_responses, OEguiCheckboxResponse);
+egui_engine_helpers!(get_radiobutton_response, get_radiobutton_response_mut, radiobutton_responses, OEguiRadiobuttonResponse);
+egui_engine_helpers!(get_selector_response, get_selector_response_mut, selector_responses, OEguiSelectorResponse);
+egui_engine_helpers!(get_textbox_response, get_textbox_response_mut, textbox_responses, OEguiTextboxResponse);
+egui_engine_helpers!(get_window_state, get_window_state_mut, window_states, OEguiWindowState);
+egui_engine_helpers!(get_side_panel_state, get_side_panel_state_mut, side_panel_states, OEguiSidePanelState);
+egui_engine_helpers!(get_top_bottom_panel_state, get_top_bottom_panel_state_mut, top_bottom_panel_states, OEguiTopBottomPanelState);
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -258,7 +262,7 @@ impl OEguiWidgetTrait for OEguiSlider {
 
 pub struct OEguiSliderResponse {
     widget_response: Response,
-    slider_value: f64,
+    pub slider_value: f64,
 }
 impl OEguiSliderResponse {
     pub fn widget_response(&self) -> &Response {
@@ -269,7 +273,7 @@ impl OEguiSliderResponse {
     }
 }
 
-pub struct OEguiCheckbox { text: String }
+pub struct OEguiCheckbox { pub text: String }
 impl OEguiCheckbox {
     pub fn new(text: &str) -> Self {
         Self {
@@ -294,7 +298,7 @@ impl OEguiWidgetTrait for OEguiCheckbox {
 
 pub struct OEguiCheckboxResponse {
     widget_response: Response,
-    currently_selected: bool
+    pub currently_selected: bool
 }
 impl OEguiCheckboxResponse {
     pub fn widget_response(&self) -> &Response {
@@ -330,7 +334,7 @@ impl OEguiWidgetTrait for OEguiRadiobutton {
 
 pub struct OEguiRadiobuttonResponse {
     widget_response: Response,
-    currently_selected: bool
+    pub currently_selected: bool
 }
 impl OEguiRadiobuttonResponse {
     pub fn widget_response(&self) -> &Response {
@@ -460,7 +464,7 @@ impl OEguiWidgetTrait for OEguiSelector {
 }
 
 pub struct OEguiSelectorResponse {
-    current_selections_as_ron_strings: Vec<String>
+    pub current_selections_as_ron_strings: Vec<String>
 }
 impl OEguiSelectorResponse {
     pub fn current_selections<S: FromRonString>(&self) -> Vec<S> {
@@ -513,7 +517,7 @@ impl OEguiWidgetTrait for OEguiTextbox {
 
 pub struct OEguiTextboxResponse {
     widget_response: Response,
-    text: String
+    pub text: String
 }
 impl OEguiTextboxResponse {
     pub fn widget_response(&self) -> &Response {

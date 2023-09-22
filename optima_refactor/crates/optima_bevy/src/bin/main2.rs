@@ -9,7 +9,7 @@ fn main() {
     let mut r = ORobotDefault::new_empty();
     r.add_chain(OChain::from_urdf("lite6"), 0, 0, &Isometry3::from_constructors(&[1.,0.,0.], &[0.0; 3]), [0.0; 3], OJointType::Fixed, OJointLimit::default());
     r.add_chain(OChain::from_urdf("xarm7"), 0, 0, &Isometry3::identity(), [0.0; 3], OJointType::Fixed, OJointLimit::default());
-    r.add_chain(OChain::from_urdf("b1"), 0, 0, &Isometry3::from_constructors(&[0.,1.,0.], &[0.0; 3]), [0.0; 3], OJointType::Fixed, OJointLimit::default());
+    r.add_chain(OChain::from_urdf("b1"), 0, 0, &Isometry3::from_constructors(&[0.,1.,0.], &[0.0; 3]), [0.0; 3], OJointType::Floating, OJointLimit::new_manual(vec![0.0; 6], vec![-1.0; 6], vec![1.0; 6], vec![0.0; 6]));
     r.add_chain(OChain::from_urdf("z1"), 3, 0, &Isometry3::from_constructors(&[0.1,0.,0.1], &[0.0; 3]), [0.0; 3], OJointType::Fixed, OJointLimit::default());
 
     // println!("{:?}", r.num_dofs());

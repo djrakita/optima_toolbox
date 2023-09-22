@@ -22,7 +22,10 @@ members = [
     "crates/optima_3d_mesh",
     "crates/optima_network",
     "crates/optima_optimization",
-    "crates/optima_bevy"
+    "crates/optima_bevy",
+    "crates/optima_geometry",
+    "crates/optima_sampling",
+    "crates/optima_interpolation"
 ]
 
 [dependencies]

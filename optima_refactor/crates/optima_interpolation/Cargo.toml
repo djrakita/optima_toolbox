@@ -1,0 +1,9 @@
+[package]
+name = "optima_interpolation"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
