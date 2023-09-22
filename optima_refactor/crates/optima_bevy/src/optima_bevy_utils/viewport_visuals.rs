@@ -1,7 +1,9 @@
 use bevy::asset::{Assets};
 use bevy::math::{Mat3, Quat, Vec3};
 use bevy::pbr::PbrBundle;
-use bevy::prelude::{Color, Commands, Entity, Mesh, ResMut, shape, StandardMaterial, Transform};
+use bevy::prelude::{Color, Commands, Entity, Gizmos, Mesh, ResMut, shape, StandardMaterial, Transform};
+use nalgebra::DVector;
+use optima_geometry::get_points_around_circle;
 
 pub struct ViewportVisualsActions;
 impl ViewportVisualsActions {
@@ -85,6 +87,61 @@ impl ViewportVisualsActions {
 
             Self::action_spawn_line_optima_space(commands, meshes, materials, Vec3::new(-10.0, i as f32, 0.), Vec3::new( 10.0, i as f32,0.), normal_color.clone(), normal_width, true);
             Self::action_spawn_line_optima_space(commands, meshes, materials, Vec3::new( -10.0, -i as f32,0.), Vec3::new(10.0, -i as f32, 0.), normal_color.clone(), normal_width, true);
+        }
+    }
+    pub fn action_draw_gpu_line_optima_space(gizmos: &mut Gizmos,
+                                             start_point: Vec3,
+                                             end_point: Vec3,
+                                             color: Color,
+                                             width_in_mm: f32,
+                                             num_points_per_circle: usize,
+                                             num_concentric_circles: usize) {
+        let new_start_point = Vec3::new(start_point[0], start_point[2], -start_point[1]);
+        let new_end_point = Vec3::new(end_point[0], end_point[2], -end_point[1]);
+
+        Self::action_draw_gpu_line_bevy_space2(gizmos, new_start_point, new_end_point, color, width_in_mm, num_points_per_circle, num_concentric_circles);
+    }
+    pub fn action_draw_gpu_line_bevy_space2(gizmos: &mut Gizmos,
+                                           start_point: Vec3,
+                                           end_point: Vec3,
+                                           color: Color,
+                                           width_in_mm: f32,
+                                           num_points_per_circle: usize,
+                                           num_concentric_circles: usize) {
+        assert!(width_in_mm >= 0.0);
+        assert!(num_concentric_circles >= 1);
+        assert!(num_points_per_circle > 2);
+
+        let start_point_dvec = DVector::from_vec(vec![start_point.x as f64, start_point.y as f64, start_point.z as f64]);
+        let end_point_dvec = DVector::from_vec(vec![end_point.x as f64, end_point.y as f64, end_point.z as f64]);
+
+        let circle = get_points_around_circle(&DVector::from_vec(vec![0., 0., 0.]), &(&end_point_dvec - &start_point_dvec), 1.0, num_points_per_circle, Some(0));
+
+        if width_in_mm > 0.0 {
+            let width_stride = width_in_mm / num_concentric_circles as f32;
+            let mut widths = vec![];
+            for i in 0..num_concentric_circles {
+                widths.push((width_in_mm - i as f32 * width_stride) / 1000.0);
+            }
+
+            for width in widths {
+                let num_circle_points = circle.len();
+                for i in 0..num_circle_points-1 {
+                    let scaled_curr_circle_point = width as f64 * circle[i].clone();
+                    let scaled_next_circle_point = width as f64 * circle[i+1].clone();
+                    let scaled_curr_circle_point_as_vec3 = Vec3::new(scaled_curr_circle_point[0] as f32, scaled_curr_circle_point[1] as f32, scaled_curr_circle_point[2] as f32);
+                    let scaled_next_circle_point_as_vec3 = Vec3::new(scaled_next_circle_point[0] as f32, scaled_next_circle_point[1] as f32, scaled_next_circle_point[2] as f32);
+
+                    gizmos.line(scaled_curr_circle_point_as_vec3 + start_point, scaled_next_circle_point_as_vec3 + start_point, color.clone());
+                    gizmos.line(scaled_curr_circle_point_as_vec3 + end_point, scaled_next_circle_point_as_vec3 + end_point, color.clone());
+                }
+
+                for circle_point in &circle {
+                    let scaled_circle_point = width as f64 * circle_point;
+                    let scaled_circle_point_as_vec3 = Vec3::new(scaled_circle_point[0] as f32, scaled_circle_point[1] as f32, scaled_circle_point[2] as f32);
+                    gizmos.line(scaled_circle_point_as_vec3 + start_point, scaled_circle_point_as_vec3 + end_point, color.clone());
+                }
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use ad_trait::AD;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
@@ -6,7 +7,9 @@ use bevy_egui::egui::panel::Side;
 use bevy_egui::egui::Ui;
 use bevy_egui::{egui, EguiContexts};
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
-use optima_bevy_egui::{OEguiContainerTrait, OEguiEngineWrapper, OEguiSidePanel, OEguiSlider, OEguiWidgetTrait};
+use optima_3d_spatial::optima_3d_rotation::O3DRotation;
+use optima_3d_spatial::optima_3d_vec::O3DVec;
+use optima_bevy_egui::{OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSidePanel, OEguiSlider, OEguiWidgetTrait};
 use optima_linalg::{OLinalgCategoryTrait, OVec};
 use optima_robotics::chain::{ChainFKResult, OChain};
 use optima_robotics::robot::ORobot;
@@ -14,6 +17,8 @@ use optima_robotics::robotics_traits::AsChainTrait;
 use crate::optima_bevy_utils::file::get_asset_path_str_from_ostemcellpath;
 use crate::optima_bevy_utils::transform::TransformUtils;
 use crate::{BevySystemSet, OptimaBevyTrait};
+use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsActions;
+
 
 pub struct RoboticsActions;
 impl RoboticsActions {
@@ -69,7 +74,7 @@ impl RoboticsActions {
         }
     }
     pub fn action_chain_joint_sliders_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(chain: &OChain<T, C, L>,
-                                                                                                    updater: &mut ResMut<UpdaterChainState>,
+                                                                                                    chain_state_engine: &mut ChainStateEngine,
                                                                                                     egui_engine: &Res<OEguiEngineWrapper>,
                                                                                                     ui: &mut Ui) {
         let mut reset_clicked = false;
@@ -79,7 +84,7 @@ impl RoboticsActions {
         });
         ui.group(|ui| {
             egui::ScrollArea::new([true, true])
-                .max_height(500.)
+                .max_height(400.)
                 .show(ui, |ui| {
                     chain.joints().iter().for_each(|joint| {
                         let dof_idxs = joint.dof_idxs();
@@ -122,11 +127,86 @@ impl RoboticsActions {
             curr_state[i] = T::constant(value);
         }
 
-        updater.add_update_request(0, &OVec::to_other_ad_type::<T>(&curr_state));
+        chain_state_engine.add_update_request(0, &OVec::to_other_ad_type::<T>(&curr_state));
     }
-    pub fn action_chain_link_vis_panel_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(_chain: &OChain<T, C, L>,
-                                                                                                     _egui_engine: &Res<OEguiEngineWrapper>,
-                                                                                                     _ui: &mut Ui) {
+    pub fn action_chain_link_vis_panel_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(chain: &OChain<T, C, L>,
+                                                                                                     chain_state_engine: &ChainStateEngine,
+                                                                                                     gizmos: &mut Gizmos,
+                                                                                                     egui_engine: &Res<OEguiEngineWrapper>,
+                                                                                                     ui: &mut Ui) {
+        let chain_state = chain_state_engine.get_chain_state(0);
+        let chain_state = match chain_state {
+            None => { return; }
+            Some(chain_state) => { chain_state }
+        };
+        let chain_state = OVec::to_other_ad_type::<T>(chain_state);
+
+        let fk_res = chain.forward_kinematics(&chain_state, None);
+
+        let mut select_all = false;
+        let mut deselect_all = false;
+        ui.horizontal(|ui| {
+            ui.heading("Link Panel");
+            select_all = ui.button("select all").clicked();
+            deselect_all = ui.button("deselect all").clicked();
+        });
+
+        ui.label("link axis display length");
+        OEguiSlider::new(0.1, 1.0)
+            .show("link_axis_display_length", ui, egui_engine, &());
+
+        ui.group(|ui| {
+            egui::ScrollArea::new([true, true])
+                .id_source("links_scroll_area")
+                .max_height(400.0)
+                .show(ui, |ui| {
+                    chain.links().iter().enumerate().for_each(|(link_idx, link)| {
+                        if link.is_present_in_model() {
+
+                            let pose = fk_res.get_link_pose(link_idx).as_ref().unwrap();
+                            let location = pose.translation();
+                            let rotation = pose.rotation();
+                            let scaled_axis = rotation.scaled_axis_of_rotation();
+                            let unit_quaternion = rotation.unit_quaternion_as_wxyz_slice();
+                            let euler_angles = rotation.euler_angles();
+                            ui.label(format!("Link {}", link_idx));
+                            ui.label(format!("{}", link.name()));
+                            let toggle_label = format!("link_toggle_{}", link.name());
+                            OEguiCheckbox::new("Show Coordinate Frame")
+                                .show(&toggle_label, ui, &egui_engine, &());
+                            ui.label(format!("Location: {:.2?}", location));
+                            ui.label(format!("quaternion wxyz: {:.2?}", unit_quaternion));
+                            ui.label(format!("scaled axis: {:.2?}", scaled_axis));
+                            ui.label(format!("euler angles: {:.2?}", euler_angles));
+
+                            let mut mutex_guard = egui_engine.get_mutex_guard();
+                            let response = mutex_guard.get_checkbox_response_mut(&toggle_label).unwrap();
+                            if select_all { response.currently_selected = true; }
+                            if deselect_all { response.currently_selected = false; }
+
+                            if response.currently_selected {
+                                let draw_length = mutex_guard.get_slider_response("link_axis_display_length").unwrap().slider_value as f32;
+                                let frame_vectors = rotation.coordinate_frame_vectors();
+                                let x = &frame_vectors[0];
+                                let x_as_vec = draw_length*Vec3::new(x[0].to_constant() as f32, x[1].to_constant() as f32, x[2].to_constant() as f32);
+                                let y = &frame_vectors[1];
+                                let y_as_vec = draw_length*Vec3::new(y[0].to_constant() as f32, y[1].to_constant() as f32, y[2].to_constant() as f32);
+                                let z = &frame_vectors[2];
+                                let z_as_vec = draw_length*Vec3::new(z[0].to_constant() as f32, z[1].to_constant() as f32, z[2].to_constant() as f32);
+
+                                let location_as_vec = Vec3::new(location.x().to_constant() as f32, location.y().to_constant() as f32, location.z().to_constant() as f32);
+
+                                ViewportVisualsActions::action_draw_gpu_line_optima_space(gizmos, location_as_vec, location_as_vec + x_as_vec, Color::rgb(1., 0., 0.), 4.0, 10, 1);
+                                ViewportVisualsActions::action_draw_gpu_line_optima_space(gizmos, location_as_vec, location_as_vec + y_as_vec, Color::rgb(0., 1., 0.), 4.0, 10, 1);
+                                ViewportVisualsActions::action_draw_gpu_line_optima_space(gizmos, location_as_vec, location_as_vec + z_as_vec, Color::rgb(0., 0., 1.), 4.0, 10, 1);
+                            }
+
+                            ui.separator();
+                        }
+                    });
+                });
+        });
+
 
     }
 }
@@ -143,23 +223,30 @@ impl RoboticsSystems {
         RoboticsActions::action_spawn_chain_as_stl_meshes(chain, &fk_res, &mut commands, &*asset_server, &mut *materials, 0);
     }
     pub fn system_chain_state_updater<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(chain: Res<BevyOChain<T, C, L>>,
-                                                                                                                   mut updater: ResMut<UpdaterChainState>,
+                                                                                                                   mut chain_state_engine: ResMut<ChainStateEngine>,
                                                                                                                    mut query: Query<(&LinkMeshID, &mut Transform)>) {
-        while updater.chain_state_update_requests.len() > 0 {
+        while chain_state_engine.chain_state_update_requests.len() > 0 {
             let chain = &chain.0;
-            let request = updater.chain_state_update_requests.pop().unwrap();
+            let request = chain_state_engine.chain_state_update_requests.pop().unwrap();
             let request_state: Vec<T> = request.1.iter().map(|x| T::constant(*x)).collect();
+            chain_state_engine.chain_states.insert(request.0, OVec::to_other_ad_type::<f64>(&request_state));
             RoboticsActions::action_set_state_of_chain(chain, &request_state, request.0, &mut query);
         }
     }
     pub fn system_chain_main_info_panel_egui<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(chain: Res<BevyOChain<T, C, L>>,
+                                                                                                                          mut gizmos: Gizmos,
                                                                                                                           mut contexts: EguiContexts,
-                                                                                                                          mut updater: ResMut<UpdaterChainState>,
+                                                                                                                          mut chain_state_engine: ResMut<ChainStateEngine>,
                                                                                                                           egui_engine: Res<OEguiEngineWrapper>,
                                                                                                                           window_query: Query<&Window, With<PrimaryWindow>>) {
-        OEguiSidePanel::new(Side::Left, 300.0)
+        OEguiSidePanel::new(Side::Left, 250.0)
             .show("joint_sliders_side_panel", contexts.ctx_mut(), &egui_engine, &window_query, &(), |ui| {
-                RoboticsActions::action_chain_joint_sliders_egui(&chain.0, &mut updater, &egui_engine, ui);
+                egui::ScrollArea::new([true, true])
+                    .show(ui, |ui| {
+                        RoboticsActions::action_chain_joint_sliders_egui(&chain.0, &mut *chain_state_engine, &egui_engine, ui);
+                        ui.separator();
+                        RoboticsActions::action_chain_link_vis_panel_egui(&chain.0, & *chain_state_engine, &mut gizmos, &egui_engine, ui);
+                    });
             });
     }
 }
@@ -201,16 +288,20 @@ pub struct LinkMeshID {
 }
 
 #[derive(Resource)]
-pub struct UpdaterChainState {
+pub struct ChainStateEngine {
+    pub (crate) chain_states: HashMap<usize, Vec<f64>>,
     pub (crate) chain_state_update_requests: Vec<(usize, Vec<f64>)>
 }
-impl UpdaterChainState {
+impl ChainStateEngine {
     pub fn new() -> Self {
-        Self { chain_state_update_requests: vec![] }
+        Self { chain_states: Default::default(), chain_state_update_requests: vec![] }
     }
     pub fn add_update_request<T: AD, V: OVec<T>>(&mut self, chain_instance_idx: usize, state: &V) {
         let save_state = state.to_constant_vec();
         self.chain_state_update_requests.push( (chain_instance_idx, save_state) );
+    }
+    pub fn get_chain_state(&self, chain_instance_idx: usize) -> Option<&Vec<f64>> {
+        self.chain_states.get(&chain_instance_idx)
     }
 }
 

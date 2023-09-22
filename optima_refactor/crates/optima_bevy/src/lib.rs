@@ -12,7 +12,7 @@ use optima_linalg::OLinalgCategoryTrait;
 use optima_robotics::robotics_traits::AsChainTrait;
 use crate::optima_bevy_utils::camera::CameraSystems;
 use crate::optima_bevy_utils::lights::LightSystems;
-use crate::optima_bevy_utils::robotics::{BevyOChain, RoboticsSystems, UpdaterChainState};
+use crate::optima_bevy_utils::robotics::{BevyOChain, RoboticsSystems, ChainStateEngine};
 use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsSystems;
 
 pub mod scripts;
@@ -31,7 +31,7 @@ impl OptimaBevyTrait for App {
     fn optima_bevy_base(&mut self) -> &mut Self {
         self
             .insert_resource(ClearColor(Color::rgb(0.5, 0.5, 0.5)))
-            .insert_resource(Msaa::Sample4)
+            .insert_resource(Msaa::default())
             .add_plugins(DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
@@ -62,7 +62,7 @@ impl OptimaBevyTrait for App {
     fn optima_bevy_robotics_base<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, A: AsChainTrait<T, C, L>>(&mut self, as_chain: A) -> &mut Self {
         self
             .insert_resource(BevyOChain(as_chain.as_chain().clone()))
-            .insert_resource(UpdaterChainState::new())
+            .insert_resource(ChainStateEngine::new())
             .add_systems(Last, RoboticsSystems::system_chain_state_updater::<T, C, L>);
 
         self
