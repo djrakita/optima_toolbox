@@ -1,3 +1,5 @@
+pub mod splines;
+
 use ad_trait::AD;
 
 pub fn get_range<T: AD>(range_start: T, range_stop: T, step_size: T) -> Vec<T> {

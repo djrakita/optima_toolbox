@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -27,6 +28,8 @@ pub trait O3DPose<T: AD> :
     type Category: O3DPoseCategoryTrait;
     type RotationType: O3DRotation<T>;
 
+
+    fn as_any(&self) -> &dyn Any;
     fn type_identifier() -> O3DPoseType;
     fn identity() -> Self;
     fn from_translation_and_rotation<V: O3DVec<T>, R: O3DRotation<T>>(translation: &V, rotation: &R) -> Self;
@@ -73,6 +76,11 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
 {
     type Category = O3DPoseCategoryImplicitDualQuaternion;
     type RotationType = UnitQuaternion<T>;
+
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 
     #[inline(always)]
     fn type_identifier() -> O3DPoseType {
@@ -188,6 +196,11 @@ impl O3DPoseCategoryTrait for O3DPoseCategoryImplicitDualQuaternion {
 impl<T: AD> O3DPose<T> for Isometry3<T> {
     type Category = O3DPoseCategoryIsometry3;
     type RotationType = UnitQuaternion<T>;
+
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 
     fn type_identifier() -> O3DPoseType {
         O3DPoseType::NalgebraIsometry3

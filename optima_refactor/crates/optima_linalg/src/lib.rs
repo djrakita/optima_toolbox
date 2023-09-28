@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt;
 use std::fmt::{Debug};
 use std::marker::PhantomData;
@@ -60,6 +61,7 @@ pub trait OVecCategoryTrait : Debug + Clone + Send + Sync {
 pub trait OVec<T: AD> : Debug + Clone + Send + Sync  {
     type Category: OVecCategoryTrait;
 
+    fn as_any(&self) -> &dyn Any;
     fn type_identifier() -> OVecType;
     fn from_slice_ovec(slice: &[T]) -> Self;
     fn as_slice_ovec(&self) -> &[T];
@@ -97,6 +99,11 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync  {
 
 impl<'a, T: AD> OVec<T> for &'a [T] {
     type Category = OVecCategorySliceRef<'a>;
+
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        panic!("cannot call as_any on slice reference")
+    }
 
     #[inline]
     fn type_identifier() -> OVecType {
@@ -170,6 +177,11 @@ impl<'a> OVecCategoryTrait for OVecCategorySliceRef<'a> {
 
 impl<T: AD, const N: usize> OVec<T> for [T; N] {
     type Category = OVecCategoryArr<N>;
+
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 
     #[inline]
     fn type_identifier() -> OVecType {
@@ -258,6 +270,11 @@ impl<const N: usize> OVecCategoryTrait for OVecCategoryArr<N> {
 impl<T: AD> OVec<T> for Vec<T> {
     type Category = OVecCategoryVec;
 
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::Vec
@@ -344,6 +361,11 @@ impl OVecCategoryTrait for OVecCategoryVec {
 impl<T: AD, const M: usize> OVec<T> for ArrayVec<T, M> {
     type Category = OVecCategoryArrayVec<M>;
 
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::ArrayVec
@@ -428,6 +450,11 @@ impl<const M: usize> OVecCategoryTrait for OVecCategoryArrayVec<M> {
 impl<T: AD> OVec<T> for DVector<T> {
     type Category = OVecCategoryDVector;
 
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::DVector
@@ -502,6 +529,11 @@ impl OVecCategoryTrait for OVecCategoryDVector {
 impl<T: AD, const N: usize> OVec<T> for SVector<T, N> {
     type Category = OVecCategorySVector<N>;
 
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::SVector
@@ -574,6 +606,11 @@ impl<const N: usize> OVecCategoryTrait for OVecCategorySVector<N> {
 
 impl<T: AD> OVec<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     type Category = OVecCategoryNDarray;
+
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 
     #[inline]
     fn type_identifier() -> OVecType {
@@ -802,6 +839,8 @@ pub trait OMat<T: AD> : Debug + Clone + Send + Sync  {
     type MatMulInType;
     type MatMulOutType;
 
+    fn as_any(&self) -> &dyn Any;
+
     fn type_identifier(&self) -> OMatType;
     fn from_column_major_slice(slice: &[T], nrows: usize, ncols: usize) -> Self;
     fn as_column_major_slice(&self) -> &[T];
@@ -828,6 +867,11 @@ impl<T: AD> OMat<T> for DMatrix<T> {
     type VecMulOutType = DVector<T>;
     type MatMulInType = DMatrix<T>;
     type MatMulOutType = DMatrix<T>;
+
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 
     #[inline]
     fn type_identifier(&self) -> OMatType {
@@ -886,6 +930,11 @@ impl<T: AD> OMat<T> for ArrayBase<OwnedRepr<T>, Dim<[Ix; 2]>> {
     type VecMulOutType = ArrayBase<OwnedRepr<T>, Ix1>;
     type MatMulInType = ArrayBase<OwnedRepr<T>, Dim<[Ix; 2]>>;
     type MatMulOutType = ArrayBase<OwnedRepr<T>, Dim<[Ix; 2]>>;
+
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 
     #[inline]
     fn type_identifier(&self) -> OMatType {

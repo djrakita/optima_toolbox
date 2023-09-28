@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -26,6 +27,7 @@ pub trait O3DRotation<T: AD> :
     type Category: O3DRotationCategoryTrait;
     type Native3DVecType: O3DVec<T>;
 
+    fn as_any(&self) -> &dyn Any;
     fn type_identifier() -> O3DRotationType;
     fn mul(&self, other: &Self) -> Self;
     fn mul_by_point_native(&self, point: &Self::Native3DVecType) -> Self::Native3DVecType;
@@ -65,63 +67,80 @@ impl<T: AD> O3DRotation<T> for Rotation3<T> {
     type Native3DVecType = Vector3<T>;
 
     #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline(always)]
     fn type_identifier() -> O3DRotationType {
         O3DRotationType::NalgebraRotation3
     }
 
+    #[inline]
     fn mul(&self, other: &Self) -> Self {
         self * other
     }
 
+    #[inline]
     fn mul_by_point_native(&self, point: &Vector3<T>) -> Vector3<T> {
         self * point
     }
 
+    #[inline]
     fn mul_by_point_generic<V: O3DVec<T>>(&self, point: &V) -> V {
         let res = self * Vector3::from_column_slice(point.as_slice());
         V::from_slice(res.as_slice())
     }
 
+    #[inline]
     fn scaled_axis_of_rotation(&self) -> [T; 3] {
         let v = self.scaled_axis();
         [ v[0], v[1], v[2] ]
     }
 
+    #[inline]
     fn from_scaled_axis_of_rotation<V: O3DVec<T>>(axis: &V) -> Self {
         let slice = axis.as_slice();
         Rotation3::from_scaled_axis(Vector3::from_column_slice(slice))
     }
 
+    #[inline]
     fn euler_angles(&self) -> [T; 3] {
         let e = self.euler_angles();
 
         [ e.0, e.1, e.2 ]
     }
 
+    #[inline]
     fn from_euler_angles<V: O3DVec<T>>(euler_angles: &V) -> Self {
         Rotation3::from_euler_angles(euler_angles.x(), euler_angles.y(), euler_angles.z())
     }
 
+    #[inline]
     fn rotation_matrix_as_column_major_slice(&self) -> [T; 9] {
         <[T; 9]>::try_from(self.matrix().as_slice()).unwrap()
     }
 
+    #[inline]
     fn from_rotation_matrix_as_column_major_slice(slice: &[T]) -> Self {
         let m = Matrix3::from_column_slice(slice);
         Rotation3::from_matrix(&m)
     }
 
+    #[inline]
     fn unit_quaternion_as_wxyz_slice(&self) -> [T; 4] {
         let q = UnitQuaternion::from_scaled_axis(self.scaled_axis());
 
         [ q.w, q.i, q.j, q.k ]
     }
 
+    #[inline]
     fn from_unit_quaternion_as_wxyz_slice(slice: &[T]) -> Self {
         let q = UnitQuaternion::from_quaternion(Quaternion::new(slice[0], slice[1], slice[2], slice[3]));
         return Rotation3::from_scaled_axis(q.scaled_axis())
     }
 
+    #[inline]
     fn coordinate_frame_vectors(&self) -> [[T; 3]; 3] {
         let vec1 = [ self[(0,0)], self[(1,0)], self[(2,0)] ];
         let vec2 = [ self[(0,1)], self[(1,1)], self[(2,1)] ];
@@ -130,22 +149,27 @@ impl<T: AD> O3DRotation<T> for Rotation3<T> {
         [ vec1, vec2, vec3 ]
     }
 
+    #[inline]
     fn inverse(&self) -> Self {
         self.inverse()
     }
 
+    #[inline]
     fn angle(&self) -> T {
         self.angle()
     }
 
+    #[inline]
     fn displacement(&self, other: &Self) -> Self {
         self.inverse() * other
     }
 
+    #[inline]
     fn dis(&self, other: &Self) -> T {
         self.displacement(other).angle()
     }
 
+    #[inline]
     fn interpolate(&self, to: &Self, t: T) -> Self {
         self.slerp(to, t)
     }
@@ -161,60 +185,77 @@ impl<T: AD> O3DRotation<T> for UnitQuaternion<T> {
     type Native3DVecType = Vector3<T>;
 
     #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline(always)]
     fn type_identifier() -> O3DRotationType {
         O3DRotationType::NalgebraRotation3
     }
 
+    #[inline]
     fn mul(&self, other: &Self) -> Self {
         self * other
     }
 
+    #[inline]
     fn mul_by_point_native(&self, point: &Vector3<T>) -> Vector3<T> {
         self * point
     }
 
+    #[inline]
     fn mul_by_point_generic<V: O3DVec<T>>(&self, point: &V) -> V {
         let res = self * Vector3::from_column_slice(point.as_slice());
         V::from_slice(res.as_slice())
     }
 
+    #[inline]
     fn scaled_axis_of_rotation(&self) -> [T; 3] {
         let v = self.scaled_axis();
         [ v[0], v[1], v[2] ]
     }
 
+    #[inline]
     fn from_scaled_axis_of_rotation<V: O3DVec<T>>(axis: &V) -> Self {
         let slice = axis.as_slice();
         UnitQuaternion::from_scaled_axis(Vector3::from_column_slice(slice))
     }
 
+    #[inline]
     fn euler_angles(&self) -> [T; 3] {
         let e = self.euler_angles();
 
         [ e.0, e.1, e.2 ]
     }
 
+    #[inline]
     fn from_euler_angles<V: O3DVec<T>>(euler_angles: &V) -> Self {
         UnitQuaternion::from_euler_angles(euler_angles.x(), euler_angles.y(), euler_angles.z())
     }
 
+    #[inline]
     fn rotation_matrix_as_column_major_slice(&self) -> [T; 9] {
         <[T; 9]>::try_from(self.to_rotation_matrix().matrix().as_slice()).unwrap()
     }
 
+    #[inline]
     fn from_rotation_matrix_as_column_major_slice(slice: &[T]) -> Self {
         let m = Matrix3::from_column_slice(slice);
         UnitQuaternion::from_matrix(&m)
     }
 
+    #[inline]
     fn unit_quaternion_as_wxyz_slice(&self) -> [T; 4] {
         [ self.w, self.i, self.j, self.k ]
     }
 
+    #[inline]
     fn from_unit_quaternion_as_wxyz_slice(slice: &[T]) -> Self {
         UnitQuaternion::from_quaternion(Quaternion::new(slice[0], slice[1], slice[2], slice[3]))
     }
 
+    #[inline]
     fn coordinate_frame_vectors(&self) -> [[T; 3]; 3] {
         let m = self.to_rotation_matrix();
 
@@ -225,22 +266,27 @@ impl<T: AD> O3DRotation<T> for UnitQuaternion<T> {
         [ vec1, vec2, vec3 ]
     }
 
+    #[inline]
     fn inverse(&self) -> Self {
         self.inverse()
     }
 
+    #[inline]
     fn angle(&self) -> T {
         self.angle()
     }
 
+    #[inline]
     fn displacement(&self, other: &Self) -> Self {
         self.inverse() * other
     }
 
+    #[inline]
     fn dis(&self, other: &Self) -> T {
         self.displacement(other).angle()
     }
 
+    #[inline]
     fn interpolate(&self, to: &Self, t: T) -> Self {
         self.slerp(to, t)
     }

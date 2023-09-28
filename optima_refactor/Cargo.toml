@@ -25,7 +25,8 @@ members = [
     "crates/optima_bevy",
     "crates/optima_geometry",
     "crates/optima_sampling",
-    "crates/optima_interpolation"
+    "crates/optima_interpolation",
+    "crates/optima_proximity"
 ]
 
 [dependencies]

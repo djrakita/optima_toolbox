@@ -79,6 +79,7 @@ pub struct OLink<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> {
     pub (crate) stl_mesh_file_path: Option<OStemCellPath>,
     pub (crate) convex_hull_file_path: Option<OStemCellPath>,
     pub (crate) convex_decomposition_file_paths: Vec<OStemCellPath>,
+    pub (crate) convex_decomposition_levels_file_paths: Vec<Vec<OStemCellPath>>
 }
 impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
     pub (crate) fn from_link(link: &Link) -> Self {
@@ -100,6 +101,7 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
             stl_mesh_file_path: None,
             convex_hull_file_path: None,
             convex_decomposition_file_paths: vec![],
+            convex_decomposition_levels_file_paths: vec![],
         }
     }
     pub fn new_manual(name: &str, collision: Vec<OCollision<T, C>>, visual: Vec<OVisual<T, C>>, inertial: OInertial<T, L>) -> Self {
@@ -121,6 +123,7 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
             stl_mesh_file_path: None,
             convex_hull_file_path: None,
             convex_decomposition_file_paths: vec![],
+            convex_decomposition_levels_file_paths: vec![],
         }
     }
     #[inline(always)]
@@ -163,6 +166,9 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
     }
     pub fn convex_decomposition_file_paths(&self) -> &Vec<OStemCellPath> {
         &self.convex_decomposition_file_paths
+    }
+    pub fn convex_decomposition_levels_file_paths(&self) -> &Vec<Vec<OStemCellPath>> {
+        &self.convex_decomposition_levels_file_paths
     }
 }
 impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> Debug for OLink<T, C, L> {

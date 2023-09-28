@@ -1,5 +1,5 @@
 [package]
-name = "optima_interpolation"
+name = "optima_proximity"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
-optima_linalg = { path = "../optima_linalg" }
+parry_ad = { package = "parry3d-f64", path = "/Users/djrakita/Documents/parry_ad/crates/parry3d-f64" }
+optima_3d_spatial = { path = "../optima_3d_spatial" }

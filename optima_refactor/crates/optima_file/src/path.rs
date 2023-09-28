@@ -1137,7 +1137,9 @@ pub enum OAssetLocation<'a> {
     ChainSTLMeshes { chain_name: &'a str },
     ChainConvexHulls { chain_name: &'a str },
     ChainConvexDecomposition { chain_name: &'a str },
-    LinkConvexDecomposition { chain_name: &'a str, link_mesh_name: &'a str }
+    LinkConvexDecomposition { chain_name: &'a str, link_mesh_name: &'a str },
+    ChainConvexDecompositionLevel { chain_name: &'a str, level: usize },
+    LinkConvexDecompositionLevel { chain_name: &'a str, level: usize, link_mesh_name: &'a str }
 }
 impl<'a> OAssetLocation<'a> {
     pub fn get_path_wrt_asset_folder(&self) -> Vec<String> {
@@ -1264,6 +1266,17 @@ impl<'a> OAssetLocation<'a> {
             }
             OAssetLocation::LinkConvexDecomposition { chain_name, link_mesh_name } => {
                 let mut v = Self::ChainConvexDecomposition { chain_name }.get_path_wrt_asset_folder();
+                v.push(link_mesh_name.to_string());
+                v
+            }
+            OAssetLocation::ChainConvexDecompositionLevel { chain_name, level } => {
+                let mut v = Self::Chain { chain_name }.get_path_wrt_asset_folder();
+                v.push("convex_decomposition_levels".to_string());
+                v.push(format!("level_{}", level));
+                v
+            }
+            OAssetLocation::LinkConvexDecompositionLevel { chain_name, level, link_mesh_name } => {
+                let mut v = Self::ChainConvexDecompositionLevel { chain_name, level: *level }.get_path_wrt_asset_folder();
                 v.push(link_mesh_name.to_string());
                 v
             }

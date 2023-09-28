@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt;
 use std::fmt::{Debug};
 use std::marker::PhantomData;
@@ -24,6 +25,7 @@ pub trait O3DVec<T: AD> :
 {
     type Category: O3DVecCategoryTrait;
 
+    fn as_any(&self) -> &dyn Any;
     fn type_identifier() -> O3DVecType;
     fn x(&self) -> T;
     fn y(&self) -> T;
@@ -51,6 +53,11 @@ pub trait O3DVec<T: AD> :
 
 impl<T: AD> O3DVec<T> for [T; 3] {
     type Category = O3DVecCategoryArr;
+
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 
     #[inline(always)]
     fn type_identifier() -> O3DVecType { O3DVecType::Arr }
@@ -133,6 +140,11 @@ impl<T: AD> O3DVec<T> for Vec<T> {
     type Category = O3DVecCategoryVec;
 
     #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline(always)]
     fn type_identifier() -> O3DVecType { O3DVecType::Vec }
 
     #[inline(always)]
@@ -205,6 +217,11 @@ impl O3DVecCategoryTrait for O3DVecCategoryVec {
 
 impl<T: AD> O3DVec<T> for Vector3<T> {
     type Category = O3DVecCategoryVector3;
+
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 
     fn type_identifier() -> O3DVecType {
         O3DVecType::NalgebraVector3
@@ -282,6 +299,11 @@ impl O3DVecCategoryTrait for O3DVecCategoryVector3 {
 
 impl<T: AD> O3DVec<T> for Point3<T> {
     type Category = O3DVecCategoryPoint3;
+
+    #[inline(always)]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 
     #[inline(always)]
     fn type_identifier() -> O3DVecType { O3DVecType::NalgebraPoint3 }

@@ -4,6 +4,7 @@ pub mod stl;
 use nalgebra::{Point, Point3};
 use parry3d_f64::transformation::convex_hull;
 use parry3d_f64::transformation::vhacd::{VHACD, VHACDParameters};
+use parry3d_f64::transformation::voxelization::FillMode;
 use optima_3d_spatial::optima_3d_vec::O3DVec;
 use optima_file::path::OStemCellPath;
 
@@ -98,14 +99,17 @@ impl OTriMesh {
             indices,
         }
     }
-    pub fn to_convex_decomposition(&self) -> Vec<OTriMesh> {
+    pub fn to_convex_decomposition(&self, max_convex_hulls: u32) -> Vec<OTriMesh> {
         let mut out = vec![];
 
         let points: Vec<Point3<f64>> = self.points.iter().map(|x| Point::from_slice(x)).collect();
         let indices: Vec<[u32; 3]> = self.indices.iter().map(|x| [ x[0] as u32, x[1] as u32, x[2] as u32 ]).collect();
 
         let params = VHACDParameters {
-            max_convex_hulls: 5,
+            max_convex_hulls,
+            resolution: 128,
+            fill_mode: FillMode::FloodFill { detect_cavities: true },
+            convex_hull_approximation: false,
             ..Default::default()
         };
         let res = VHACD::decompose(&params, &points, &indices, true);
@@ -118,6 +122,13 @@ impl OTriMesh {
             out.push(OTriMesh {points, indices} );
         });
 
+        out
+    }
+    pub fn to_convex_decomposition_levels(&self, max_convex_hulls_per_level: Vec<u32>) -> Vec<Vec<OTriMesh>> {
+        let mut out = vec![];
+        max_convex_hulls_per_level.iter().for_each(|x| {
+            out.push(self.to_convex_decomposition(*x));
+        });
         out
     }
     #[inline(always)]

@@ -52,8 +52,6 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> OChain<T
 
         Self::from_manual(chain_name, links, joints)
     }
-}
-impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> OChain<T, C, L> {
     pub fn from_manual(chain_name: &str, links: Vec<OLink<T, C, L>>, joints: Vec<OJoint<T, C>>) -> Self {
         let mut link_name_to_link_idx_map = HashMap::new();
         let mut joint_name_to_joint_idx_map = HashMap::new();
@@ -296,6 +294,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> OChain<T
         self.set_link_stl_mesh_file_paths();
         self.set_link_convex_hull_mesh_file_paths();
         self.set_link_convex_decomposition_mesh_file_paths();
+        // self.set_link_convex_decomposition_levels_mesh_file_paths();
     }
 }
 impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OChain<T, C, L> {
@@ -504,7 +503,7 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OChain<T, C, L> {
                 let exists = target_path_stub.exists();
 
                 if !exists {
-                    let convex_decomposition = stl_mesh_file.load_stl().to_trimesh().to_convex_decomposition();
+                    let convex_decomposition = stl_mesh_file.load_stl().to_trimesh().to_convex_decomposition(1);
                     oprint(&format!("computing convex decomposition of {:?}.  {:?} convex subcomponents found.", filename, convex_decomposition.len()), PrintMode::Println, PrintColor::Green);
 
                     convex_decomposition.iter().enumerate().for_each(|(i, trimesh)| {
@@ -518,6 +517,37 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OChain<T, C, L> {
                 link.convex_decomposition_file_paths = files.clone();
             }
         });
+    }
+    fn set_link_convex_decomposition_levels_mesh_file_paths(&mut self) {
+        let max_num_convex_hulls = vec![1, 2, 5, 10, 20, 10000];
+        for (level, max_num) in max_num_convex_hulls.iter().enumerate() {
+            self.links.iter_mut().for_each(|link| {
+                let stl_mesh_file = &link.stl_mesh_file_path;
+                if let Some(stl_mesh_file) = stl_mesh_file {
+                    let filename = stl_mesh_file.filename_without_extension().unwrap();
+
+                    let mut target_path_stub = OStemCellPath::new_asset_path();
+                    target_path_stub.append_file_location(&OAssetLocation::LinkConvexDecompositionLevel { chain_name: &self.chain_name, level, link_mesh_name: &filename });
+
+                    let exists = target_path_stub.exists();
+
+                    if !exists {
+                        let convex_decomposition = stl_mesh_file.load_stl().to_trimesh().to_convex_decomposition(*max_num);
+                        oprint(&format!("computing convex decomposition of {:?} at level {:?}.  {:?} convex subcomponents found.", filename, level, convex_decomposition.len()), PrintMode::Println, PrintColor::Green);
+
+                        convex_decomposition.iter().enumerate().for_each(|(i, trimesh)| {
+                            let mut target_path = target_path_stub.clone();
+                            target_path.append(&(filename.clone() + "_" + i.to_string().as_str() + ".stl"));
+                            trimesh.save_to_stl(&target_path);
+                        });
+                    }
+
+                    let files = target_path_stub.get_all_items_in_directory_as_paths(false, false);
+                    // link.convex_decomposition_file_paths = files.clone();
+                    link.convex_decomposition_levels_file_paths.push(files.clone());
+                }
+            });
+        }
     }
 }
 impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> AsChainTrait<T, C, L> for OChain<T, C, L> {
@@ -1015,3 +1045,4 @@ ORobotArrStorageArrayVec<
     type MimicJointNameStrType = ArrayStringStor<NAME_STRING_LEN>;
 }
 */
+
