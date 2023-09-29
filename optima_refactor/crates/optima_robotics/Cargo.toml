@@ -9,7 +9,7 @@ edition = "2021"
 # ad_trait = { git = "https://github.com/djrakita/ad_trait" }
 ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
 optima_file = { path = "../optima_file" }
-optima_utils = { path = "../optima_utils" }
+optima_misc = { path = "../optima_misc" }
 optima_3d_spatial = { path = "../optima_3d_spatial" }
 optima_linalg = { path = "../optima_linalg" }
 optima_3d_mesh = { path = "../optima_3d_mesh" }

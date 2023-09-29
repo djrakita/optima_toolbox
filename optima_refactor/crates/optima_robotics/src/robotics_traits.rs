@@ -2,9 +2,9 @@ use ad_trait::AD;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
 use optima_3d_spatial::optima_3d_rotation::ScaledAxis;
 use optima_linalg::{OLinalgCategoryTrait, OVec};
-use optima_utils::arr_storage::ImmutArrTraitRaw;
 use crate::chain::OChain;
 use crate::robotics_components::{ODynamics, OJointLimit, OJointType, OMimic, OPose, OSafetyController};
+use optima_misc::arr_storage::ImmutArrTraitRaw;
 
 pub trait JointTrait<T: AD, C: O3DPoseCategoryTrait + 'static> {
     fn name(&self) -> &str;

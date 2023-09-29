@@ -1,8 +1,9 @@
-use std::any::Any;
+use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use ad_trait::{AD};
+use as_any::AsAny;
 use nalgebra::{Matrix3, Quaternion, Rotation3, UnitQuaternion, Vector3};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{SeqAccess, Visitor};
@@ -23,11 +24,10 @@ pub trait O3DRotationCategoryTrait :
 
 /// Point is the "native vector" type that serve as the native type that this rotation multiplies by
 pub trait O3DRotation<T: AD> :
-    Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync {
+    Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync + AsAny {
     type Category: O3DRotationCategoryTrait;
     type Native3DVecType: O3DVec<T>;
 
-    fn as_any(&self) -> &dyn Any;
     fn type_identifier() -> O3DRotationType;
     fn mul(&self, other: &Self) -> Self;
     fn mul_by_point_native(&self, point: &Self::Native3DVecType) -> Self::Native3DVecType;
@@ -60,16 +60,23 @@ pub trait O3DRotation<T: AD> :
     fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as O3DRotationCategoryTrait>::R<T2> {
         self.to_other_generic_category::<T2, Self::Category>()
     }
+    #[inline(always)]
+    fn downcast_or_convert<R: O3DRotation<T>>(&self) -> Cow<R> {
+        let downcast = self.as_any().downcast_ref::<R>();
+        match downcast {
+            Some(d) => { Cow::Borrowed(d) }
+            None => {
+                let out = R::from_scaled_axis_of_rotation(&self.scaled_axis_of_rotation());
+                Cow::Owned(out)
+            }
+        }
+    }
+
 }
 
 impl<T: AD> O3DRotation<T> for Rotation3<T> {
     type Category = O3DRotationCategoryRotation3;
     type Native3DVecType = Vector3<T>;
-
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 
     #[inline(always)]
     fn type_identifier() -> O3DRotationType {
@@ -183,11 +190,6 @@ impl O3DRotationCategoryTrait for O3DRotationCategoryRotation3 {
 impl<T: AD> O3DRotation<T> for UnitQuaternion<T> {
     type Category = O3DRotationCategoryUnitQuaternion;
     type Native3DVecType = Vector3<T>;
-
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 
     #[inline(always)]
     fn type_identifier() -> O3DRotationType {

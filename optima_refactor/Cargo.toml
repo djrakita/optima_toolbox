@@ -17,7 +17,7 @@ members = [
     "crates/optima_console",
     "crates/optima_3d_spatial",
     "crates/optima_robotics",
-    "crates/optima_utils",
+    "crates/optima_misc",
     "crates/optima_linalg",
     "crates/optima_3d_mesh",
     "crates/optima_network",
@@ -31,6 +31,19 @@ members = [
 
 [dependencies]
 optima_file = { path = "crates/optima_file" }
+optima_console = { path = "crates/optima_console" }
+optima_3d_spatial = { path = "crates/optima_3d_spatial" }
+optima_robotics = { path = "crates/optima_robotics" }
+optima_misc = { path = "crates/optima_misc" }
+optima_linalg = { path = "crates/optima_linalg" }
+optima_3d_mesh = { path = "crates/optima_3d_mesh" }
+optima_network = { path = "crates/optima_network" }
+optima_optimization = { path = "crates/optima_optimization" }
+optima_bevy = { path = "crates/optima_bevy" }
+optima_geometry = { path = "crates/optima_geometry" }
+optima_sampling = { path = "crates/optima_sampling" }
+optima_interpolation = { path = "crates/optima_interpolation" }
+optima_proximity = { path = "crates/optima_proximity" }
 
 [features]
 default = [

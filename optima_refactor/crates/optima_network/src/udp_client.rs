@@ -1,8 +1,7 @@
 use std::net::{UdpSocket};
 use serde_derive;
 use serde_json;
-use std::vec;
-use serde::{Serialize, Deserialize};
+use serde::{Serialize};
 
 #[derive(serde_derive::Serialize, serde_derive::Deserialize, Debug)]
 pub struct Message {
@@ -29,7 +28,7 @@ impl UdpClient {
     }
 
     /// Sends a message to the specified server address.
-    pub fn send_message<T>(&self, server_address: &str, message: &T) -> Result<(), Box<dyn std::error::Error>>
+    pub fn send_message<T>(&self, _server_address: &str, message: &T) -> Result<(), Box<dyn std::error::Error>>
     where
         T: Serialize,
         T: std::fmt::Debug,

@@ -1,6 +1,6 @@
 use ad_trait::AD;
 use optima_3d_spatial::optima_3d_pose::O3DPoseCategoryTrait;
-use optima_utils::arr_storage::ImmutArrTraitRaw;
+use optima_misc::arr_storage::ImmutArrTraitRaw;
 use crate::robotics_components::ChainInfo;
 use crate::robotics_traits::JointTrait;
 

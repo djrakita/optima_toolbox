@@ -1,8 +1,9 @@
-use std::any::Any;
+use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Debug};
 use std::marker::PhantomData;
 use ad_trait::{AD};
+use as_any::{AsAny, Downcast};
 use nalgebra::{Point3, Vector3};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{SeqAccess, Visitor};
@@ -21,11 +22,10 @@ pub trait O3DVecCategoryTrait :
 }
 
 pub trait O3DVec<T: AD> :
-    Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync
+    Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync + AsAny
 {
     type Category: O3DVecCategoryTrait;
 
-    fn as_any(&self) -> &dyn Any;
     fn type_identifier() -> O3DVecType;
     fn x(&self) -> T;
     fn y(&self) -> T;
@@ -49,15 +49,21 @@ pub trait O3DVec<T: AD> :
     fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as O3DVecCategoryTrait>::V<T2> {
         self.to_other_generic_category::<T2, Self::Category>()
     }
+    #[inline(always)]
+    fn downcast_or_convert<V: O3DVec<T>>(&self) -> Cow<V> {
+        let downcast = self.downcast_ref::<V>();
+        match downcast {
+            Some(d) => { Cow::Borrowed(d) }
+            None => {
+                let out = V::from_slice(self.as_slice());
+                Cow::Owned(out)
+            }
+        }
+    }
 }
 
 impl<T: AD> O3DVec<T> for [T; 3] {
     type Category = O3DVecCategoryArr;
-
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 
     #[inline(always)]
     fn type_identifier() -> O3DVecType { O3DVecType::Arr }
@@ -140,11 +146,6 @@ impl<T: AD> O3DVec<T> for Vec<T> {
     type Category = O3DVecCategoryVec;
 
     #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
-    #[inline(always)]
     fn type_identifier() -> O3DVecType { O3DVecType::Vec }
 
     #[inline(always)]
@@ -217,11 +218,6 @@ impl O3DVecCategoryTrait for O3DVecCategoryVec {
 
 impl<T: AD> O3DVec<T> for Vector3<T> {
     type Category = O3DVecCategoryVector3;
-
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 
     fn type_identifier() -> O3DVecType {
         O3DVecType::NalgebraVector3
@@ -299,11 +295,6 @@ impl O3DVecCategoryTrait for O3DVecCategoryVector3 {
 
 impl<T: AD> O3DVec<T> for Point3<T> {
     type Category = O3DVecCategoryPoint3;
-
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 
     #[inline(always)]
     fn type_identifier() -> O3DVecType { O3DVecType::NalgebraPoint3 }

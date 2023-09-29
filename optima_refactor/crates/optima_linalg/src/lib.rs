@@ -1,15 +1,18 @@
 use std::any::Any;
+use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Debug};
 use std::marker::PhantomData;
 use ad_trait::AD;
 use arrayvec::ArrayVec;
+use as_any::{AsAny, Downcast};
 use nalgebra::{DMatrix, DVector, SVector};
 use ndarray::{Array, ArrayBase, Dim, Ix, Ix1, OwnedRepr};
 use serde::de::{SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::ser::SerializeTuple;
 use serde_with::{DeserializeAs, SerializeAs};
+use optima_misc::misc_enums::RefOrOwned;
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum OLinalgType {
@@ -58,10 +61,9 @@ pub trait OVecCategoryTrait : Debug + Clone + Send + Sync {
     type V<T: AD>: OVec<T>;
 }
 
-pub trait OVec<T: AD> : Debug + Clone + Send + Sync  {
+pub trait OVec<T: AD> : Debug + Clone + Send + Sync + AsAny  {
     type Category: OVecCategoryTrait;
 
-    fn as_any(&self) -> &dyn Any;
     fn type_identifier() -> OVecType;
     fn from_slice_ovec(slice: &[T]) -> Self;
     fn as_slice_ovec(&self) -> &[T];
@@ -95,15 +97,22 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync  {
     fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as OVecCategoryTrait>::V<T2> {
         self.to_other_generic_category::<T2, Self::Category>()
     }
+    #[inline(always)]
+    fn downcast_or_convert<V: OVec<T>>(&self) -> Cow<V> {
+        let downcast = self.downcast_ref();
+        match downcast {
+            Some(d) => { Cow::Borrowed(d) }
+            None => {
+                let out = V::from_slice_ovec(&self.as_slice_ovec());
+                Cow::Owned(out)
+            }
+        }
+    }
 }
 
+/*
 impl<'a, T: AD> OVec<T> for &'a [T] {
     type Category = OVecCategorySliceRef<'a>;
-
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        panic!("cannot call as_any on slice reference")
-    }
 
     #[inline]
     fn type_identifier() -> OVecType {
@@ -169,19 +178,18 @@ impl<'a, T: AD> OVec<T> for &'a [T] {
         <[T]>::len(self)
     }
 }
+*/
+
+/*
 #[derive(Debug, Clone)]
 pub struct OVecCategorySliceRef<'a>(&'a PhantomData<()>);
 impl<'a> OVecCategoryTrait for OVecCategorySliceRef<'a> {
     type V<T: AD> = &'a [T];
 }
+*/
 
 impl<T: AD, const N: usize> OVec<T> for [T; N] {
     type Category = OVecCategoryArr<N>;
-
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 
     #[inline]
     fn type_identifier() -> OVecType {
@@ -270,11 +278,6 @@ impl<const N: usize> OVecCategoryTrait for OVecCategoryArr<N> {
 impl<T: AD> OVec<T> for Vec<T> {
     type Category = OVecCategoryVec;
 
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::Vec
@@ -361,11 +364,6 @@ impl OVecCategoryTrait for OVecCategoryVec {
 impl<T: AD, const M: usize> OVec<T> for ArrayVec<T, M> {
     type Category = OVecCategoryArrayVec<M>;
 
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::ArrayVec
@@ -450,11 +448,6 @@ impl<const M: usize> OVecCategoryTrait for OVecCategoryArrayVec<M> {
 impl<T: AD> OVec<T> for DVector<T> {
     type Category = OVecCategoryDVector;
 
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::DVector
@@ -529,11 +522,6 @@ impl OVecCategoryTrait for OVecCategoryDVector {
 impl<T: AD, const N: usize> OVec<T> for SVector<T, N> {
     type Category = OVecCategorySVector<N>;
 
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-
     #[inline]
     fn type_identifier() -> OVecType {
         OVecType::SVector
@@ -606,11 +594,6 @@ impl<const N: usize> OVecCategoryTrait for OVecCategorySVector<N> {
 
 impl<T: AD> OVec<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     type Category = OVecCategoryNDarray;
-
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 
     #[inline]
     fn type_identifier() -> OVecType {
@@ -852,12 +835,24 @@ pub trait OMat<T: AD> : Debug + Clone + Send + Sync  {
     /// (rows, cols)
     fn dims(&self) -> (usize, usize);
     fn to_other_generic_category<T2: AD, C: OMatCategoryTrait>(&self) -> C::M<T2> {
-        let column_major_slice = self.as_column_major_slice().to_other_generic_category::<T2, OVecCategoryVec>();
+        let column_major_slice = self.as_column_major_slice().to_vec().to_other_generic_category::<T2, OVecCategoryVec>();
         let dims = self.dims();
         C::M::from_column_major_slice(&column_major_slice, dims.0, dims.1)
     }
     fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as OMatCategoryTrait>::M<T2> {
         self.to_other_generic_category::<T2, Self::Category>()
+    }
+    #[inline(always)]
+    fn downcast_or_convert<M: OMat<T>>(&self) -> Cow<M> {
+        let downcast = self.downcast_ref();
+        match downcast {
+            Some(d) => { Cow::Borrowed(d) }
+            None => {
+                let dims = self.dims();
+                let out = M::from_column_major_slice(self.as_column_major_slice(), dims.0, dims.1);
+                Cow::Owned(out)
+            }
+        }
     }
 }
 

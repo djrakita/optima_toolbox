@@ -1,5 +1,5 @@
 [package]
-name = "optima_utils"
+name = "optima_misc"
 version = "0.1.0"
 edition = "2021"
 

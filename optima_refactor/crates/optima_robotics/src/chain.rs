@@ -4,7 +4,6 @@ use std::marker::PhantomData;
 use ad_trait::*;
 use serde::{Serialize, Deserialize};
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3, O3DPoseCategoryTrait};
-use optima_utils::arr_storage::*;
 use crate::utils::get_urdf_path_from_chain_name;
 use serde_with::*;
 use optima_3d_mesh::{SaveToSTL, ToTriMesh};
@@ -16,6 +15,8 @@ use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategoryTrait, OVec};
 use crate::robotics_components::*;
 use crate::robotics_functions::compute_chain_info;
 use crate::robotics_traits::{AsChainTrait, JointTrait};
+use optima_misc::arr_storage::MutArrTraitRaw;
+use optima_misc::arr_storage::ImmutArrTraitRaw;
 
 pub type OChainDefault = OChain<f64, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>;
 
@@ -518,6 +519,7 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OChain<T, C, L> {
             }
         });
     }
+    #[allow(dead_code)]
     fn set_link_convex_decomposition_levels_mesh_file_paths(&mut self) {
         let max_num_convex_hulls = vec![1, 2, 5, 10, 20, 10000];
         for (level, max_num) in max_num_convex_hulls.iter().enumerate() {

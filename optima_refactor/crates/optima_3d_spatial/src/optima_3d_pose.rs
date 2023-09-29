@@ -1,8 +1,9 @@
-use std::any::Any;
+use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use ad_trait::AD;
+use as_any::AsAny;
 use nalgebra::{Isometry3, Quaternion, Translation3, UnitQuaternion, Vector3, Vector6};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{SeqAccess, Visitor};
@@ -23,13 +24,11 @@ pub trait O3DPoseCategoryTrait :
 }
 
 pub trait O3DPose<T: AD> :
-    Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync
+    Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync + AsAny
 {
     type Category: O3DPoseCategoryTrait;
     type RotationType: O3DRotation<T>;
 
-
-    fn as_any(&self) -> &dyn Any;
     fn type_identifier() -> O3DPoseType;
     fn identity() -> Self;
     fn from_translation_and_rotation<V: O3DVec<T>, R: O3DRotation<T>>(translation: &V, rotation: &R) -> Self;
@@ -70,17 +69,23 @@ pub trait O3DPose<T: AD> :
     fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as O3DPoseCategoryTrait>::P::<T2> {
         self.to_other_generic_category::<T2, Self::Category>()
     }
+    #[inline(always)]
+    fn downcast_or_convert<P: O3DPose<T>>(&self) -> Cow<P> {
+        let downcast = self.as_any().downcast_ref::<P>();
+        match downcast {
+            Some(d) => { Cow::Borrowed(d) }
+            None => {
+                let out = P::from_translation_and_rotation(self.translation(), self.rotation());
+                Cow::Owned(out)
+            }
+        }
+    }
 }
 
 impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
 {
     type Category = O3DPoseCategoryImplicitDualQuaternion;
     type RotationType = UnitQuaternion<T>;
-
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 
     #[inline(always)]
     fn type_identifier() -> O3DPoseType {
@@ -196,11 +201,6 @@ impl O3DPoseCategoryTrait for O3DPoseCategoryImplicitDualQuaternion {
 impl<T: AD> O3DPose<T> for Isometry3<T> {
     type Category = O3DPoseCategoryIsometry3;
     type RotationType = UnitQuaternion<T>;
-
-    #[inline(always)]
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 
     fn type_identifier() -> O3DPoseType {
         O3DPoseType::NalgebraIsometry3
