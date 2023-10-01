@@ -8,5 +8,7 @@ edition = "2021"
 [dependencies]
 ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
 parry_ad = { package = "parry3d-f64", path = "/Users/djrakita/Documents/parry_ad/crates/parry3d-f64" }
+parry3d-f64 = { path = "/Users/djrakita/Documents/parry/crates/parry3d-f64" }
 optima_3d_spatial = { path = "../optima_3d_spatial" }
+optima_3d_mesh = { path = "../optima_3d_mesh" }
 as-any = { version="0.3.1" }
