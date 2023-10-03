@@ -1,3 +1,9 @@
+pub mod shape_query_traits;
+pub mod shape_group_query_traits;
+pub mod parry;
+
+
+/*
 use std::borrow::Cow;
 use std::cmp::Ordering;
 use ad_trait::AD;
@@ -68,7 +74,7 @@ impl<T: AD, P: O3DPose<T>> OShapeParryGenericTrait<T> for OShapeParryGenericWith
     #[inline]
     fn get_isometry3_cow<'a, P2: O3DPose<T>>(&self, pose: &'a P2) -> Cow<'a, Isometry3<T>> {
         let offset: Cow<P2> = self.offset.downcast_or_convert::<P2>();
-        let pose = offset.mul(pose);
+        let pose = pose.mul(offset.as_ref());
         let res = pose.downcast_or_convert::<Isometry3<T>>();
         Cow::Owned(res.into_owned())
     }
@@ -153,7 +159,7 @@ impl<T: AD, P: O3DPose<T>> OShapeParryGenericTrait<T> for OShapeParryHierarchyWi
     #[inline(always)]
     fn get_isometry3_cow<'a, P2: O3DPose<T>>(&self, pose: &'a P2) -> Cow<'a, Isometry3<T>> {
         let offset: Cow<P2> = self.offset.downcast_or_convert::<P2>();
-        let pose = offset.mul(pose);
+        let pose = pose.mul(offset.as_ref());
         let res = pose.downcast_or_convert::<Isometry3<T>>();
         Cow::Owned(res.into_owned())
     }
@@ -170,53 +176,9 @@ impl<T: AD, P: O3DPose<T>> OShapeParryHierarchyTrait<T, P> for OShapeParryHierar
     }
 }
 
-/*
-pub struct OShapeParryHierarchyWithOffset<T: AD, P: O3DPose<T>> {
-    shape: Box<dyn Shape<T>>,
-    offset: P,
-    bounding_sphere: BoundingSphere<T>,
-    aabb: Aabb<T>
-}
-impl<T: AD, P: O3DPose<T>> OShapeParryHierarchyWithOffset<T, P> {
-    pub fn new<S: Shape<T>>(shape: S, offset: P) -> Self {
-        let bounding_sphere = shape.compute_local_bounding_sphere();
-        let aabb = shape.compute_local_aabb();
-
-        Self {
-            shape: Box::new(shape),
-            offset,
-            bounding_sphere,
-            aabb,
-        }
-    }
-    pub fn new_from_convex_shape(trimesh: &OTriMesh, offset: P) -> Self {
-        let (convex_polyhedron, bounding_sphere, aabb) = get_shape_hierarchy_from_convex_shape(trimesh);
-
-        Self {
-            shape: Box::new(convex_polyhedron),
-            offset,
-            bounding_sphere,
-            aabb
-        }
-    }
-}
-impl<T: AD, P: O3DPose<T>> OShapeParryGenericTrait<T> for OShapeParryHierarchyWithOffset<T, P> {
-    fn shape(&self) -> &Box<dyn Shape<T>> {
-        &self.shape
-    }
-
-    fn get_isometry3_cow<'a, P2: O3DPose<T>>(&self, pose: &'a P2) -> Cow<'a, Isometry3<T>> {
-        let offset: Cow<P2> = self.offset.downcast_or_convert::<P2>();
-        let pose = offset.mul(pose);
-        let res = pose.downcast_or_convert::<Isometry3<T>>();
-        Cow::Owned(res.into_owned())
-    }
-}
-*/
-
 pub (crate) fn get_bounding_sphere_from_shape<T: AD, S: Shape<T>, P: O3DPose<T>>(shape: &Box<S>, offset: &P) -> OShapeParryGenericWithOffset<T, P> {
     let bounding_sphere = shape.compute_local_bounding_sphere();
-    let offset = P::from_constructors(&bounding_sphere.center, &[T::zero();3]).mul(offset);
+    let offset = offset.mul(&P::from_constructors(&bounding_sphere.center, &[T::zero();3]));
     let sphere = Ball::new(bounding_sphere.radius);
     OShapeParryGenericWithOffset::new(sphere, offset)
 }
@@ -226,7 +188,7 @@ pub (crate) fn get_obb_from_shape<T: AD, S: Shape<T>, P: O3DPose<T>>(shape: &Box
     let mins = aabb.mins;
     let maxs = aabb.maxs;
     let center = mins.add(&maxs).scalar_mul_o3dvec(T::constant(0.5));
-    let offset = P::from_constructors(&center, &[T::zero(); 3]).mul(offset);
+    let offset = offset.mul(&P::from_constructors(&center, &[T::zero(); 3]));
     let half_x = (maxs[0] - mins[0]) * T::constant(0.5);
     let half_y = (maxs[1] - mins[1]) * T::constant(0.5);
     let half_z = (maxs[2] - mins[2]) * T::constant(0.5);
@@ -304,36 +266,52 @@ impl<T: AD, P: O3DPose<T>, A: OShapeParryHierarchyTrait<T, P>, B: OShapeParryHie
         let self_pose = self.obb().get_isometry3_cow(self_pose);
         let other_pose = other.obb().get_isometry3_cow(other_pose);
 
-        println!("{:?}", self_pose.as_ref());
-        println!("{:?}", other_pose.as_ref());
-        let cuboid = self.obb().shape.downcast_ref::<Cuboid<T>>().unwrap();
-        println!("{:?}", cuboid.half_extents);
-        let cuboid = other.obb().shape.downcast_ref::<Cuboid<T>>().unwrap();
-        println!("{:?}", cuboid.half_extents);
-
         query::distance(self_pose.as_ref(), &**self.obb().shape(), other_pose.as_ref(), &**other.obb().shape()).expect("error")
     }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub trait OPairwiseShapeContactTrait<T: AD, P: O3DPose<T>, B> {
+pub trait OShapeContactTrait<T: AD, P: O3DPose<T>, B> {
     type Args : AsAny;
     type ContactOutput : OContactOutputTrait<T> + AsAny;
 
     fn contact(&self, self_pose: &P, other: &B, other_pose: &P, args: &Self::Args) -> Self::ContactOutput;
+
     #[inline]
     fn distance_via_contact(&self, self_pose: &P, other: &B, other_pose: &P, args: &Self::Args) -> T {
         let contact = self.contact(self_pose, other, other_pose, args);
         return contact.to_distance()
     }
 }
+pub trait OBoundingSphereToBoundingSphereContactTrait<T: AD, P: O3DPose<T>, B> {
+    type Args : AsAny;
 
-pub trait OContactOutputTrait<T: AD> {
-    fn to_distance(&self) -> T;
+    type ContactOutput : OContactOutputTrait<T> + AsAny;
+
+    fn bounding_sphere_to_bounding_sphere_contact(&self, self_pose: &P, other: &B, other_pose: &P, args: &Self::Args) -> Self::ContactOutput;
+
+    #[inline]
+    fn bounding_sphere_to_bounding_sphere_distance_via_contact(&self, self_pose: &P, other: &B, other_pose: &P, args: &Self::Args) -> T {
+        let contact = self.bounding_sphere_to_bounding_sphere_contact(self_pose, other, other_pose, args);
+        return contact.to_distance()
+    }
+}
+pub trait OOBBToOBBContactTrait<T: AD, P: O3DPose<T>, B> {
+    type Args : AsAny;
+
+    type ContactOutput : OContactOutputTrait<T> + AsAny;
+
+    fn obb_to_obb_contact(&self, self_pose: &P, other: &B, other_pose: &P, args: &Self::Args) -> Self::ContactOutput;
+
+    #[inline]
+    fn obb_to_obb_distance_via_contact(&self, self_pose: &P, other: &B, other_pose: &P, args: &Self::Args) -> T {
+        let contact = self.obb_to_obb_contact(self_pose, other, other_pose, args);
+        return contact.to_distance()
+    }
 }
 
-impl<T: AD, P: O3DPose<T>, A: OShapeParryGenericTrait<T>, B: OShapeParryGenericTrait<T>> OPairwiseShapeContactTrait<T, P, B> for A {
+impl<T: AD, P: O3DPose<T>, A: OShapeParryGenericTrait<T>, B: OShapeParryGenericTrait<T>> OShapeContactTrait<T, P, B> for A {
     type Args = T;
     type ContactOutput = OContactParry<T>;
 
@@ -343,6 +321,32 @@ impl<T: AD, P: O3DPose<T>, A: OShapeParryGenericTrait<T>, B: OShapeParryGenericT
 
         OContactParry(query::contact(self_pose.as_ref(), &**self.shape(), other_pose.as_ref(), &**other.shape(), *args).expect("error"))
     }
+}
+impl<T: AD, P: O3DPose<T>, A: OShapeParryHierarchyTrait<T, P>, B: OShapeParryHierarchyTrait<T, P>> OBoundingSphereToBoundingSphereContactTrait<T, P, B> for A {
+    type Args = T;
+    type ContactOutput = OContactParry<T>;
+
+    fn bounding_sphere_to_bounding_sphere_contact(&self, self_pose: &P, other: &B, other_pose: &P, args: &Self::Args) -> Self::ContactOutput {
+        let self_pose = self.bounding_sphere().get_isometry3_cow(self_pose);
+        let other_pose = other.bounding_sphere().get_isometry3_cow(other_pose);
+
+        OContactParry(query::contact(self_pose.as_ref(), &**self.bounding_sphere().shape(), other_pose.as_ref(), &**other.bounding_sphere().shape(), *args).expect("error"))
+    }
+}
+impl<T: AD, P: O3DPose<T>, A: OShapeParryHierarchyTrait<T, P>, B: OShapeParryHierarchyTrait<T, P>> OOBBToOBBContactTrait<T, P, B> for A {
+    type Args = T;
+    type ContactOutput = OContactParry<T>;
+
+    fn obb_to_obb_contact(&self, self_pose: &P, other: &B, other_pose: &P, args: &Self::Args) -> Self::ContactOutput {
+        let self_pose = self.obb().get_isometry3_cow(self_pose);
+        let other_pose = other.obb().get_isometry3_cow(other_pose);
+
+        OContactParry(query::contact(self_pose.as_ref(), &**self.obb().shape(), other_pose.as_ref(), &**other.obb().shape(), *args).expect("error"))
+    }
+}
+
+pub trait OContactOutputTrait<T: AD> {
+    fn to_distance(&self) -> T;
 }
 
 #[derive(Clone, Debug)]
@@ -378,3 +382,4 @@ impl<T: AD> PartialOrd for OContactParry<T> {
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
+*/
