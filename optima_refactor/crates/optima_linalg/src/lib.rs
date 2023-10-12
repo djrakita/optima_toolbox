@@ -12,7 +12,6 @@ use serde::de::{SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::ser::SerializeTuple;
 use serde_with::{DeserializeAs, SerializeAs};
-use optima_misc::misc_enums::RefOrOwned;
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
 pub enum OLinalgType {
@@ -842,6 +841,7 @@ pub trait OMat<T: AD> : Debug + Clone + Send + Sync  {
     fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as OMatCategoryTrait>::M<T2> {
         self.to_other_generic_category::<T2, Self::Category>()
     }
+    /*
     #[inline(always)]
     fn downcast_or_convert<M: OMat<T>>(&self) -> Cow<M> {
         let downcast = self.downcast_ref();
@@ -854,6 +854,8 @@ pub trait OMat<T: AD> : Debug + Clone + Send + Sync  {
             }
         }
     }
+
+     */
 }
 
 impl<T: AD> OMat<T> for DMatrix<T> {

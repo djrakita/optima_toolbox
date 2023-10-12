@@ -61,8 +61,8 @@ impl ChainInfo {
 pub struct OLink<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> {
     pub (crate) is_present_in_model: bool,
     pub (crate) link_idx: usize,
-    pub (crate) sub_chain_idx: usize,
-    pub (crate) link_idx_in_sub_chain: usize,
+    pub (crate) sub_robot_idx: usize,
+    pub (crate) link_idx_in_sub_robot: usize,
     pub (crate) name: String,
     pub (crate) parent_joint_idx: Option<usize>,
     pub (crate) children_joint_idxs: Vec<usize>,
@@ -86,8 +86,8 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
         Self {
             is_present_in_model: true,
             link_idx: usize::default(),
-            sub_chain_idx: 0,
-            link_idx_in_sub_chain: usize::default(),
+            sub_robot_idx: 0,
+            link_idx_in_sub_robot: usize::default(),
             name: String::from(&link.name),
             parent_joint_idx: None,
             children_joint_idxs: vec![],
@@ -108,8 +108,8 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
         Self {
             is_present_in_model: true,
             link_idx: usize::default(),
-            sub_chain_idx: 0,
-            link_idx_in_sub_chain: usize::default(),
+            sub_robot_idx: 0,
+            link_idx_in_sub_robot: usize::default(),
             name: name.into(),
             parent_joint_idx: None,
             children_joint_idxs: vec![],
@@ -135,12 +135,12 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> OLink<T, C, L> {
         self.link_idx
     }
     #[inline(always)]
-    pub fn sub_chain_idx(&self) -> usize {
-        self.sub_chain_idx
+    pub fn sub_robot_idx(&self) -> usize {
+        self.sub_robot_idx
     }
     #[inline(always)]
     pub fn link_idx_in_sub_chain(&self) -> usize {
-        self.link_idx_in_sub_chain
+        self.link_idx_in_sub_robot
     }
     #[inline(always)]
     pub fn name(&self) -> &str {
@@ -179,8 +179,8 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> Debug for OLink<T,
         s += &format!("  OLink\n");
         s += &format!("  Link name: {}\n", self.name());
         s += &format!("  Link idx: {}\n", self.link_idx());
-        s += &format!("  Sub chain idx: {}\n", self.sub_chain_idx);
-        s += &format!("  Link idx in sub chain: {}\n", self.link_idx_in_sub_chain);
+        s += &format!("  Sub chain idx: {}\n", self.sub_robot_idx);
+        s += &format!("  Link idx in sub chain: {}\n", self.link_idx_in_sub_robot);
         s += &format!("  Parent Link idx: {:?}\n", self.parent_link_idx);
         s += &format!("  Children Link idxs: {:?}\n", self.children_link_idxs);
         s += &format!("  Parent Joint idx: {:?}\n", self.parent_joint_idx);
@@ -445,7 +445,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static> Debug for OJoint<T, C> {
 
 #[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct OMacroJoint<T: AD, C: O3DPoseCategoryTrait> {
+pub struct ORobotSetJoint<T: AD, C: O3DPoseCategoryTrait> {
     macro_joint_idx: usize,
     #[serde(deserialize_with = "OPose::<T, C>::deserialize")]
     origin: OPose<T, C>,
@@ -469,7 +469,7 @@ pub struct OMacroJoint<T: AD, C: O3DPoseCategoryTrait> {
     safety_controller: Option<OSafetyController<T>>,
     _phantom_data: PhantomData<T>
 }
-impl<T: AD, C: O3DPoseCategoryTrait> OMacroJoint<T, C> {
+impl<T: AD, C: O3DPoseCategoryTrait> ORobotSetJoint<T, C> {
     pub (crate) fn new(macro_joint_idx: usize, origin: OPose<T, C>, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>, parent_chain_idx: usize, parent_link_idx_in_parent_chain: usize, child_chain_idx: usize) -> Self {
         Self {
             macro_joint_idx: macro_joint_idx,
@@ -514,7 +514,7 @@ impl<T: AD, C: O3DPoseCategoryTrait> OMacroJoint<T, C> {
         &self.safety_controller
     }
 }
-impl<T: AD, C: O3DPoseCategoryTrait + 'static> JointTrait<T, C> for OMacroJoint<T, C> {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static> JointTrait<T, C> for ORobotSetJoint<T, C> {
     #[inline(always)]
     fn name(&self) -> &str {
         todo!()

@@ -1,7 +1,7 @@
-use optima_robotics::chain::OChainDefault;
+use optima_robotics::robot::ORobotDefault;
 
 fn main() {
-    let c = OChainDefault::from_urdf("ur5");
+    let c = ORobotDefault::from_urdf("ur5");
 
     println!("{:?}", c);
 }

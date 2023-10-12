@@ -5,12 +5,12 @@ use parry_ad::na::Isometry3;
 use parry_ad::query::Contact;
 use parry_ad::shape::Shape;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
-use crate::parry::parry_shapes::{OShapeParry, OShapeParryCowTrait, OShapeParryGenericTrait, OShapeParryHierarchyTrait};
-use crate::shape_query_traits::{OPairwiseContactQueryTrait, OPairwiseDistanceQueryTrait, OPairwiseIntersectionQueryTrait, OPairwiseShapeQueryTrait, OParryPairwiseShapeQueryTrait, OSingleShapeQueryTrait};
+use crate::parry::parry_shapes::{OParryShp, OParryShpCowTrait, OParryShpGenericTrait, OParryShpHierarchyTrait};
+use crate::shape_query_traits::{OPairContactQryTrait, OPairDisQryTrait, OPairIntersectQryTrait, OPairShpQryTrait, OSingleShpQryTrait};
 
 
-pub struct OParryRawIntersectQuery;
-impl<T: AD> OPairwiseShapeQueryTrait<T> for OParryRawIntersectQuery {
+pub struct OParryRawIntersectQry;
+impl<T: AD> OPairShpQryTrait<T> for OParryRawIntersectQry {
     type ShapeType = Box<dyn Shape<T>>;
     type PoseType = Isometry3<T>;
     type Args = ();
@@ -20,11 +20,10 @@ impl<T: AD> OPairwiseShapeQueryTrait<T> for OParryRawIntersectQuery {
         parry_ad::query::intersection_test(pose_a, shape_a.as_ref(), pose_b, shape_b.as_ref()).expect("error")
     }
 }
-impl OParryPairwiseShapeQueryTrait for OParryRawIntersectQuery { }
-impl OPairwiseIntersectionQueryTrait for OParryRawIntersectQuery { }
+impl OPairIntersectQryTrait for OParryRawIntersectQry { }
 
-pub struct OParryRawDistanceQuery;
-impl<T: AD> OPairwiseShapeQueryTrait<T> for OParryRawDistanceQuery {
+pub struct OParryRawDisQry;
+impl<T: AD> OPairShpQryTrait<T> for OParryRawDisQry {
     type ShapeType = Box<dyn Shape<T>>;
     type PoseType = Isometry3<T>;
     type Args = ();
@@ -34,11 +33,10 @@ impl<T: AD> OPairwiseShapeQueryTrait<T> for OParryRawDistanceQuery {
         parry_ad::query::distance(pose_a, shape_a.as_ref(), pose_b, shape_b.as_ref()).expect("error")
     }
 }
-impl OParryPairwiseShapeQueryTrait for OParryRawDistanceQuery { }
-impl OPairwiseDistanceQueryTrait for OParryRawDistanceQuery { }
+impl OPairDisQryTrait for OParryRawDisQry { }
 
-pub struct OParryRawContactQuery;
-impl<T: AD> OPairwiseShapeQueryTrait<T> for OParryRawContactQuery {
+pub struct OParryRawContactQry;
+impl<T: AD> OPairShpQryTrait<T> for OParryRawContactQry {
     type ShapeType = Box<dyn Shape<T>>;
     type PoseType = Isometry3<T>;
     type Args = T;
@@ -48,71 +46,66 @@ impl<T: AD> OPairwiseShapeQueryTrait<T> for OParryRawContactQuery {
         ParryContactWrapper(parry_ad::query::contact(pose_a, shape_a.as_ref(), pose_b, shape_b.as_ref(), *args).expect("error"))
     }
 }
-impl OParryPairwiseShapeQueryTrait for OParryRawContactQuery { }
-impl OPairwiseContactQueryTrait for OParryRawContactQuery { }
+impl OPairContactQryTrait for OParryRawContactQry { }
 
-pub struct OParryRawDistanceViaContactQuery;
-impl<T: AD> OPairwiseShapeQueryTrait<T> for OParryRawDistanceViaContactQuery {
+pub struct OParryRawDisViaContactQry;
+impl<T: AD> OPairShpQryTrait<T> for OParryRawDisViaContactQry {
     type ShapeType = Box<dyn Shape<T>>;
     type PoseType = Isometry3<T>;
     type Args = ();
     type Output = T;
 
     fn query(shape_a: &Self::ShapeType, shape_b: &Self::ShapeType, pose_a: &Self::PoseType, pose_b: &Self::PoseType, _args: &Self::Args) -> Self::Output {
-        let binding = OParryRawContactQuery::query(shape_a, shape_b, pose_a, pose_b, &T::constant(f64::MAX));
+        let binding = OParryRawContactQry::query(shape_a, shape_b, pose_a, pose_b, &T::constant(f64::MAX));
         let contact = binding.0.as_ref().unwrap();
         contact.dist
     }
 }
-impl OParryPairwiseShapeQueryTrait for OParryRawDistanceViaContactQuery { }
-impl OPairwiseDistanceQueryTrait for OParryRawDistanceViaContactQuery { }
+impl OPairDisQryTrait for OParryRawDisViaContactQry { }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub struct OParryIntersectQuery;
-pub struct OParryIntersectQueryArgs { pub rep_a: ParryShapeRepresentation, pub rep_b: ParryShapeRepresentation }
-impl<T: AD> OPairwiseShapeQueryTrait<T> for OParryIntersectQuery {
-    type ShapeType = OShapeParry<T, Isometry3<T>>;
+pub struct OParryIntersectQry;
+pub struct OParryIntersectQryArgs { pub rep_a: ParryShapeRepresentation, pub rep_b: ParryShapeRepresentation }
+impl<T: AD> OPairShpQryTrait<T> for OParryIntersectQry {
+    type ShapeType = OParryShp<T, Isometry3<T>>;
     type PoseType = Isometry3<T>;
-    type Args = OParryIntersectQueryArgs;
+    type Args = OParryIntersectQryArgs;
     type Output = bool;
 
     fn query(shape_a: &Self::ShapeType, shape_b: &Self::ShapeType, pose_a: &Self::PoseType, pose_b: &Self::PoseType, args: &Self::Args) -> Self::Output {
-        parry_pairwise_shape_query::<_, _, _, OParryRawIntersectQuery>(shape_a, pose_a, &args.rep_a, shape_b, pose_b, &args.rep_b, &())
+        parry_pairwise_shape_raw_query::<_, _, _, OParryRawIntersectQry>(shape_a, pose_a, &args.rep_a, shape_b, pose_b, &args.rep_b, &())
     }
 }
-impl OParryPairwiseShapeQueryTrait for OParryIntersectQuery { }
-impl OPairwiseIntersectionQueryTrait for OParryIntersectQuery { }
+impl OPairIntersectQryTrait for OParryIntersectQry { }
 
-pub struct OParryDistanceQuery;
-pub struct OParryDistanceQueryArgs { pub rep_a: ParryShapeRepresentation, pub rep_b: ParryShapeRepresentation }
-impl<T: AD> OPairwiseShapeQueryTrait<T> for OParryDistanceQuery {
-    type ShapeType = OShapeParry<T, Isometry3<T>>;
+pub struct OParryDisQry;
+pub struct OParryDisQryArgs { pub rep_a: ParryShapeRepresentation, pub rep_b: ParryShapeRepresentation }
+impl<T: AD> OPairShpQryTrait<T> for OParryDisQry {
+    type ShapeType = OParryShp<T, Isometry3<T>>;
     type PoseType = Isometry3<T>;
-    type Args = OParryDistanceQueryArgs;
+    type Args = OParryDisQryArgs;
     type Output = T;
 
     fn query(shape_a: &Self::ShapeType, shape_b: &Self::ShapeType, pose_a: &Self::PoseType, pose_b: &Self::PoseType, args: &Self::Args) -> Self::Output {
-        parry_pairwise_shape_query::<_, _, _, OParryRawDistanceQuery>(shape_a, pose_a, &args.rep_a, shape_b, pose_b, &args.rep_b, &())
+        parry_pairwise_shape_raw_query::<_, _, _, OParryRawDisQry>(shape_a, pose_a, &args.rep_a, shape_b, pose_b, &args.rep_b, &())
     }
 }
-impl OParryPairwiseShapeQueryTrait for OParryDistanceQuery { }
-impl OPairwiseDistanceQueryTrait for OParryDistanceQuery { }
+impl OPairDisQryTrait for OParryDisQry { }
 
-pub struct OParryContactQuery;
-pub struct OParryContactQueryArgs<T: AD> { pub rep_a: ParryShapeRepresentation, pub rep_b: ParryShapeRepresentation, pub threshold: T }
-impl<T: AD> OPairwiseShapeQueryTrait<T> for OParryContactQuery {
-    type ShapeType = OShapeParry<T, Isometry3<T>>;
+pub struct OParryContactQry;
+pub struct OParryContactQryArgs<T: AD> { pub rep_a: ParryShapeRepresentation, pub rep_b: ParryShapeRepresentation, pub threshold: T }
+impl<T: AD> OPairShpQryTrait<T> for OParryContactQry {
+    type ShapeType = OParryShp<T, Isometry3<T>>;
     type PoseType = Isometry3<T>;
-    type Args = OParryContactQueryArgs<T>;
+    type Args = OParryContactQryArgs<T>;
     type Output = ParryContactWrapper<T>;
 
     fn query(shape_a: &Self::ShapeType, shape_b: &Self::ShapeType, pose_a: &Self::PoseType, pose_b: &Self::PoseType, args: &Self::Args) -> Self::Output {
-        parry_pairwise_shape_query::<_, _, _, OParryRawContactQuery>(shape_a, pose_a, &args.rep_a, shape_b, pose_b, &args.rep_b, &args.threshold)
+        parry_pairwise_shape_raw_query::<_, _, _, OParryRawContactQry>(shape_a, pose_a, &args.rep_a, shape_b, pose_b, &args.rep_b, &args.threshold)
     }
 }
-impl OParryPairwiseShapeQueryTrait for OParryContactQuery { }
-impl OPairwiseContactQueryTrait for OParryContactQuery { }
+impl OPairContactQryTrait for OParryContactQry { }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -122,11 +115,11 @@ impl OPairwiseContactQueryTrait for OParryContactQuery { }
     OBB
 }
 
-pub (crate) fn parry_pairwise_shape_query<T, P, S, Q>(shape_a: &S, pose_a: &P, rep_a: &ParryShapeRepresentation, shape_b: &S, pose_b: &P, rep_b: &ParryShapeRepresentation, args: &Q::Args) -> Q::Output
+pub (crate) fn parry_pairwise_shape_raw_query<T, P, S, Q>(shape_a: &S, pose_a: &P, rep_a: &ParryShapeRepresentation, shape_b: &S, pose_b: &P, rep_b: &ParryShapeRepresentation, args: &Q::Args) -> Q::Output
     where T: AD,
           P: O3DPose<T>,
-          S: OShapeParryHierarchyTrait<T, P>,
-          Q: OPairwiseShapeQueryTrait<T, ShapeType = Box<dyn Shape<T>>, PoseType=Isometry3<T>> + OParryPairwiseShapeQueryTrait
+          S: OParryShpHierarchyTrait<T, P>,
+          Q: OPairShpQryTrait<T, ShapeType = Box<dyn Shape<T>>, PoseType=Isometry3<T>>
 {
     let (shape_a, pose_a) = parry_get_shape_and_pose(shape_a, pose_a, rep_a);
     let (shape_b, pose_b) = parry_get_shape_and_pose(shape_b, pose_b, rep_b);
@@ -135,18 +128,18 @@ pub (crate) fn parry_pairwise_shape_query<T, P, S, Q>(shape_a: &S, pose_a: &P, r
 }
 
 #[allow(dead_code)]
-pub (crate) fn parry_single_shape_query<T, P, S, Q>(shape: &S, pose: &P, rep: &ParryShapeRepresentation, args: &Q::Args) -> Q::Output
+pub (crate) fn parry_single_shape_raw_query<T, P, S, Q>(shape: &S, pose: &P, rep: &ParryShapeRepresentation, args: &Q::Args) -> Q::Output
     where T: AD,
           P: O3DPose<T>,
-          S: OShapeParryHierarchyTrait<T, P>,
-          Q: OSingleShapeQueryTrait<T, ShapeType = Box<dyn Shape<T>>, PoseType=Isometry3<T>> + OParryPairwiseShapeQueryTrait
+          S: OParryShpHierarchyTrait<T, P>,
+          Q: OSingleShpQryTrait<T, ShapeType = Box<dyn Shape<T>>, PoseType=Isometry3<T>>
 {
     let (shape_a, pose_a) = parry_get_shape_and_pose(shape, pose, rep);
 
     Q::query(shape_a, pose_a.as_ref(), args)
 }
 
-pub (crate) fn parry_get_shape_and_pose<'a, T: AD, P: O3DPose<T>, S: OShapeParryHierarchyTrait<T, P>>(shape: &'a S, pose: &'a P, rep: &'a ParryShapeRepresentation) -> (&'a Box<dyn Shape<T>>, Cow<'a, Isometry3<T>>) {
+pub (crate) fn parry_get_shape_and_pose<'a, T: AD, P: O3DPose<T>, S: OParryShpHierarchyTrait<T, P>>(shape: &'a S, pose: &'a P, rep: &'a ParryShapeRepresentation) -> (&'a Box<dyn Shape<T>>, Cow<'a, Isometry3<T>>) {
     return match rep {
         ParryShapeRepresentation::Full => {
             let s = shape.shape();

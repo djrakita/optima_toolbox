@@ -4,7 +4,7 @@ use as_any::AsAny;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 
 
-pub trait OPairwiseShapeQueryTrait<T: AD> {
+pub trait OPairShpQryTrait<T: AD> {
     type ShapeType : AsAny;
     type PoseType : O3DPose<T>;
     type Args : AsAny;
@@ -13,7 +13,7 @@ pub trait OPairwiseShapeQueryTrait<T: AD> {
     fn query(shape_a: &Self::ShapeType, shape_b: &Self::ShapeType, pose_a: &Self::PoseType, pose_b: &Self::PoseType, args: &Self::Args) -> Self::Output;
 }
 
-pub trait OSingleShapeQueryTrait<T: AD> {
+pub trait OSingleShpQryTrait<T: AD> {
     type ShapeType : AsAny;
     type PoseType : O3DPose<T>;
     type Args : AsAny;
@@ -22,11 +22,8 @@ pub trait OSingleShapeQueryTrait<T: AD> {
     fn query(shape: &Self::ShapeType, pose: &Self::PoseType, args: &Self::Args) -> Self::Output;
 }
 
-pub trait OPairwiseIntersectionQueryTrait { }
-pub trait OPairwiseDistanceQueryTrait { }
-pub trait OPairwiseContactQueryTrait { }
-
-pub trait OParryPairwiseShapeQueryTrait { }
-pub trait OParrySingleShapeQueryTrait { }
+pub trait OPairIntersectQryTrait { }
+pub trait OPairDisQryTrait { }
+pub trait OPairContactQryTrait { }
 
 

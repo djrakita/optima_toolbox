@@ -6,25 +6,24 @@ use optima_3d_mesh::OTriMesh;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_3d_spatial::optima_3d_vec::{O3DVec, O3DVecCategoryPoint3};
 
-pub trait OShapeParryGenericTrait<T: AD> {
+pub trait OParryShpGenericTrait<T: AD> {
     fn shape(&self) -> &Box<dyn Shape<T>>;
 }
-
-pub trait OShapeParryCowTrait<T: AD> {
+pub trait OParryShpCowTrait<T: AD> {
     fn get_isometry3_cow<'a, P: O3DPose<T>>(&self, pose: &'a P) -> Cow<'a, Isometry3<T>>;
 }
-pub trait OShapeParryHierarchyTrait<T: AD, P: O3DPose<T>> : OShapeParryGenericTrait<T> + OShapeParryCowTrait<T> {
-    fn bounding_sphere(&self) -> &OShapeParryGenericWithOffset<T, P>;
-    fn obb(&self) -> &OShapeParryGenericWithOffset<T, P>;
+pub trait OParryShpHierarchyTrait<T: AD, P: O3DPose<T>> : OParryShpGenericTrait<T> + OParryShpCowTrait<T> {
+    fn bounding_sphere(&self) -> &OParryShpGenericWithOffset<T, P>;
+    fn obb(&self) -> &OParryShpGenericWithOffset<T, P>;
 }
 
-pub struct OShapeParry<T: AD, P: O3DPose<T>> {
+pub struct OParryShp<T: AD, P: O3DPose<T>> {
     shape: Box<dyn Shape<T>>,
-    bounding_sphere: OShapeParryGenericWithOffset<T, P>,
-    obb: OShapeParryGenericWithOffset<T, P>,
+    bounding_sphere: OParryShpGenericWithOffset<T, P>,
+    obb: OParryShpGenericWithOffset<T, P>,
     offset: Option<P>
 }
-impl<T: AD, P: O3DPose<T>> OShapeParry<T, P> {
+impl<T: AD, P: O3DPose<T>> OParryShp<T, P> {
     pub fn new<S: Shape<T>>(shape: S, offset: Option<P>) -> Self {
         let shape = Box::new(shape);
         let tmp_offset = match &offset {
@@ -47,13 +46,13 @@ impl<T: AD, P: O3DPose<T>> OShapeParry<T, P> {
         Self::new(convex_polyhedron, offset)
     }
 }
-impl<T: AD, P: O3DPose<T>> OShapeParryGenericTrait<T> for OShapeParry<T, P> {
+impl<T: AD, P: O3DPose<T>> OParryShpGenericTrait<T> for OParryShp<T, P> {
     #[inline(always)]
     fn shape(&self) -> &Box<dyn Shape<T>> {
         &self.shape
     }
 }
-impl<T: AD, P: O3DPose<T>> OShapeParryCowTrait<T> for OShapeParry<T, P> {
+impl<T: AD, P: O3DPose<T>> OParryShpCowTrait<T> for OParryShp<T, P> {
     #[inline(always)]
     fn get_isometry3_cow<'a, P2: O3DPose<T>>(&self, pose: &'a P2) -> Cow<'a, Isometry3<T>> {
         match &self.offset {
@@ -67,14 +66,14 @@ impl<T: AD, P: O3DPose<T>> OShapeParryCowTrait<T> for OShapeParry<T, P> {
         }
     }
 }
-impl<T: AD, P: O3DPose<T>> OShapeParryHierarchyTrait<T, P> for OShapeParry<T, P> {
+impl<T: AD, P: O3DPose<T>> OParryShpHierarchyTrait<T, P> for OParryShp<T, P> {
     #[inline(always)]
-    fn bounding_sphere(&self) -> &OShapeParryGenericWithOffset<T, P> {
+    fn bounding_sphere(&self) -> &OParryShpGenericWithOffset<T, P> {
         &self.bounding_sphere
     }
 
     #[inline(always)]
-    fn obb(&self) -> &OShapeParryGenericWithOffset<T, P> {
+    fn obb(&self) -> &OParryShpGenericWithOffset<T, P> {
         &self.obb
     }
 }
@@ -105,11 +104,11 @@ impl<T: AD> OShapeParryCowTrait<T> for OShapeParryGeneric<T> {
 }
 */
 
-pub struct OShapeParryGenericWithOffset<T: AD, P: O3DPose<T>> {
+pub struct OParryShpGenericWithOffset<T: AD, P: O3DPose<T>> {
     shape: Box<dyn Shape<T>>,
     offset: P
 }
-impl<T: AD, P: O3DPose<T>> OShapeParryGenericWithOffset<T, P> {
+impl<T: AD, P: O3DPose<T>> OParryShpGenericWithOffset<T, P> {
     pub (crate) fn new<S: Shape<T>>(shape: S, offset: P) -> Self {
         Self {
             shape: Box::new(shape),
@@ -121,13 +120,13 @@ impl<T: AD, P: O3DPose<T>> OShapeParryGenericWithOffset<T, P> {
         &self.offset
     }
 }
-impl<T: AD, P: O3DPose<T>> OShapeParryGenericTrait<T> for OShapeParryGenericWithOffset<T, P> {
+impl<T: AD, P: O3DPose<T>> OParryShpGenericTrait<T> for OParryShpGenericWithOffset<T, P> {
     #[inline]
     fn shape(&self) -> &Box<dyn Shape<T>> {
         &self.shape
     }
 }
-impl<T: AD, P: O3DPose<T>> OShapeParryCowTrait<T> for OShapeParryGenericWithOffset<T, P> {
+impl<T: AD, P: O3DPose<T>> OParryShpCowTrait<T> for OParryShpGenericWithOffset<T, P> {
     #[inline]
     fn get_isometry3_cow<'a, P2: O3DPose<T>>(&self, pose: &'a P2) -> Cow<'a, Isometry3<T>> {
         let offset: Cow<P2> = self.offset.downcast_or_convert::<P2>();
@@ -242,14 +241,14 @@ impl<T: AD, P: O3DPose<T>> OShapeParryHierarchyTrait<T, P> for OShapeParryHierar
 }
 */
 
-pub (crate) fn get_bounding_sphere_from_shape<T: AD, S: Shape<T>, P: O3DPose<T>>(shape: &Box<S>, offset: &P) -> OShapeParryGenericWithOffset<T, P> {
+pub (crate) fn get_bounding_sphere_from_shape<T: AD, S: Shape<T>, P: O3DPose<T>>(shape: &Box<S>, offset: &P) -> OParryShpGenericWithOffset<T, P> {
     let bounding_sphere = shape.compute_local_bounding_sphere();
     let offset = offset.mul(&P::from_constructors(&bounding_sphere.center, &[T::zero();3]));
     let sphere = Ball::new(bounding_sphere.radius);
-    OShapeParryGenericWithOffset::new(sphere, offset)
+    OParryShpGenericWithOffset::new(sphere, offset)
 }
 
-pub (crate) fn get_obb_from_shape<T: AD, S: Shape<T>, P: O3DPose<T>>(shape: &Box<S>, offset: &P) -> OShapeParryGenericWithOffset<T, P> {
+pub (crate) fn get_obb_from_shape<T: AD, S: Shape<T>, P: O3DPose<T>>(shape: &Box<S>, offset: &P) -> OParryShpGenericWithOffset<T, P> {
     let aabb = shape.compute_local_aabb();
     let mins = aabb.mins;
     let maxs = aabb.maxs;
@@ -259,7 +258,7 @@ pub (crate) fn get_obb_from_shape<T: AD, S: Shape<T>, P: O3DPose<T>>(shape: &Box
     let half_y = (maxs[1] - mins[1]) * T::constant(0.5);
     let half_z = (maxs[2] - mins[2]) * T::constant(0.5);
     let cuboid = Cuboid::new(Vector3::new(half_x, half_y, half_z));
-    OShapeParryGenericWithOffset::new(cuboid, offset)
+    OParryShpGenericWithOffset::new(cuboid, offset)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

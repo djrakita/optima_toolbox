@@ -12,9 +12,9 @@ use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_3d_spatial::optima_3d_vec::O3DVec;
 use optima_bevy_egui::{OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSidePanel, OEguiSlider, OEguiWidgetTrait};
 use optima_linalg::{OLinalgCategoryTrait, OVec};
-use optima_robotics::chain::{ChainFKResult, OChain};
-use optima_robotics::robot::ORobot;
-use optima_robotics::robotics_traits::AsChainTrait;
+use optima_robotics::robot::{FKResult, ORobot};
+use optima_robotics::robot_set::ORobotSet;
+use optima_robotics::robotics_traits::AsRobotTrait;
 use crate::optima_bevy_utils::file::get_asset_path_str_from_ostemcellpath;
 use crate::optima_bevy_utils::transform::TransformUtils;
 use crate::{BevySystemSet, OptimaBevyTrait};
@@ -23,13 +23,13 @@ use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsActions;
 
 pub struct RoboticsActions;
 impl RoboticsActions {
-    pub fn action_spawn_chain_as_stl_meshes<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(chain: &OChain<T, C, L>,
-                                                                                                     fk_res: &ChainFKResult<T, C::P<T>>,
+    pub fn action_spawn_robot_as_stl_meshes<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(robot: &ORobot<T, C, L>,
+                                                                                                     fk_res: &FKResult<T, C::P<T>>,
                                                                                                      commands: &mut Commands,
                                                                                                      asset_server: &AssetServer,
                                                                                                      materials: &mut Assets<StandardMaterial>,
-                                                                                                     chain_instance_idx: usize) {
-        chain.links().iter().enumerate().for_each(|(link_idx, link)| {
+                                                                                                     robot_instance_idx: usize) {
+        robot.links().iter().enumerate().for_each(|(link_idx, link)| {
             if link.is_present_in_model() {
                 let stl_mesh_file_path = link.stl_mesh_file_path();
                 if let Some(stl_mesh_file_path) = stl_mesh_file_path {
@@ -47,8 +47,8 @@ impl RoboticsActions {
                             transform,
                             ..Default::default()
                         }).insert(LinkMeshID {
-                            chain_instance_idx,
-                            sub_chain_idx: link.sub_chain_idx(),
+                            robot_instance_idx,
+                            sub_robot_idx: link.sub_robot_idx(),
                             link_idx,
                         });
                     }
@@ -56,26 +56,26 @@ impl RoboticsActions {
             }
         });
     }
-    pub fn action_set_state_of_chain<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, V: OVec<T>>(chain: &OChain<T, C, L>,
+    pub fn action_set_state_of_robot<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, V: OVec<T>>(robot: &ORobot<T, C, L>,
                                                                                                           state: &V,
-                                                                                                          chain_instance_idx: usize,
+                                                                                                          robot_instance_idx: usize,
                                                                                                           query: &mut Query<(&LinkMeshID, &mut Transform)>) {
-        let fk_res = chain.forward_kinematics(state, None);
+        let fk_res = robot.forward_kinematics(state, None);
         for (link_mesh_id, mut transform) in query.iter_mut() {
             let link_mesh_id: &LinkMeshID = &link_mesh_id;
             let transform: &mut Transform = &mut transform;
 
-            if link_mesh_id.chain_instance_idx == chain_instance_idx {
+            if link_mesh_id.robot_instance_idx == robot_instance_idx {
                 let link_idx = link_mesh_id.link_idx;
-                let link = &chain.links()[link_idx];
+                let link = &robot.links()[link_idx];
                 let pose = fk_res.get_link_pose(link_idx).as_ref().unwrap();
                 let visual_offset = link.visual()[0].origin().pose();
                 *transform = TransformUtils::util_convert_3d_pose_to_y_up_bevy_transform(&(pose.mul(visual_offset)));
             }
         }
     }
-    pub fn action_chain_joint_sliders_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(chain: &OChain<T, C, L>,
-                                                                                                    chain_state_engine: &mut ChainStateEngine,
+    pub fn action_robot_joint_sliders_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(robot: &ORobot<T, C, L>,
+                                                                                                    robot_state_engine: &mut RobotStateEngine,
                                                                                                     egui_engine: &Res<OEguiEngineWrapper>,
                                                                                                     ui: &mut Ui) {
         let mut reset_clicked = false;
@@ -87,7 +87,7 @@ impl RoboticsActions {
             egui::ScrollArea::new([true, true])
                 .max_height(400.)
                 .show(ui, |ui| {
-                    chain.joints().iter().for_each(|joint| {
+                    robot.joints().iter().for_each(|joint| {
                         let dof_idxs = joint.dof_idxs();
                         for (i, dof_idx) in dof_idxs.iter().enumerate() {
                             let label = format!("joint_slider_dof_{}", dof_idx);
@@ -118,8 +118,8 @@ impl RoboticsActions {
 
         let mut mutex_guard = egui_engine.get_mutex_guard();
 
-        let num_dofs = chain.num_dofs();
-        let mut curr_state = vec![T::zero(); chain.num_dofs()];
+        let num_dofs = robot.num_dofs();
+        let mut curr_state = vec![T::zero(); robot.num_dofs()];
         for i in 0..num_dofs {
             let label = format!("joint_slider_dof_{}", i);
             let response = mutex_guard.get_slider_response_mut(&label).expect("error");
@@ -128,21 +128,21 @@ impl RoboticsActions {
             curr_state[i] = T::constant(value);
         }
 
-        chain_state_engine.add_update_request(0, &OVec::to_other_ad_type::<T>(&curr_state));
+        robot_state_engine.add_update_request(0, &OVec::to_other_ad_type::<T>(&curr_state));
     }
-    pub fn action_chain_link_vis_panel_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(chain: &OChain<T, C, L>,
-                                                                                                     chain_state_engine: &ChainStateEngine,
+    pub fn action_robot_link_vis_panel_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(robot: &ORobot<T, C, L>,
+                                                                                                     robot_state_engine: &RobotStateEngine,
                                                                                                      lines: &mut ResMut<DebugLines>,
                                                                                                      egui_engine: &Res<OEguiEngineWrapper>,
                                                                                                      ui: &mut Ui) {
-        let chain_state = chain_state_engine.get_chain_state(0);
-        let chain_state = match chain_state {
+        let robot_state = robot_state_engine.get_robot_state(0);
+        let robot_state = match robot_state {
             None => { return; }
-            Some(chain_state) => { chain_state }
+            Some(robot_state) => { robot_state }
         };
-        let chain_state = OVec::to_other_ad_type::<T>(chain_state);
+        let robot_state = OVec::to_other_ad_type::<T>(robot_state);
 
-        let fk_res = chain.forward_kinematics(&chain_state, None);
+        let fk_res = robot.forward_kinematics(&robot_state, None);
 
         let mut select_all = false;
         let mut deselect_all = false;
@@ -161,7 +161,7 @@ impl RoboticsActions {
                 .id_source("links_scroll_area")
                 .max_height(400.0)
                 .show(ui, |ui| {
-                    chain.links().iter().enumerate().for_each(|(link_idx, link)| {
+                    robot.links().iter().enumerate().for_each(|(link_idx, link)| {
                         if link.is_present_in_model() {
 
                             let pose = fk_res.get_link_pose(link_idx).as_ref().unwrap();
@@ -214,39 +214,39 @@ impl RoboticsActions {
 
 pub struct RoboticsSystems;
 impl RoboticsSystems {
-    pub fn system_spawn_chain_links_as_stl_meshes<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(chain: Res<BevyOChain<T, C, L>>,
+    pub fn system_spawn_robot_links_as_stl_meshes<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(robot: Res<BevyORobot<T, C, L>>,
                                                                                                                                mut commands: Commands,
                                                                                                                                asset_server: Res<AssetServer>,
                                                                                                                                mut materials: ResMut<Assets<StandardMaterial>>) {
-        let chain = &chain.0;
-        let num_dofs = chain.num_dofs();
-        let fk_res = chain.forward_kinematics(&vec![T::zero(); num_dofs], None);
-        RoboticsActions::action_spawn_chain_as_stl_meshes(chain, &fk_res, &mut commands, &*asset_server, &mut *materials, 0);
+        let robot = &robot.0;
+        let num_dofs = robot.num_dofs();
+        let fk_res = robot.forward_kinematics(&vec![T::zero(); num_dofs], None);
+        RoboticsActions::action_spawn_robot_as_stl_meshes(robot, &fk_res, &mut commands, &*asset_server, &mut *materials, 0);
     }
-    pub fn system_chain_state_updater<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(chain: Res<BevyOChain<T, C, L>>,
-                                                                                                                   mut chain_state_engine: ResMut<ChainStateEngine>,
+    pub fn system_robot_state_updater<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(robot: Res<BevyORobot<T, C, L>>,
+                                                                                                                   mut robot_state_engine: ResMut<RobotStateEngine>,
                                                                                                                    mut query: Query<(&LinkMeshID, &mut Transform)>) {
-        while chain_state_engine.chain_state_update_requests.len() > 0 {
-            let chain = &chain.0;
-            let request = chain_state_engine.chain_state_update_requests.pop().unwrap();
+        while robot_state_engine.robot_state_update_requests.len() > 0 {
+            let robot = &robot.0;
+            let request = robot_state_engine.robot_state_update_requests.pop().unwrap();
             let request_state: Vec<T> = request.1.iter().map(|x| T::constant(*x)).collect();
-            chain_state_engine.chain_states.insert(request.0, OVec::to_other_ad_type::<f64>(&request_state));
-            RoboticsActions::action_set_state_of_chain(chain, &request_state, request.0, &mut query);
+            robot_state_engine.robot_states.insert(request.0, OVec::to_other_ad_type::<f64>(&request_state));
+            RoboticsActions::action_set_state_of_robot(robot, &request_state, request.0, &mut query);
         }
     }
-    pub fn system_chain_main_info_panel_egui<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(chain: Res<BevyOChain<T, C, L>>,
+    pub fn system_robot_main_info_panel_egui<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(robot: Res<BevyORobot<T, C, L>>,
                                                                                                                           mut lines: ResMut<DebugLines>,
                                                                                                                           mut contexts: EguiContexts,
-                                                                                                                          mut chain_state_engine: ResMut<ChainStateEngine>,
+                                                                                                                          mut robot_state_engine: ResMut<RobotStateEngine>,
                                                                                                                           egui_engine: Res<OEguiEngineWrapper>,
                                                                                                                           window_query: Query<&Window, With<PrimaryWindow>>) {
         OEguiSidePanel::new(Side::Left, 250.0)
             .show("joint_sliders_side_panel", contexts.ctx_mut(), &egui_engine, &window_query, &(), |ui| {
                 egui::ScrollArea::new([true, true])
                     .show(ui, |ui| {
-                        RoboticsActions::action_chain_joint_sliders_egui(&chain.0, &mut *chain_state_engine, &egui_engine, ui);
+                        RoboticsActions::action_robot_joint_sliders_egui(&robot.0, &mut *robot_state_engine, &egui_engine, ui);
                         ui.separator();
-                        RoboticsActions::action_chain_link_vis_panel_egui(&chain.0, & *chain_state_engine, &mut lines, &egui_engine, ui);
+                        RoboticsActions::action_robot_link_vis_panel_egui(&robot.0, & *robot_state_engine, &mut lines, &egui_engine, ui);
                     });
             });
     }
@@ -258,7 +258,7 @@ pub trait BevyRoboticsTrait {
     fn bevy_display(&self);
 }
 
-impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> BevyRoboticsTrait for OChain<T, C, L> {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> BevyRoboticsTrait for ORobot<T, C, L> {
     fn bevy_display(&self) {
 
         App::new()
@@ -266,16 +266,16 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             .optima_bevy_robotics_base(self.clone())
             .optima_bevy_pan_orbit_camera()
             .optima_bevy_starter_lights()
-            .optima_bevy_spawn_chain::<T, C, L>()
+            .optima_bevy_spawn_robot::<T, C, L>()
             .optima_bevy_robotics_scene_visuals_starter()
             .optima_bevy_egui()
-            .add_systems(Update, RoboticsSystems::system_chain_main_info_panel_egui::<T, C, L>.before(BevySystemSet::Camera))
+            .add_systems(Update, RoboticsSystems::system_robot_main_info_panel_egui::<T, C, L>.before(BevySystemSet::Camera))
             .run();
     }
 }
-impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> BevyRoboticsTrait for ORobot<T, C, L> {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> BevyRoboticsTrait for ORobotSet<T, C, L> {
     fn bevy_display(&self) {
-        self.as_chain().bevy_display();
+        self.as_robot().bevy_display();
     }
 }
 
@@ -283,28 +283,28 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
 
 #[derive(Component)]
 pub struct LinkMeshID {
-    pub chain_instance_idx: usize,
-    pub sub_chain_idx: usize,
+    pub robot_instance_idx: usize,
+    pub sub_robot_idx: usize,
     pub link_idx: usize
 }
 
 #[derive(Resource)]
-pub struct ChainStateEngine {
-    pub (crate) chain_states: HashMap<usize, Vec<f64>>,
-    pub (crate) chain_state_update_requests: Vec<(usize, Vec<f64>)>
+pub struct RobotStateEngine {
+    pub (crate) robot_states: HashMap<usize, Vec<f64>>,
+    pub (crate) robot_state_update_requests: Vec<(usize, Vec<f64>)>
 }
-impl ChainStateEngine {
+impl RobotStateEngine {
     pub fn new() -> Self {
-        Self { chain_states: Default::default(), chain_state_update_requests: vec![] }
+        Self { robot_states: Default::default(), robot_state_update_requests: vec![] }
     }
-    pub fn add_update_request<T: AD, V: OVec<T>>(&mut self, chain_instance_idx: usize, state: &V) {
+    pub fn add_update_request<T: AD, V: OVec<T>>(&mut self, robot_instance_idx: usize, state: &V) {
         let save_state = state.to_constant_vec();
-        self.chain_state_update_requests.push( (chain_instance_idx, save_state) );
+        self.robot_state_update_requests.push( (robot_instance_idx, save_state) );
     }
-    pub fn get_chain_state(&self, chain_instance_idx: usize) -> Option<&Vec<f64>> {
-        self.chain_states.get(&chain_instance_idx)
+    pub fn get_robot_state(&self, robot_instance_idx: usize) -> Option<&Vec<f64>> {
+        self.robot_states.get(&robot_instance_idx)
     }
 }
 
 #[derive(Resource)]
-pub struct BevyOChain<T: AD, C: O3DPoseCategoryTrait + Send + 'static, L: OLinalgCategoryTrait>(pub OChain<T, C, L>);
+pub struct BevyORobot<T: AD, C: O3DPoseCategoryTrait + Send + 'static, L: OLinalgCategoryTrait>(pub ORobot<T, C, L>);
