@@ -12,8 +12,8 @@ pub trait OPairShpGroupQryTrait<T: AD> {
     type Output : AsAny;
 
     fn query(&self,
-             shape_group_a: &Vec<&Self::ShapeType>,
-             shape_group_b: &Vec<&Self::ShapeType>,
+             shape_group_a: &Vec<Self::ShapeType>,
+             shape_group_b: &Vec<Self::ShapeType>,
              poses_a: &Vec<Self::PoseType>,
              poses_b: &Vec<Self::PoseType>,
              selector: OShpGroupPairSelector) -> Self::Output;
@@ -25,7 +25,7 @@ pub trait OSingleShapeGroupQryTrait<T: AD> {
     type Output : AsAny;
 
     fn query(&self,
-             shape_group: &Vec<&Self::ShapeType>,
+             shape_group: &Vec<Self::ShapeType>,
              poses: &Vec<Self::PoseType>,
              selector: OShpGroupSingleSelector) -> Self::Output;
 }

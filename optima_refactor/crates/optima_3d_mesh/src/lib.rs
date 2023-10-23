@@ -1,11 +1,12 @@
 pub mod collada;
 pub mod stl;
 
+use ad_trait::AD;
 use nalgebra::{Point, Point3};
 use parry3d_f64::transformation::convex_hull;
 use parry3d_f64::transformation::vhacd::{VHACD, VHACDParameters};
 use parry3d_f64::transformation::voxelization::FillMode;
-use optima_3d_spatial::optima_3d_vec::O3DVec;
+use optima_3d_spatial::optima_3d_vec::{O3DVec, O3DVecCategoryPoint3};
 use optima_file::path::OStemCellPath;
 
 pub trait ToTriMesh {
@@ -138,6 +139,15 @@ impl OTriMesh {
     #[inline(always)]
     pub fn indices(&self) -> &Vec<[usize; 3]> {
         &self.indices
+    }
+    #[inline(always)]
+    pub fn points_to_point3s<T: AD>(&self) -> Vec<Point3<T>> {
+        let points: Vec<Point3<T>> = self.points().iter().map(|x| x.to_other_generic_category::<T, O3DVecCategoryPoint3>() ).collect();
+        points
+    }
+    #[inline(always)]
+    pub fn indices_as_u32s(&self) -> Vec<[u32; 3]> {
+        self.indices.iter().map(|x| [x[0] as u32, x[1] as u32, x[2] as u32] ).collect()
     }
 }
 

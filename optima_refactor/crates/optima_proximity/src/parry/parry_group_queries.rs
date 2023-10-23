@@ -34,7 +34,7 @@ impl<T: AD, Q: OPairShpQryTrait<T, ShapeType=OParryShp<T, Isometry3<T>>, PoseTyp
     type PoseType = Q::PoseType;
     type Output = Vec<OPairShpGroupQryElement<Q::Output>>;
 
-    fn query(&self, shape_group_a: &Vec<&Self::ShapeType>, shape_group_b: &Vec<&Self::ShapeType>, poses_a: &Vec<Self::PoseType>, poses_b: &Vec<Self::PoseType>, selector: OShpGroupPairSelector) -> Self::Output {
+    fn query(&self, shape_group_a: &Vec<Self::ShapeType>, shape_group_b: &Vec<Self::ShapeType>, poses_a: &Vec<Self::PoseType>, poses_b: &Vec<Self::PoseType>, selector: OShpGroupPairSelector) -> Self::Output {
         assert_eq!(shape_group_a.len(), poses_a.len());
         assert_eq!(shape_group_b.len(), poses_b.len());
 
@@ -73,8 +73,8 @@ impl<T: AD, Q: OPairShpQryTrait<T, ShapeType=OParryShp<T, Isometry3<T>>, PoseTyp
             }
             OShpGroupPairSelector::GivenPairsByIdxs(idxs) => {
                 'l: for (i,j) in idxs.iter() {
-                    let shape_a = shape_group_a[*i];
-                    let shape_b = shape_group_b[*j];
+                    let shape_a = &shape_group_a[*i];
+                    let shape_b = &shape_group_b[*j];
                     let pose_a = &poses_a[*i];
                     let pose_b = &poses_b[*j];
                     let output = Q::query(shape_a, shape_b, pose_a, pose_b, &self.args);
@@ -105,7 +105,7 @@ impl<T: AD> OPairShpGroupQryTrait<T> for OParryPairGenericCuller<T> {
     type PoseType = Isometry3<T>;
     type Output = Vec<(usize, usize)>;
 
-    fn query(&self, shape_group_a: &Vec<&Self::ShapeType>, shape_group_b: &Vec<&Self::ShapeType>, poses_a: &Vec<Self::PoseType>, poses_b: &Vec<Self::PoseType>, selector: OShpGroupPairSelector) -> Self::Output {
+    fn query(&self, shape_group_a: &Vec<Self::ShapeType>, shape_group_b: &Vec<Self::ShapeType>, poses_a: &Vec<Self::PoseType>, poses_b: &Vec<Self::PoseType>, selector: OShpGroupPairSelector) -> Self::Output {
         let mut curr = self.cullers[0].query(shape_group_a, shape_group_b, poses_a, poses_b, selector);
 
         for i in 1..self.cullers.len() {
@@ -125,7 +125,7 @@ impl<T: AD> OPairShpGroupQryTrait<T> for OParryPairIntersectCuller {
     type PoseType = Isometry3<T>;
     type Output = Vec<(usize, usize)>;
 
-    fn query(&self, shape_group_a: &Vec<&Self::ShapeType>, shape_group_b: &Vec<&Self::ShapeType>, poses_a: &Vec<Self::PoseType>, poses_b: &Vec<Self::PoseType>, selector: OShpGroupPairSelector) -> Self::Output {
+    fn query(&self, shape_group_a: &Vec<Self::ShapeType>, shape_group_b: &Vec<Self::ShapeType>, poses_a: &Vec<Self::PoseType>, poses_b: &Vec<Self::PoseType>, selector: OShpGroupPairSelector) -> Self::Output {
         let mut out = vec![];
 
         match &selector {
@@ -149,8 +149,8 @@ impl<T: AD> OPairShpGroupQryTrait<T> for OParryPairIntersectCuller {
             }
             OShpGroupPairSelector::GivenPairsByIdxs(idxs) => {
                 for (i,j) in idxs.iter() {
-                    let shape_a = shape_group_a[*i];
-                    let shape_b = shape_group_b[*j];
+                    let shape_a = &shape_group_a[*i];
+                    let shape_b = &shape_group_b[*j];
                     let pose_a = &poses_a[*i];
                     let pose_b = &poses_b[*j];
                     let intersect = OParryIntersectQry::query(shape_a, shape_b, pose_a, pose_b, &OParryIntersectQryArgs { rep_a: self.rep.clone(), rep_b: self.rep.clone() });
@@ -173,7 +173,7 @@ impl<T: AD> OPairShpGroupQryTrait<T> for OParryPairContactCuller<T> {
     type PoseType = Isometry3<T>;
     type Output = Vec<(usize, usize)>;
 
-    fn query(&self, shape_group_a: &Vec<&Self::ShapeType>, shape_group_b: &Vec<&Self::ShapeType>, poses_a: &Vec<Self::PoseType>, poses_b: &Vec<Self::PoseType>, selector: OShpGroupPairSelector) -> Self::Output {
+    fn query(&self, shape_group_a: &Vec<Self::ShapeType>, shape_group_b: &Vec<Self::ShapeType>, poses_a: &Vec<Self::PoseType>, poses_b: &Vec<Self::PoseType>, selector: OShpGroupPairSelector) -> Self::Output {
         let mut out = vec![];
 
         match &selector {
@@ -197,8 +197,8 @@ impl<T: AD> OPairShpGroupQryTrait<T> for OParryPairContactCuller<T> {
             }
             OShpGroupPairSelector::GivenPairsByIdxs(idxs) => {
                 for (i,j) in idxs.iter() {
-                    let shape_a = shape_group_a[*i];
-                    let shape_b = shape_group_b[*j];
+                    let shape_a = &shape_group_a[*i];
+                    let shape_b = &shape_group_b[*j];
                     let pose_a = &poses_a[*i];
                     let pose_b = &poses_b[*j];
                     let c = OParryContactQry::query(shape_a, shape_b, pose_a, pose_b, &OParryContactQryArgs { rep_a: self.rep.clone(), rep_b: self.rep.clone(), threshold: self.threshold });

@@ -2,5 +2,10 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$/.." vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../optima" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../optima_assets" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../optima_assets/optima_robots" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../optima_js" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../optima_py" vcs="Git" />
   </component>
 </project>

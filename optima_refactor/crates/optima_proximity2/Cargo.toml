@@ -1,5 +1,5 @@
 [package]
-name = "optima_proximity"
+name = "optima_proximity2"
 version = "0.1.0"
 edition = "2021"
 
@@ -12,4 +12,5 @@ parry3d-f64 = { path = "/Users/djrakita/Documents/parry/crates/parry3d-f64" }
 optima_3d_spatial = { path = "../optima_3d_spatial" }
 optima_3d_mesh = { path = "../optima_3d_mesh" }
 optima_linalg = { path = "../optima_linalg" }
+optima_sampling = { path = "../optima_sampling" }
 as-any = { version="0.3.1" }

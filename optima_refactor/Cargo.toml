@@ -26,7 +26,8 @@ members = [
     "crates/optima_geometry",
     "crates/optima_sampling",
     "crates/optima_interpolation",
-    "crates/optima_proximity"
+    "crates/optima_proximity",
+    "crates/optima_proximity2"
 ]
 
 [dependencies]
@@ -44,6 +45,7 @@ optima_geometry = { path = "crates/optima_geometry" }
 optima_sampling = { path = "crates/optima_sampling" }
 optima_interpolation = { path = "crates/optima_interpolation" }
 optima_proximity = { path = "crates/optima_proximity" }
+optima_proximity2 = { path = "crates/optima_proximity2" }
 
 [features]
 default = [
@@ -75,4 +77,4 @@ opt-level = 3
 
 [profile.release]
 opt-level = 3
-lto = "thin"
+# lto = "thin"

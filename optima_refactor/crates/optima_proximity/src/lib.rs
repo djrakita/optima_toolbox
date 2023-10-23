@@ -1,6 +1,7 @@
 pub mod shape_query_traits;
 pub mod shape_group_query_traits;
 pub mod parry;
+pub mod proximity_scene;
 
 
 /*

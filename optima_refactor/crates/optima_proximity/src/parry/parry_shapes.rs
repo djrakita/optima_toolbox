@@ -17,6 +17,11 @@ pub trait OParryShpHierarchyTrait<T: AD, P: O3DPose<T>> : OParryShpGenericTrait<
     fn obb(&self) -> &OParryShpGenericWithOffset<T, P>;
 }
 
+pub struct OParryShpHierarchy<T: AD, P: O3DPose<T>> {
+    top_level: OParryShp<T, P>,
+    bottom_level: Vec<OParryShp<T, P>>
+}
+
 pub struct OParryShp<T: AD, P: O3DPose<T>> {
     shape: Box<dyn Shape<T>>,
     bounding_sphere: OParryShpGenericWithOffset<T, P>,

@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
 optima_3d_spatial = { path = "../optima_3d_spatial" }
 optima_file = { path = "../optima_file" }
 dae-parser = { version="0.10.0" }
