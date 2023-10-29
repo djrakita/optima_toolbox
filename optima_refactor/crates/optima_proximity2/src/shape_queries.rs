@@ -17,6 +17,24 @@ pub trait OShpQryContactTrait<T: AD, P: O3DPose<T>, B: AsAny> {
     type Output : AsAny + ContactOutputTrait<T>;
     fn contact(&self, other: &B, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output;
 }
+pub trait OShpQryDistanceLowerBoundTrait<T: AD, P:O3DPose<T>, B: AsAny> {
+    type Args : AsAny;
+    type Output : AsAny + DistanceLowerBoundOutputTrait<T>;
+
+    fn distance_lower_bound(&self, other: &B, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output;
+}
+pub trait OShpQryDistanceUpperBoundTrait<T: AD, P:O3DPose<T>, B: AsAny> {
+    type Args : AsAny;
+    type Output : AsAny + DistanceUpperBoundOutputTrait<T>;
+
+    fn distance_upper_bound(&self, other: &B, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output;
+}
+pub trait OShpQryDistanceBoundsTrait<T: AD, P:O3DPose<T>, B: AsAny> {
+    type Args : AsAny;
+    type Output : AsAny + DistanceBoundsOutputTrait<T>;
+
+    fn distance_bounds(&self, other: &B, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output;
+}
 
 pub trait IntersectOutputTrait : PartialOrd {
     fn intersect(&self) -> bool;
@@ -27,3 +45,14 @@ pub trait DistanceOutputTrait<T: AD> : PartialOrd {
 pub trait ContactOutputTrait<T: AD> : PartialOrd {
     fn signed_distance(&self) -> Option<T>;
 }
+pub trait DistanceLowerBoundOutputTrait<T: AD> : PartialOrd {
+    fn distance_lower_bound(&self) -> T;
+}
+pub trait DistanceUpperBoundOutputTrait<T: AD> : PartialOrd {
+    fn distance_upper_bound(&self) -> T;
+}
+pub trait DistanceBoundsOutputTrait<T: AD> : PartialOrd {
+    fn distance_lower_bound(&self) -> T;
+    fn distance_upper_bound(&self) -> T;
+}
+

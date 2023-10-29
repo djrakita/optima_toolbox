@@ -1,0 +1,12 @@
+[package]
+name = "optima_universal_hashmap"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ahash = { version="0.8.6", features=["serde"] }
+rayon = "1.8.0"
+fnv = "1.0.7"
+num_cpus = "1.16.0"

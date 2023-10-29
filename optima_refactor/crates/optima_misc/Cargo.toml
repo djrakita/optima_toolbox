@@ -13,4 +13,5 @@ ndarray = { version="0.15.6", features = ["serde"] }
 arrayvec = { version="0.7.4", features = ["serde"] }
 serde = { version="*", features = ["derive"] }
 serde_json = { version="*" }
+ahash = { version="0.8.6", features=["serde"] }
 

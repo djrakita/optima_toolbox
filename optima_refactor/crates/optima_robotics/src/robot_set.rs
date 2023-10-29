@@ -11,9 +11,7 @@ use crate::robot::{ORobot};
 use crate::robotics_components::*;
 use crate::robotics_functions::compute_chain_info;
 use crate::robotics_traits::{AsRobotTrait, JointTrait};
-
 pub type ORobotSetDefault = ORobotSet<f64, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>;
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ORobotSet<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
     #[serde(deserialize_with = "Vec::<ORobotWrapper<T, C, L>>::deserialize")]
@@ -176,7 +174,13 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobotSe
             });
         });
 
-        ORobot::from_manual_no_mesh_setup("robot_set_as_robot", links, joints)
+        let mut out = ORobot::from_manual_no_mesh_setup("robot_set_as_robot", links, joints);
+
+        self.robot_wrappers.iter().for_each(|x| {
+            out.sub_robots.push(x.robot.clone());
+        });
+
+        out
     }
     fn setup(&mut self) {
         self.set_chain_info();
@@ -296,7 +300,6 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> AsRobotT
         &self.robot_set_as_single_robot
     }
 }
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ORobotWrapper<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
     #[serde(deserialize_with = "ORobot::<T, C, L>::deserialize")]
@@ -376,7 +379,6 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobot<T, C, L> {
         Self::from_manual("world", vec![OLink::new_manual("world_link", vec![], vec![], OInertial::new_zeros())], vec![])
     }
 }
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum RobotSetJointIdx {
     RobotJoint { robot_idx: usize, joint_idx: usize, sub_dof_idx: usize },
