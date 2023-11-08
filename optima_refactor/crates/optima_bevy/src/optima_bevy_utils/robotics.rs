@@ -22,13 +22,14 @@ use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsActions;
 
 
 pub struct RoboticsActions;
+
 impl RoboticsActions {
-    pub fn action_spawn_robot_as_stl_meshes<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(robot: &ORobot<T, C, L>,
-                                                                                                     fk_res: &FKResult<T, C::P<T>>,
-                                                                                                     commands: &mut Commands,
-                                                                                                     asset_server: &AssetServer,
-                                                                                                     materials: &mut Assets<StandardMaterial>,
-                                                                                                     robot_instance_idx: usize) {
+    pub fn action_spawn_robot_as_stl_meshes<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static>(robot: &ORobot<T, C, L>,
+                                                                                                               fk_res: &FKResult<T, C::P<T>>,
+                                                                                                               commands: &mut Commands,
+                                                                                                               asset_server: &AssetServer,
+                                                                                                               materials: &mut Assets<StandardMaterial>,
+                                                                                                               robot_instance_idx: usize) {
         robot.links().iter().enumerate().for_each(|(link_idx, link)| {
             if link.is_present_in_model() {
                 let stl_mesh_file_path = link.stl_mesh_file_path();
@@ -56,7 +57,7 @@ impl RoboticsActions {
             }
         });
     }
-    pub fn action_set_state_of_robot<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait, V: OVec<T>>(robot: &ORobot<T, C, L>,
+    pub fn action_set_state_of_robot<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static, V: OVec<T>>(robot: &ORobot<T, C, L>,
                                                                                                           state: &V,
                                                                                                           robot_instance_idx: usize,
                                                                                                           query: &mut Query<(&LinkMeshID, &mut Transform)>) {
@@ -74,10 +75,10 @@ impl RoboticsActions {
             }
         }
     }
-    pub fn action_robot_joint_sliders_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(robot: &ORobot<T, C, L>,
-                                                                                                    robot_state_engine: &mut RobotStateEngine,
-                                                                                                    egui_engine: &Res<OEguiEngineWrapper>,
-                                                                                                    ui: &mut Ui) {
+    pub fn action_robot_joint_sliders_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static>(robot: &ORobot<T, C, L>,
+                                                                                                              robot_state_engine: &mut RobotStateEngine,
+                                                                                                              egui_engine: &Res<OEguiEngineWrapper>,
+                                                                                                              ui: &mut Ui) {
         let mut reset_clicked = false;
         ui.horizontal(|ui| {
             ui.heading("Joint Sliders");
@@ -130,11 +131,11 @@ impl RoboticsActions {
 
         robot_state_engine.add_update_request(0, &OVec::to_other_ad_type::<T>(&curr_state));
     }
-    pub fn action_robot_link_vis_panel_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait>(robot: &ORobot<T, C, L>,
-                                                                                                     robot_state_engine: &RobotStateEngine,
-                                                                                                     lines: &mut ResMut<DebugLines>,
-                                                                                                     egui_engine: &Res<OEguiEngineWrapper>,
-                                                                                                     ui: &mut Ui) {
+    pub fn action_robot_link_vis_panel_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static>(robot: &ORobot<T, C, L>,
+                                                                                                               robot_state_engine: &RobotStateEngine,
+                                                                                                               lines: &mut ResMut<DebugLines>,
+                                                                                                               egui_engine: &Res<OEguiEngineWrapper>,
+                                                                                                               ui: &mut Ui) {
         let robot_state = robot_state_engine.get_robot_state(0);
         let robot_state = match robot_state {
             None => { return; }

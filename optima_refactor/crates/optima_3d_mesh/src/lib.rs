@@ -7,7 +7,7 @@ use parry3d_f64::transformation::convex_hull;
 use parry3d_f64::transformation::vhacd::{VHACD, VHACDParameters};
 use parry3d_f64::transformation::voxelization::FillMode;
 use optima_3d_spatial::optima_3d_vec::{O3DVec, O3DVecCategoryPoint3};
-use optima_file::path::OStemCellPath;
+use optima_file::path::{OPath, OStemCellPath};
 
 pub trait ToTriMesh {
     fn to_trimesh(&self) -> OTriMesh;
@@ -34,7 +34,7 @@ impl OTriMesh {
 #[derive(Clone, Debug)]
 pub struct OTriMesh {
     pub (crate) points: Vec<[f64;3]>,
-    pub (crate) indices: Vec<[usize;3]>
+    pub (crate) indices: Vec<[usize;3]>,
 }
 impl OTriMesh {
     pub fn new_empty() -> Self {
@@ -42,6 +42,13 @@ impl OTriMesh {
     }
     pub fn extend(&mut self, trimesh: &Self) {
         self.extend_from_points_and_indices(&trimesh.points, &trimesh.indices);
+    }
+    pub fn try_to_get_trimesh_from_path(path: &OStemCellPath) -> Option<Self> {
+        let res = path.try_function_on_all_optima_file_paths_return_option(OPath::load_stl);
+        if let Some(res) = res { return Some(res.to_trimesh()) }
+        let res = path.try_function_on_all_optima_file_paths_return_option(OPath::load_dae);
+        if let Some(res) = res { return Some(res.to_trimesh()) }
+        None
     }
     pub (crate) fn extend_from_points_and_indices(&mut self, new_points: &Vec<[f64; 3]>, new_indices: &Vec<[usize;3]>) {
         let points_len = self.points.len();
@@ -97,7 +104,7 @@ impl OTriMesh {
 
         OTriMesh {
             points,
-            indices,
+            indices
         }
     }
     pub fn to_convex_decomposition(&self, max_convex_hulls: u32) -> Vec<OTriMesh> {
@@ -120,7 +127,7 @@ impl OTriMesh {
             let points: Vec<[f64; 3]> = ch_points.iter().map(|x| [x[0], x[1], x[2]] ).collect();
             let indices: Vec<[usize; 3]> = ch_indices.iter().map(|x| [ x[0] as usize, x[1] as usize, x[2] as usize]).collect();
 
-            out.push(OTriMesh {points, indices} );
+            out.push(OTriMesh {points, indices } );
         });
 
         out

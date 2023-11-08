@@ -187,6 +187,7 @@ impl<'a> OVecCategoryTrait for OVecCategorySliceRef<'a> {
 }
 */
 
+
 impl<T: AD, const N: usize> OVec<T> for [T; N] {
     type Category = OVecCategoryArr<N>;
 
@@ -268,6 +269,7 @@ impl<T: AD, const N: usize> OVec<T> for [T; N] {
         N
     }
 }
+
 #[derive(Debug, Clone)]
 pub struct OVecCategoryArr<const N: usize>;
 impl<const N: usize> OVecCategoryTrait for OVecCategoryArr<N> {

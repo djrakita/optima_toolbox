@@ -62,4 +62,16 @@ impl SimpleSampler {
         let float_sample = Self::uniform_sample(bounds, seed);
         return float_sample.round() as i32;
     }
+
+    pub fn uniform_samples_u64(bounds: &Vec<(u64, u64)>, seed: Option<u64>) -> Vec<u64> {
+        let bounds: Vec<(f64, f64)> = bounds.iter().map(|x| (x.0 as f64, x.1 as f64) ).collect();
+        let float_samples = Self::uniform_samples(&bounds, seed);
+        return float_samples.iter().map(|x| x.round() as u64).collect();
+    }
+
+    pub fn uniform_sample_u64(bounds: (u64, u64), seed: Option<u64>) -> u64 {
+        let bounds = (bounds.0 as f64, bounds.1 as f64);
+        let float_sample = Self::uniform_sample(bounds, seed);
+        return float_sample.round() as u64;
+    }
 }

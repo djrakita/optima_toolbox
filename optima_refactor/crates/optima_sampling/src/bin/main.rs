@@ -1,6 +1,6 @@
 use optima_sampling::SimpleSampler;
 
 fn main() {
-    let s = SimpleSampler::uniform_sample_i32((0, 100), Some(4));
+    let s = SimpleSampler::uniform_sample_u64((u64::MIN, u64::MAX), None);
     println!("{:?}", s);
 }

@@ -15,6 +15,9 @@ optima_linalg = { path = "../optima_linalg" }
 optima_3d_mesh = { path = "../optima_3d_mesh" }
 optima_console = { path = "../optima_console" }
 optima_optimization = { path = "../optima_optimization" }
+optima_proximity2 = { path = "../optima_proximity2" }
+optima_sampling = { path = "../optima_sampling"}
+optima_universal_hashmap = { path = "../optima_universal_hashmap" }
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 urdf-rs = { version="0.7.2" }
 arrayvec = { version="0.7.4", features = ["serde"] }
@@ -22,3 +25,5 @@ serde = { version="*", features = ["derive"] }
 serde_json = { version="*" }
 serde_with = { version="3.2.0" }
 optimization_engine = { version = "0.7.7" }
+ahash = { version="0.8.6", features=["serde"] }
+parry_ad = { package = "parry3d-f64", path = "/Users/djrakita/Documents/parry_ad/crates/parry3d-f64" }

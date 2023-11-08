@@ -367,7 +367,7 @@ impl<T: AD> ImplicitDualQuaternion<T>
     }
 }
 
-pub fn o3d_pose_custom_serialize<S, T: AD, P: O3DPose<T>>(value: &P, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
+pub fn o3d_pose_custom_serialize<S, T: AD, P: O3DPose<T>>(value: &P, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
     let translation_slice = value.translation().as_slice();
     let binding = value.rotation().scaled_axis_of_rotation();
     let rotation_slice = binding.as_slice();

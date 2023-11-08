@@ -1,8 +1,9 @@
 use parry_ad::na::Isometry3;
 use parry_ad::shape::Ball;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
-use optima_proximity2::pair_group_queries::{OPairGroupQryTrait, ParryIntersectGroupQry, ParryPairSelector};
-use optima_proximity2::shapes::{OParryShape, ParryShapeRep};
+use optima_proximity2::pair_group_queries::{OPairGroupFilterTrait, ParryIntersectGroupFilter, ParryPairSelector, ParryToSubcomponentsFilter};
+use optima_proximity2::pair_queries::{ParryShapeRep};
+use optima_proximity2::shapes::OParryShape;
 
 fn main() {
     let s1 = OParryShape::new(Ball::new(1.0), Isometry3::identity());
@@ -19,10 +20,15 @@ fn main() {
 
     let p = vec![p1, p2, p3, p4];
 
-    let g = ParryIntersectGroupQry::new(ParryShapeRep::OBB, false, true);
+    let g = ParryToSubcomponentsFilter;
+    let o = g.pair_group_filter(&s, &s, &p, &p, &ParryPairSelector::HalfPairs, &());
 
-    let o = g.query(&s, &s, &p, &p, &ParryPairSelector::HalfPairs, &());
-    o.outputs().iter().for_each(|x| {
-       println!("{:?}", x.output());
-    });
+    let g = ParryIntersectGroupFilter::new(ParryShapeRep::BoundingSphere);
+
+    let o = g.pair_group_filter(&s, &s, &p, &p, &o.selector(), &());
+    println!("{:?}", o.selector());
+
+    let g = ParryToSubcomponentsFilter;
+    let o = g.pair_group_filter(&s, &s, &p, &p, &o.selector(), &());
+    println!("{:?}", o.selector());
 }

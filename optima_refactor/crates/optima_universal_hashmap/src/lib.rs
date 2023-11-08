@@ -1,8 +1,74 @@
 use std::any::Any;
+use std::fmt::Formatter;
 use std::hash::{Hash, Hasher};
+use std::marker::PhantomData;
 use std::sync::{OnceLock};
 use ahash::{AHashMap};
 use fnv::FnvHasher;
+use serde::de::{DeserializeOwned, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::ser::SerializeSeq;
+use optima_file::traits::ToJsonString;
+use optima_file::traits::FromJsonString;
+
+#[derive(Debug, Clone)]
+pub struct AHashMapWrapper<K : Serialize + DeserializeOwned + Hash + Eq, V: Serialize + DeserializeOwned> {
+    pub hashmap: AHashMap<K, V>
+}
+impl<K : Serialize + DeserializeOwned + Hash + Eq, V: Serialize + DeserializeOwned> AHashMapWrapper<K, V> {
+    pub fn new() -> Self {
+        Self {
+            hashmap: AHashMap::new(),
+        }
+    }
+}
+impl<K : Serialize + DeserializeOwned + Hash + Eq, V: Serialize + DeserializeOwned> Serialize for AHashMapWrapper<K, V> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let mut seq = serializer.serialize_seq(None).expect("error");
+
+        self.hashmap.iter().for_each(|(k, v)| {
+            // seq.serialize_element( &(k.to_json_string(), v.to_json_string()) ).expect("error");
+            seq.serialize_element(&(k.to_json_string(), v.to_json_string())).expect("error");
+        });
+
+        seq.end()
+    }
+}
+impl<'de, K : Serialize + DeserializeOwned + Hash + Eq, V: Serialize + DeserializeOwned> Deserialize<'de> for AHashMapWrapper<K, V> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+        deserializer.deserialize_seq(AHashMapWrapperVisitor(PhantomData::default()))
+    }
+}
+
+pub struct AHashMapWrapperVisitor<K : Serialize + DeserializeOwned + Hash + Eq, V: Serialize + DeserializeOwned>(PhantomData<(K, V)>);
+impl<'de, K : Serialize + DeserializeOwned + Hash + Eq, V: Serialize + DeserializeOwned> Visitor<'de> for AHashMapWrapperVisitor<K, V> {
+    type Value = AHashMapWrapper<K, V>;
+
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+        formatter.write_str("a sequence of serializable and deserializable data")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error> where A: SeqAccess<'de> {
+        let mut out = AHashMapWrapper { hashmap: AHashMap::new() };
+
+        'l: loop {
+            let element: Option<(String, String)> = seq.next_element().expect("error");
+            match element {
+                None => { break 'l; }
+                Some(el) => {
+                    let k_str = el.0;
+                    let v_str = el.1;
+
+                    let k = K::from_json_string(&k_str);
+                    let v = V::from_json_string(&v_str);
+                    out.hashmap.insert(k, v);
+                }
+            }
+        }
+
+        Ok(out)
+    }
+}
 
 static mut GLOBAL_UNIVERSAL_HASHMAP: OnceLock<Vec<UniversalHashmap>> = OnceLock::new();
 

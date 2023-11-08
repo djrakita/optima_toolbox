@@ -7,13 +7,14 @@ use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3, O3DPo
 use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategoryTrait, OVec};
 use serde_with::*;
 use optima_file::traits::{FromJsonString, ToJsonString};
-use crate::robot::{ORobot};
+use crate::robot::{ORobot, RobotType};
+use crate::robot_shape_scene::ORobotParryShapeScene;
 use crate::robotics_components::*;
 use crate::robotics_functions::compute_chain_info;
 use crate::robotics_traits::{AsRobotTrait, JointTrait};
 pub type ORobotSetDefault = ORobotSet<f64, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>;
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ORobotSet<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
+pub struct ORobotSet<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> {
     #[serde(deserialize_with = "Vec::<ORobotWrapper<T, C, L>>::deserialize")]
     robot_wrappers: Vec<ORobotWrapper<T, C, L>>,
     #[serde(deserialize_with = "Vec::<ORobotSetJoint<T, C>>::deserialize")]
@@ -54,7 +55,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobotSe
     pub fn to_new_ad_type<T2: AD>(&self) -> ORobotSet<T2, C, L> {
         self.to_new_generic_types::<T2, C, L>()
     }
-    pub fn add_robot(&mut self, robot: ORobot<T, C, L>, parent_robot_idx: usize, parent_link_idx_in_parent_robot: usize, origin: &C::P<T>, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>) {
+    pub fn add_robot(&mut self, mut robot: ORobot<T, C, L>, parent_robot_idx: usize, parent_link_idx_in_parent_robot: usize, origin: &C::P<T>, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>) {
         assert!(parent_robot_idx <= self.robot_wrappers.len());
         assert!(parent_link_idx_in_parent_robot <= self.robot_wrappers[parent_robot_idx].robot.joints().len());
         assert!(limit.upper().len() >= joint_type.num_dofs());
@@ -66,6 +67,8 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobotSe
         let new_macro_joint_idx = self.robot_set_joints.len();
         let pose = OPose::from_o3d_pose(origin);
         let macro_joint = ORobotSetJoint::new(new_macro_joint_idx, pose, axis, joint_type, limit, parent_robot_idx, parent_link_idx_in_parent_robot, new_robot_idx);
+
+        robot.parry_shape_scene.resample_ids();
 
         let robot_wrapper = ORobotWrapper {
             robot,
@@ -174,11 +177,27 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobotSe
             });
         });
 
-        let mut out = ORobot::from_manual_no_mesh_setup("robot_set_as_robot", links, joints);
+        let mut out = ORobot::from_manual_internal("robot_set_as_robot", links, joints, RobotType::RobotSet);
 
         self.robot_wrappers.iter().for_each(|x| {
             out.sub_robots.push(x.robot.clone());
         });
+
+        out.parry_shape_scene = ORobotParryShapeScene::new(&out);
+
+        /*
+        out.sub_robots.iter().enumerate().for_each(|(i, x)| {
+            x.parry_shape_scene.shapes.iter().for_each(|shape| {
+                out.parry_shape_scene.shapes.push(shape.clone());
+            });
+
+            x.parry_shape_scene.pair_skips.keys().for_each(|key| {
+                out.parry_shape_scene.pair_skips.insert(*key, ());
+            });
+
+
+        });
+        */
 
         out
     }
@@ -301,7 +320,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> AsRobotT
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct ORobotWrapper<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
+pub struct ORobotWrapper<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> {
     #[serde(deserialize_with = "ORobot::<T, C, L>::deserialize")]
     robot: ORobot<T, C, L>,
     robot_idx: usize,
@@ -374,7 +393,7 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobotWrapper<T, C
         &self.dof_idxs_range
     }
 }
-impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobot<T, C, L> {
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static> ORobot<T, C, L> {
     pub(crate) fn new_world_robot() -> Self {
         Self::from_manual("world", vec![OLink::new_manual("world_link", vec![], vec![], OInertial::new_zeros())], vec![])
     }

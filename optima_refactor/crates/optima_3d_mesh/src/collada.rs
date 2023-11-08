@@ -47,7 +47,6 @@ impl ToTriMesh for Document {
         out_trimesh
     }
 }
-
 fn get_trimesh_from_collada_node(node: &Node, curr_transforms: &Vec<Transform>, geometry_map: &LocalMap<Geometry>, vertices_map: &LocalMap<Vertices>, sources_map: &LocalMap<Source>) -> OTriMesh {
     let mut trimesh = OTriMesh::new_empty();
 
@@ -120,7 +119,6 @@ fn get_trimesh_from_collada_node(node: &Node, curr_transforms: &Vec<Transform>, 
 
     trimesh
 }
-
 fn transform_points(points: &mut Vec<[f64; 3]>, transforms: &Vec<Transform>) {
     transforms.iter().for_each(|t| {
         match t {

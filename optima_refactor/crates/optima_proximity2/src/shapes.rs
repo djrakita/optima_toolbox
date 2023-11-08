@@ -1,24 +1,31 @@
 use std::borrow::Cow;
-use std::cmp::{Ordering};
+use std::fmt::Formatter;
+use std::marker::PhantomData;
 use std::ops::{Mul};
-use std::time::{Duration, Instant};
+use std::time::{Instant};
 use ad_trait::AD;
-use parry3d_f64::na::{Isometry3, Vector3};
-use parry_ad::query::Contact;
-use parry_ad::shape::{Ball, ConvexPolyhedron, Cuboid, Shape, TriMesh, TypedShape};
+use parry_ad::na::{Isometry3, Point3, Vector3};
+use parry_ad::shape::{Ball, ConvexPolyhedron, Cuboid, Shape, TypedShape};
 use parry_ad::transformation::vhacd::{VHACD, VHACDParameters};
-use optima_3d_mesh::OTriMesh;
+use serde::ser::SerializeTuple;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::de::{SeqAccess, Visitor};
+use optima_3d_mesh::{OTriMesh};
 use optima_3d_spatial::optima_3d_pose::{O3DPose};
 use optima_3d_spatial::optima_3d_vec::{O3DVec};
 use optima_linalg::OVec;
 use optima_sampling::SimpleSampler;
-use crate::shape_queries::{ContactOutputTrait, DistanceBoundsOutputTrait, DistanceLowerBoundOutputTrait, DistanceOutputTrait, DistanceUpperBoundOutputTrait, IntersectOutputTrait, OShpQryContactTrait, OShpQryDistanceBoundsTrait, OShpQryDistanceLowerBoundTrait, OShpQryDistanceTrait, OShpQryDistanceUpperBoundTrait, OShpQryIntersectTrait};
+use serde_with::*;
+use ad_trait::SerdeAD;
+use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
+use optima_file::path::OStemCellPath;
+use crate::pair_queries::{ParryContactOutput, ParryDisMode, ParryDistanceOutput, ParryIntersectOutput, ParryOutputAuxData, ParryQryShapeType, ParryShapeRep};
+use crate::shape_queries::{ContactOutputTrait, OShpQryContactTrait, OShpQryDistanceTrait, OShpQryIntersectTrait};
 
 pub trait OParryShpTrait<T: AD> {
     // fn shape(&self) -> &Box<dyn Shape<T>>;
     fn get_isometry3_cow<'a, P: O3DPose<T>>(&self, pose: &'a P) -> Cow<'a, Isometry3<T>>;
 }
-
 /*
 pub struct OParryShp<T: AD, P: O3DPose<T>> {
     pub (crate) shape: Box<dyn Shape<T>>,
@@ -116,16 +123,18 @@ impl<T: AD, P: O3DPose<T>> OParryShp2<T, P> {
     }
 }
 */
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OParryShape<T: AD, P: O3DPose<T>> {
+    #[serde(deserialize_with="OParryShpGenericHierarchy::<T, P>::deserialize")]
     pub (crate) base_shape: OParryShpGenericHierarchy<T, P>,
+    #[serde(deserialize_with="Vec::<OParryShpGenericHierarchy::<T, P>>::deserialize")]
     pub (crate) convex_subcomponents: Vec<OParryShpGenericHierarchy<T, P>>
 }
 impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
-    pub fn new<S: Shape<T>>(shape: S, offset: P) -> Self {
+    pub fn new<S: Shape<T>>(shape: S, offset: P, path: Option<OStemCellPath>) -> Self {
         let is_convex = shape.is_convex();
 
-        let base_shape = OParryShpGenericHierarchy::new(shape, offset);
+        let base_shape = OParryShpGenericHierarchy::new(shape, offset, path);
 
         if is_convex {
             Self {
@@ -140,15 +149,47 @@ impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
             }
         }
     }
+    pub fn new_convex_shape_from_mesh_paths(trimesh_path: OStemCellPath, offset: P, convex_subcomponents_paths: Option<Vec<OStemCellPath>>) -> Self {
+        let trimesh = OTriMesh::try_to_get_trimesh_from_path(&trimesh_path).expect("error");
+
+        let points = trimesh.points_to_point3s::<T>();
+        // let indices = trimesh.indices_as_u32s();
+
+        // let t = TriMesh::new(points, indices);
+        let convex_polyhedron = ConvexPolyhedron::from_convex_hull(&points).expect("error");
+
+        match &convex_subcomponents_paths {
+            None => {
+                Self::new(convex_polyhedron, offset, Some(trimesh_path.clone()))
+            }
+            Some(convex_subcomponents) => {
+                // let convex_polyhedron = ConvexPolyhedron::from_convex_hull(&trimesh.to_convex_hull().points_to_point3s()).expect("error");
+
+                let mut s = vec![];
+
+                convex_subcomponents.iter().for_each(|x| {
+                    let trimesh = OTriMesh::try_to_get_trimesh_from_path(x).expect("error");
+                    let points = trimesh.points_to_point3s::<T>();
+                    let convex_polyhedron_subcomponent = ConvexPolyhedron::from_convex_hull(&points).expect("error");
+                    s.push(OParryShpGenericHierarchy::new(convex_polyhedron_subcomponent, offset.clone(), Some(x.clone())));
+                });
+
+                Self {
+                    base_shape: OParryShpGenericHierarchy::new(convex_polyhedron, offset, Some(trimesh_path.clone())),
+                    convex_subcomponents: s,
+                }
+            }
+        }
+    }
     pub fn new_convex_shape_from_trimesh(trimesh: OTriMesh, offset: P, convex_subcomponents: Option<Vec<OTriMesh>>) -> Self {
         let points = trimesh.points_to_point3s::<T>();
-        let indices = trimesh.indices_as_u32s();
+        // let indices = trimesh.indices_as_u32s();
 
-        let t = TriMesh::new(points, indices);
+        let t = ConvexPolyhedron::from_convex_hull(&points).expect("error");
 
         match &convex_subcomponents {
             None => {
-                Self::new(t, offset)
+                Self::new(t, offset, None)
             }
             Some(convex_subcomponents) => {
                 let convex_polyhedron = ConvexPolyhedron::from_convex_hull(&trimesh.to_convex_hull().points_to_point3s()).expect("error");
@@ -158,14 +199,13 @@ impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
                 convex_subcomponents.iter().for_each(|x| {
                     let points = x.points_to_point3s::<T>();
                     let convex_polyhedron = ConvexPolyhedron::from_convex_hull(&points).expect("error");
-                    s.push(OParryShpGenericHierarchy::new(convex_polyhedron, offset.clone()));
+                    s.push(OParryShpGenericHierarchy::new(convex_polyhedron, offset.clone(), None));
                 });
 
                 Self {
-                    base_shape: OParryShpGenericHierarchy::new(convex_polyhedron, offset),
+                    base_shape: OParryShpGenericHierarchy::new(convex_polyhedron, offset, None),
                     convex_subcomponents: s,
                 }
-
             }
         }
     }
@@ -177,8 +217,22 @@ impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
     pub fn convex_subcomponents(&self) -> &Vec<OParryShpGenericHierarchy<T, P>> {
         &self.convex_subcomponents
     }
-}
+    /*
+    pub fn set_id(&mut self, id: u64) {
+        self.id = id;
+    }
+    */
+    pub fn resample_all_ids(&mut self) -> Vec<(u64, u64)> {
+        let mut out = vec![];
 
+        out.extend(self.base_shape.resample_ids());
+        self.convex_subcomponents.iter_mut().for_each(|x| {
+            out.extend(x.resample_ids());
+        });
+
+        out
+    }
+}
 impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P, OParryShape<T, P>> for OParryShape<T, P> {
     type Args = (ParryQryShapeType, ParryShapeRep);
     type Output = ParryIntersectOutput;
@@ -207,8 +261,8 @@ impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P, OParryShape<T, P>> for OP
                 }
             }
             ParryQryShapeType::ConvexSubcomponentsWithIdxs { shape_a_subcomponent_idx, shape_b_subcomponent_idx } => {
-                let shape_a = self.convex_subcomponents.get(*shape_a_subcomponent_idx).expect("idx error");
-                let shape_b = self.convex_subcomponents.get(*shape_b_subcomponent_idx).expect("idx error");
+                let shape_a = self.convex_subcomponents.get(*shape_a_subcomponent_idx).expect(&format!("idx error: idx {}, {:?}", shape_a_subcomponent_idx, self.convex_subcomponents.len()));
+                let shape_b = other.convex_subcomponents.get(*shape_b_subcomponent_idx).expect(&format!("idx error: idx {}, len {:?}", shape_b_subcomponent_idx, self.convex_subcomponents.len()));
 
                 shape_a.intersect(shape_b, pose_a, pose_b, &args.1)
             }
@@ -283,6 +337,8 @@ impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P, OParryShape<T, P>> for OPar
         }
     }
 }
+
+/*
 impl<T: AD, P: O3DPose<T>> OShpQryDistanceLowerBoundTrait<T, P, OParryShape<T, P>> for OParryShape<T, P> {
     type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep);
     type Output = ParryDistanceLowerBoundOutput<T>;
@@ -315,81 +371,28 @@ impl<T: AD, P: O3DPose<T>> OShpQryDistanceBoundsTrait<T, P, OParryShape<T, P>> f
         parry_shape_lower_and_upper_bound(self, other, pose_a, pose_b, &args.0, &args.1, &args.2)
     }
 }
-fn parry_shape_lower_and_upper_bound<T: AD, P: O3DPose<T>>(shape_a: &OParryShape<T, P>, shape_b: &OParryShape<T, P>, pose_a: &P, pose_b: &P, parry_dis_mode: &ParryDisMode, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep: &ParryShapeRep) -> ParryDistanceBoundsOutput<T> {
-    let start = Instant::now();
-    return match parry_qry_shape_type {
-        ParryQryShapeType::Standard => {
-            let dis = shape_b.base_shape().distance(shape_b.base_shape(), pose_a, pose_b, &(parry_dis_mode.clone(), parry_shape_rep.clone()));
-            let upper_bound = match parry_shape_rep {
-                ParryShapeRep::Full => { dis.distance }
-                ParryShapeRep::OBB => { dis.distance + shape_a.base_shape.obb_max_dis_error + shape_b.base_shape.obb_max_dis_error }
-                ParryShapeRep::BoundingSphere => { dis.distance + shape_a.base_shape.bounding_sphere_max_dis_error + shape_b.base_shape.bounding_sphere_max_dis_error }
-            };
-            ParryDistanceBoundsOutput {
-                distance_lower_bound: dis.distance,
-                distance_upper_bound: upper_bound,
-                aux_data: ParryOutputAuxData { num_queries: 1, duration: start.elapsed() },
-            }
-        }
-        ParryQryShapeType::AllConvexSubcomponents => {
-            let mut count = 0;
-            let mut lower_bound = T::constant(f64::MAX);
-            let mut max_upper_bound = T::constant(f64::MIN);
-            for c1 in shape_a.convex_subcomponents.iter() {
-                for c2 in shape_b.convex_subcomponents.iter() {
-                    count += 1;
-                    let dis = c1.distance(&c2, pose_a, pose_b, &(parry_dis_mode.clone(), parry_shape_rep.clone()));
-                    let upper_bound = match parry_shape_rep {
-                        ParryShapeRep::Full => { dis.distance }
-                        ParryShapeRep::OBB => { dis.distance + shape_a.base_shape.obb_max_dis_error + shape_b.base_shape.obb_max_dis_error }
-                        ParryShapeRep::BoundingSphere => { dis.distance + shape_a.base_shape.bounding_sphere_max_dis_error + shape_b.base_shape.bounding_sphere_max_dis_error }
-                    };
-                    // if upper_bound > max_upper_bound { max_upper_bound = upper_bound }
-                    if dis.distance < lower_bound {
-                        lower_bound = dis.distance;
-                        max_upper_bound = upper_bound;
-                    }
-                }
-            }
+*/
 
-            ParryDistanceBoundsOutput {
-                distance_lower_bound: lower_bound,
-                distance_upper_bound: max_upper_bound,
-                aux_data: ParryOutputAuxData { num_queries: count, duration: start.elapsed() },
-            }
-        }
-        ParryQryShapeType::ConvexSubcomponentsWithIdxs { shape_a_subcomponent_idx, shape_b_subcomponent_idx } => {
-            let shape_a_ = shape_a.convex_subcomponents.get(*shape_a_subcomponent_idx).expect("idx error");
-            let shape_b_ = shape_b.convex_subcomponents.get(*shape_b_subcomponent_idx).expect("idx error");
-
-            let dis = shape_a_.distance(shape_b_, pose_a, pose_b, &(parry_dis_mode.clone(), parry_shape_rep.clone()));
-            let upper_bound = match parry_shape_rep {
-                ParryShapeRep::Full => { dis.distance }
-                ParryShapeRep::OBB => { dis.distance + shape_a.base_shape.obb_max_dis_error + shape_b.base_shape.obb_max_dis_error }
-                ParryShapeRep::BoundingSphere => { dis.distance + shape_a.base_shape.bounding_sphere_max_dis_error + shape_b.base_shape.bounding_sphere_max_dis_error }
-            };
-            ParryDistanceBoundsOutput {
-                distance_lower_bound: dis.distance,
-                distance_upper_bound: upper_bound,
-                aux_data: ParryOutputAuxData { num_queries: 1, duration: start.elapsed() },
-            }
-        }
-    };
-}
-#[derive(Clone)]
+#[serde_as]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct OParryShpGenericHierarchy<T: AD, P: O3DPose<T>> {
+    #[serde(deserialize_with="OParryShpGeneric::<T, P>::deserialize")]
     pub (crate) base_shape: OParryShpGeneric<T, P>,
+    #[serde(deserialize_with="OParryShpGeneric::<T, P>::deserialize")]
     pub (crate) bounding_sphere: OParryShpGeneric<T, P>,
+    #[serde_as(as = "SerdeAD<T>")]
     pub (crate) bounding_sphere_max_dis_error: T,
+    #[serde(deserialize_with="OParryShpGeneric::<T, P>::deserialize")]
     pub (crate) obb: OParryShpGeneric<T, P>,
+    #[serde_as(as = "SerdeAD<T>")]
     pub (crate) obb_max_dis_error: T
 }
 impl<T: AD, P: O3DPose<T>> OParryShpGenericHierarchy<T, P> {
-    pub (crate) fn new<S: Shape<T>>(shape: S, offset: P) -> Self {
-        Self::new_from_box(Box::new(shape), offset)
+    pub (crate) fn new<S: Shape<T>>(shape: S, offset: P, path: Option<OStemCellPath>) -> Self {
+        Self::new_from_box(Box::new(shape), offset, path)
     }
-    pub (crate) fn new_from_box<S: Shape<T>>(shape: Box<S>, offset: P) -> Self {
-        let base_shape = OParryShpGeneric::new_from_box(shape, offset.clone());
+    pub (crate) fn new_from_box<S: Shape<T>>(shape: Box<S>, offset: P, path: Option<OStemCellPath>) -> Self {
+        let base_shape = OParryShpGeneric::new_from_box(shape, offset.clone(), path);
         let bounding_sphere = get_bounding_sphere_from_shape(base_shape.shape(), &offset);
         let bounding_sphere_max_dis_error = calculate_max_dis_error_between_shape_and_bounding_shape(base_shape.shape(), bounding_sphere.shape());
         let obb = get_obb_from_shape(base_shape.shape(), &offset);
@@ -423,8 +426,24 @@ impl<T: AD, P: O3DPose<T>> OParryShpGenericHierarchy<T, P> {
     pub fn obb_max_dis_error(&self) -> &T {
         &self.obb_max_dis_error
     }
-}
+    pub fn resample_ids(&mut self) -> Vec<(u64, u64)> {
+        let mut out = vec![];
 
+        out.extend(self.base_shape.resample_ids());
+        out.extend(self.obb.resample_ids());
+        out.extend(self.bounding_sphere.resample_ids());
+
+        out
+    }
+    #[inline(always)]
+    pub fn id_from_shape_rep(&self, shape_rep: &ParryShapeRep) -> u64 {
+        match shape_rep {
+            ParryShapeRep::Full => { self.base_shape.id }
+            ParryShapeRep::OBB => { self.obb.id }
+            ParryShapeRep::BoundingSphere => { self.bounding_sphere.id }
+        }
+    }
+}
 impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P,OParryShpGenericHierarchy<T, P>> for OParryShpGenericHierarchy<T, P> {
     type Args = ParryShapeRep;
     type Output = ParryIntersectOutput;
@@ -461,35 +480,58 @@ impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P,OParryShpGenericHierarchy<T,
         }
     }
 }
+
+#[serde_as]
+#[derive(Serialize, Deserialize)]
 pub struct OParryShpGeneric<T: AD, P: O3DPose<T>> {
-    pub (crate) shape: Box<dyn Shape<T>>,
+    pub (crate) id: u64,
+    #[serde(deserialize_with="BoxedShape::<T>::deserialize")]
+    pub (crate) shape: BoxedShape<T>,
+    #[serde_as(as = "SerdeO3DPose<T, P>")]
     pub (crate) offset: P
 }
-impl<T: AD, P: O3DPose<T>> Clone for OParryShpGeneric<T, P> {
-    fn clone(&self) -> Self {
-        Self {
-            shape: self.shape.clone_box(),
-            offset: self.offset.clone(),
-        }
-    }
-}
 impl<T: AD, P: O3DPose<T>> OParryShpGeneric<T, P> {
-    pub (crate) fn new<S: Shape<T>>(shape: S, offset: P) -> Self {
-        Self::new_from_box(Box::new(shape), offset)
+    pub fn new<S: Shape<T>>(shape: S, offset: P, path: Option<OStemCellPath>) -> Self {
+        Self::new_from_box(Box::new(shape), offset, path)
     }
-    pub (crate) fn new_from_box<S: Shape<T>>(shape: Box<S>, offset: P) -> Self {
+    pub (crate) fn new_from_box<S: Shape<T>>(shape: Box<S>, offset: P, path: Option<OStemCellPath>) -> Self {
         Self {
-            shape,
+            id: SimpleSampler::uniform_sample_u64((u64::MIN, u64::MAX), None),
+            shape: BoxedShape {shape, path},
             offset
         }
     }
     #[inline(always)]
     pub fn shape(&self) -> &Box<dyn Shape<T>> {
-        &self.shape
+        &self.shape.shape
     }
+    #[inline(always)]
+    pub fn boxed_shape(&self) -> &BoxedShape<T> { &self.shape }
     #[inline(always)]
     pub fn offset(&self) -> &P {
         &self.offset
+    }
+    #[inline(always)]
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+    pub fn resample_ids(&mut self) -> Vec<(u64, u64)> {
+        let mut out = vec![];
+
+        let sample = SimpleSampler::uniform_sample_u64((0,u64::MAX), None);
+        out.push( (self.id, sample) );
+        self.id = sample;
+
+        out
+    }
+}
+impl<T: AD, P: O3DPose<T>> Clone for OParryShpGeneric<T, P> {
+    fn clone(&self) -> Self {
+        Self {
+            id: self.id.clone(),
+            shape: self.shape.clone(),
+            offset: self.offset.clone(),
+        }
     }
 }
 impl<T: AD, P: O3DPose<T>> OParryShpTrait<T> for OParryShpGeneric<T, P> {
@@ -507,7 +549,6 @@ impl<T: AD, P: O3DPose<T>> OParryShpTrait<T> for OParryShpGeneric<T, P> {
         Cow::Owned(res.into_owned())
     }
 }
-
 impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P, OParryShpGeneric<T, P>> for OParryShpGeneric<T, P> {
     type Args = ();
     type Output = ParryIntersectOutput;
@@ -572,58 +613,217 @@ impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P, OParryShpGeneric<T, P>> for
     }
 }
 
-pub struct OParryBoundingSphere<T: AD, P: O3DPose<T>> {
-    pub radius: T,
-    pub offset: P
+pub struct BoxedShape<T: AD>{
+    pub shape: Box<dyn Shape<T>>,
+    pub path: Option<OStemCellPath>
 }
-impl<T: AD, P: O3DPose<T>> Clone for OParryBoundingSphere<T, P> {
+impl<T: AD> Clone for BoxedShape<T> {
     fn clone(&self) -> Self {
-        Self {
-            radius: self.radius.clone(),
-            offset: self.offset.clone(),
+        BoxedShape{shape: self.shape.clone_box(), path: self.path.clone() }
+    }
+}
+impl<T: AD> Serialize for BoxedShape<T> {
+    #[allow(unreachable_patterns)]
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let typed_shape = self.shape.as_typed_shape();
+        let tuple = match &typed_shape {
+            TypedShape::Ball(s) => {
+                let mut tuple = serializer.serialize_tuple(2)?;
+                tuple.serialize_element(&"ball".to_string())?;
+                tuple.serialize_element(&s.radius.to_constant())?;
+                tuple
+            }
+            TypedShape::Cuboid(s) => {
+                let mut tuple = serializer.serialize_tuple(2)?;
+                tuple.serialize_element(&"cuboid".to_string())?;
+                tuple.serialize_element(&OVec::to_other_ad_type::<f64>(&s.half_extents))?;
+                tuple
+            }
+            TypedShape::Capsule(_) => { panic!("shape not handled here") }
+            TypedShape::Segment(_) => { panic!("shape not handled here") }
+            TypedShape::Triangle(_) => { panic!("shape not handled here") }
+            TypedShape::TriMesh(_) => { panic!("shape not handled here") }
+            TypedShape::Polyline(_) => { panic!("shape not handled here") }
+            TypedShape::HalfSpace(_) => { panic!("shape not handled here") }
+            TypedShape::HeightField(_) => { panic!("shape not handled here") }
+            TypedShape::Compound(_) => { panic!("shape not handled here") }
+            TypedShape::ConvexPolyhedron(s) => {
+                match &self.path {
+                    None => {
+                        let mut tuple = serializer.serialize_tuple(2)?;
+                        tuple.serialize_element(&"convex_polyhedron_raw".to_string())?;
+                        let trimesh = s.to_trimesh();
+                        let points: Vec<[f64; 3]> = trimesh.0.iter().map(|x| [x.x.to_constant(), x.y.to_constant(), x.z.to_constant()]).collect();
+                        // tuple.serialize_element(&(points, trimesh.1))?;
+                        tuple.serialize_element(&points)?;
+                        tuple
+                    }
+                    Some(path) => {
+                        let mut tuple = serializer.serialize_tuple(2)?;
+                        tuple.serialize_element(&"convex_polyhedron_from_file".to_string())?;
+                        tuple.serialize_element(path)?;
+                        tuple
+                    }
+                }
+            }
+            TypedShape::Cylinder(_) => { panic!("shape not handled here") }
+            TypedShape::Cone(_) => { panic!("shape not handled here") }
+            TypedShape::RoundCuboid(_) => { panic!("shape not handled here") }
+            TypedShape::RoundTriangle(_) => { panic!("shape not handled here") }
+            TypedShape::RoundCylinder(_) => { panic!("shape not handled here") }
+            TypedShape::RoundCone(_) => { panic!("shape not handled here") }
+            TypedShape::RoundConvexPolyhedron(_) => { panic!("shape not handled here") }
+            TypedShape::Custom(_) => { panic!("shape not handled here") }
+            _ => { panic!("shape not handled here") }
+        };
+
+        /*
+        let translation_slice = value.translation().as_slice();
+        let binding = value.rotation().scaled_axis_of_rotation();
+        let rotation_slice = binding.as_slice();
+        let slice_as_f64 = [
+            translation_slice[0].to_constant(),
+            translation_slice[1].to_constant(),
+            translation_slice[2].to_constant(),
+            rotation_slice[0].to_constant(),
+            rotation_slice[1].to_constant(),
+            rotation_slice[2].to_constant()
+        ];
+        let mut tuple = serializer.serialize_tuple(6)?;
+        for element in &slice_as_f64 {
+            tuple.serialize_element(element)?;
+        }
+        tuple.end()
+        */
+        // tuple.serialize_element(&self.path)?;
+
+        tuple.end()
+    }
+}
+impl<'de, T: AD> Deserialize<'de> for BoxedShape<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+        let ret = deserializer.deserialize_tuple(2, BoxedShapeVisitor { 0: Default::default() });
+        ret
+    }
+}
+
+pub struct BoxedShapeVisitor<T: AD>(PhantomData<T>);
+impl<'de, T: AD> Visitor<'de> for BoxedShapeVisitor<T> {
+    type Value = BoxedShape<T>;
+
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+        formatter.write_str("a tuple")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error> where A: SeqAccess<'de> {
+        let shape_type_str = seq.next_element::<String>().expect("error").expect("error");
+
+        if shape_type_str == "ball" {
+            let radius = seq.next_element::<f64>().expect("error").expect("error");
+            // let _path = seq.next_element::<Option<OStemCellPath>>().expect("error").expect("error");
+            let ret = Ok(BoxedShape {
+                shape: Box::new(Ball::new(T::constant(radius))),
+                path: None,
+            });
+            return ret;
+        } else if shape_type_str == "cuboid" {
+            let half_extents = seq.next_element::<[f64; 3]>().expect("error").expect("error");
+            // let _path = seq.next_element::<Option<OStemCellPath>>().expect("error").expect("error");
+            let half_extents = OVec::to_other_ad_type::<T>(&half_extents);
+            return Ok(BoxedShape{
+                shape: Box::new(Cuboid::new(Vector3::new(half_extents[0], half_extents[1], half_extents[2]))),
+                path: None,
+            })
+        } else if shape_type_str == "convex_polyhedron_raw" {
+            // let (points, _indices) = seq.next_element::<(Vec<[f64; 3]>, Vec<[u32; 3]>)>().expect("error").expect("error");
+            let points = seq.next_element::<Vec<[f64; 3]>>().expect("error").expect("error");
+            // let _path = seq.next_element::<Option<OStemCellPath>>().expect("error").expect("error");
+            let points: Vec<Point3<T>> = points.iter().map(|x| Point3::new(T::constant(x[0]), T::constant(x[1]), T::constant(x[2]))).collect();
+            // let convex_polyhedron = ConvexPolyhedron::from_convex_mesh(points, &indices).expect("error");
+            let convex_polyhedron = ConvexPolyhedron::from_convex_hull(&points).expect("error");
+            return Ok(BoxedShape{
+                shape: Box::new(convex_polyhedron),
+                path: None,
+            })
+        } else if shape_type_str == "convex_polyhedron_from_file" {
+            let path = seq.next_element::<Option<OStemCellPath>>().expect("error").expect("error").unwrap();
+            let trimesh = OTriMesh::try_to_get_trimesh_from_path(&path).expect("error");
+            let convex_polyhedron = ConvexPolyhedron::from_convex_hull(&trimesh.points_to_point3s()).expect("error");
+            return Ok(BoxedShape{
+                shape: Box::new(convex_polyhedron),
+                path: Some(path.clone()),
+            })
+        } else {
+            panic!("shape not supported");
         }
     }
 }
-impl<T: AD, P: O3DPose<T>> OParryShpTrait<T> for OParryBoundingSphere<T, P> {
+
+/*
+#[allow(unreachable_patterns)]
+pub fn boxed_shape_custom_serialize<S, T: AD>(value: &BoxedShape<T>, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+
+    let typed_shape = value.0.as_typed_shape();
+    let tuple = match &typed_shape {
+        TypedShape::Ball(s) => {
+            let mut tuple = serializer.serialize_tuple(2)?;
+            tuple.serialize_element(&"ball".to_string())?;
+            tuple.serialize_element(&s.radius.to_constant())?;
+            tuple
+        }
+        TypedShape::Cuboid(s) => {
+            let mut tuple = serializer.serialize_tuple(2)?;
+            tuple.serialize_element(&"cuboid".to_string())?;
+            tuple.serialize_element(&OVec::to_other_ad_type::<f64>(&s.half_extents))?;
+            tuple
+        }
+        TypedShape::Capsule(_) => { todo!() }
+        TypedShape::Segment(_) => { todo!() }
+        TypedShape::Triangle(_) => { todo!() }
+        TypedShape::TriMesh(_) => { todo!() }
+        TypedShape::Polyline(_) => { todo!() }
+        TypedShape::HalfSpace(_) => { todo!() }
+        TypedShape::HeightField(_) => { todo!() }
+        TypedShape::Compound(_) => { todo!() }
+        TypedShape::ConvexPolyhedron(_) => { todo!() }
+        TypedShape::Cylinder(_) => { todo!() }
+        TypedShape::Cone(_) => { todo!() }
+        TypedShape::RoundCuboid(_) => { panic!("shape not handled here") }
+        TypedShape::RoundTriangle(_) => { panic!("shape not handled here") }
+        TypedShape::RoundCylinder(_) => { panic!("shape not handled here") }
+        TypedShape::RoundCone(_) => { panic!("shape not handled here") }
+        TypedShape::RoundConvexPolyhedron(_) => { panic!("shape not handled here") }
+        TypedShape::Custom(_) => { panic!("shape not handled here") }
+        _ => { panic!("shape not handled here") }
+    };
+
     /*
-    fn shape(&self) -> &Box<dyn Shape<T>> {
-        &self.shape
+    let translation_slice = value.translation().as_slice();
+    let binding = value.rotation().scaled_axis_of_rotation();
+    let rotation_slice = binding.as_slice();
+    let slice_as_f64 = [
+        translation_slice[0].to_constant(),
+        translation_slice[1].to_constant(),
+        translation_slice[2].to_constant(),
+        rotation_slice[0].to_constant(),
+        rotation_slice[1].to_constant(),
+        rotation_slice[2].to_constant()
+    ];
+    let mut tuple = serializer.serialize_tuple(6)?;
+    for element in &slice_as_f64 {
+        tuple.serialize_element(element)?;
     }
+    tuple.end()
     */
-
-    #[inline]
-    fn get_isometry3_cow<'a, P2: O3DPose<T>>(&self, pose: &'a P2) -> Cow<'a, Isometry3<T>> {
-        let offset: Cow<P2> = self.offset.downcast_or_convert::<P2>();
-        let pose = pose.mul(offset.as_ref());
-        let res = pose.downcast_or_convert::<Isometry3<T>>();
-        Cow::Owned(res.into_owned())
-    }
+    tuple.end()
 }
+*/
 
-impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P, OParryBoundingSphere<T, P>> for OParryBoundingSphere<T, P> {
-    type Args = ();
-    type Output = ParryIntersectOutput;
-
-    fn intersect(&self, other: &OParryBoundingSphere<T, P>, pose_a: &P, pose_b: &P, _args: &Self::Args) -> Self::Output {
-        let start = Instant::now();
-        let pose_a = self.get_isometry3_cow(pose_a);
-        let pose_b = self.get_isometry3_cow(pose_b);
-
-        let dis = (&pose_a.translation.vector - &pose_b.translation.vector).norm();
-        let thresh = self.radius + other.radius;
-
-        let intersect = dis < thresh;
-        ParryIntersectOutput {
-            intersect,
-            aux_data: ParryOutputAuxData { num_queries: 1, duration: start.elapsed() },
-        }
-    }
-}
 pub (crate) fn get_bounding_sphere_from_shape<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(shape: &Box<S>, offset: &P) -> OParryShpGeneric<T, P> {
     let bounding_sphere = shape.compute_local_bounding_sphere();
     let offset = offset.mul(&P::from_constructors(&bounding_sphere.center, &[T::zero();3]));
     let sphere = Ball::new(bounding_sphere.radius);
-    OParryShpGeneric::new(sphere, offset)
+    OParryShpGeneric::new(sphere, offset, None)
 }
 pub (crate) fn get_obb_from_shape<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(shape: &Box<S>, offset: &P) -> OParryShpGeneric<T, P> {
     let aabb = shape.compute_local_aabb();
@@ -635,7 +835,7 @@ pub (crate) fn get_obb_from_shape<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(sh
     let half_y = (maxs[1] - mins[1]) * T::constant(0.5);
     let half_z = (maxs[2] - mins[2]) * T::constant(0.5);
     let cuboid = Cuboid::new(Vector3::new(half_x, half_y, half_z));
-    OParryShpGeneric::new(cuboid, offset)
+    OParryShpGeneric::new(cuboid, offset, None)
 }
 pub (crate) fn calculate_max_dis_error_between_shape_and_bounding_shape<T: AD, S1: Shape<T> + ?Sized, S2: Shape<T> + ?Sized>(shape: &Box<S1>, bounding_shape: &Box<S2>) -> T {
     let ts = shape.as_typed_shape();
@@ -661,7 +861,7 @@ pub (crate) fn calculate_max_dis_error_between_shape_and_bounding_shape<T: AD, S
         if dis > max_dis { max_dis = dis }
     });
     */
-    let num_samples = 25;
+    let num_samples = 7;
     indices.iter().for_each(|x| {
         let idx0 = x[0] as usize;
         let idx1 = x[1] as usize;
@@ -695,7 +895,7 @@ pub (crate) fn calculate_max_dis_error_between_shape_and_bounding_shape<T: AD, S
             let point = vertex0.mul(sample[0]).add(&vertex1.mul(sample[1])).add(&vertex2.mul(sample[2]));
             let projection = bounding_shape.project_local_point(&point, false);
             let dis = projection.point.sub(&point).norm();
-            assert!(dis <= T::constant(0.000001) || projection.is_inside, "point: {}, projection: {}", point, projection.point);
+            // assert!(dis <= T::constant(0.03) || projection.is_inside, "point: {}, projection: {}, dis: {}", point, projection.point, dis);
             if dis > max_dis { max_dis = dis }
         }
     });
@@ -729,264 +929,9 @@ pub (crate) fn calculate_convex_subcomponent_shapes<T: AD, S: Shape<T> + ?Sized,
 
     convex_hulls.iter().for_each(|(points, _)| {
         let convex_polyhedron = ConvexPolyhedron::from_convex_hull(points).expect("error");
-        out.push(OParryShpGenericHierarchy::new(convex_polyhedron, P::identity()));
+        out.push(OParryShpGenericHierarchy::new(convex_polyhedron, P::identity(), None));
     });
 
     out
 }
-
-#[derive(Clone, Debug)]
-pub enum ParryDisMode {
-    StandardDis, ContactDis
-}
-
-#[derive(Clone, Debug)]
-pub enum ParryQryShapeType {
-    Standard, AllConvexSubcomponents, ConvexSubcomponentsWithIdxs { shape_a_subcomponent_idx: usize, shape_b_subcomponent_idx: usize }
-}
-
-#[derive(Clone, Debug)]
-pub enum ParryShapeRep {
-    Full, OBB, BoundingSphere
-}
-
-#[derive(Clone, Debug)]
-pub enum ParryApproximationRep {
-    OBB, BoundingSphere
-}
-impl ParryApproximationRep {
-    pub fn to_shape_rep(&self) -> ParryShapeRep {
-        match self {
-            ParryApproximationRep::OBB => { ParryShapeRep::OBB }
-            ParryApproximationRep::BoundingSphere => { ParryShapeRep::BoundingSphere }
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ParryIntersectOutput {
-    intersect: bool,
-    aux_data: ParryOutputAuxData
-}
-impl ParryIntersectOutput {
-    pub fn aux_data(&self) -> &ParryOutputAuxData {
-        &self.aux_data
-    }
-}
-impl PartialEq for ParryIntersectOutput {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        self.intersect.eq(&other.intersect)
-    }
-}
-impl PartialOrd for ParryIntersectOutput {
-    #[inline(always)]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.intersect.eq(&other.intersect) { Some(Ordering::Equal) }
-        else if self.intersect && !other.intersect { Some(Ordering::Less) }
-        else { Some(Ordering::Greater) }
-    }
-}
-impl IntersectOutputTrait for ParryIntersectOutput {
-    #[inline(always)]
-    fn intersect(&self) -> bool {
-        self.intersect
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ParryDistanceOutput<T: AD> {
-    distance: T,
-    aux_data: ParryOutputAuxData
-}
-impl<T: AD> ParryDistanceOutput<T> {
-    pub fn aux_data(&self) -> &ParryOutputAuxData {
-        &self.aux_data
-    }
-}
-impl<T: AD> PartialEq for ParryDistanceOutput<T> {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        self.distance.eq(&other.distance)
-    }
-}
-impl<T: AD> PartialOrd for ParryDistanceOutput<T> {
-    #[inline(always)]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.distance.partial_cmp(&other.distance)
-    }
-}
-impl<T: AD> DistanceOutputTrait<T> for ParryDistanceOutput<T> {
-    #[inline(always)]
-    fn distance(&self) -> T {
-        self.distance
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ParryContactOutput<T: AD> {
-    contact: Option<Contact<T>>,
-    aux_data: ParryOutputAuxData
-}
-impl<T: AD> ParryContactOutput<T> {
-    #[inline(always)]
-    pub fn contact(&self) -> Option<Contact<T>> {
-        self.contact
-    }
-    #[inline(always)]
-    pub fn aux_data(&self) -> &ParryOutputAuxData {
-        &self.aux_data
-    }
-}
-impl<T: AD> PartialEq for ParryContactOutput<T> {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        match (&self.contact, &other.contact) {
-            (Some(a), Some(b)) => { a.dist.eq(&b.dist) }
-            (Some(_), None) => { false }
-            (None, Some(_)) => { false }
-            (None, None) => { true }
-        }
-    }
-}
-impl<T: AD> PartialOrd for ParryContactOutput<T> {
-    #[inline(always)]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match (&self.contact, &other.contact) {
-            (Some(a), Some(b)) => { a.dist.partial_cmp(&b.dist) }
-            (Some(_), None) => { Some(Ordering::Greater) }
-            (None, Some(_)) => { Some(Ordering::Less) }
-            (None, None) => { Some(Ordering::Equal) }
-        }
-    }
-}
-impl<T: AD> ContactOutputTrait<T> for ParryContactOutput<T> {
-    #[inline(always)]
-    fn signed_distance(&self) -> Option<T> {
-        match &self.contact {
-            None => { None }
-            Some(c) => { Some(c.dist) }
-        }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ParryDistanceLowerBoundOutput<T: AD> {
-    distance_lower_bound: T,
-    aux_data: ParryOutputAuxData
-}
-impl<T: AD> ParryDistanceLowerBoundOutput<T> {
-    pub fn aux_data(&self) -> &ParryOutputAuxData {
-        &self.aux_data
-    }
-}
-impl<T: AD> PartialEq for ParryDistanceLowerBoundOutput<T> {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        self.distance_lower_bound.eq(&other.distance_lower_bound)
-    }
-}
-impl<T: AD> PartialOrd for ParryDistanceLowerBoundOutput<T> {
-    #[inline(always)]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.distance_lower_bound.partial_cmp(&other.distance_lower_bound)
-    }
-}
-impl<T: AD> DistanceLowerBoundOutputTrait<T> for ParryDistanceLowerBoundOutput<T> {
-    #[inline(always)]
-    fn distance_lower_bound(&self) -> T {
-        self.distance_lower_bound
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ParryDistanceUpperBoundOutput<T: AD> {
-    distance_upper_bound: T,
-    aux_data: ParryOutputAuxData
-}
-impl<T: AD> ParryDistanceUpperBoundOutput<T> {
-    pub fn aux_data(&self) -> &ParryOutputAuxData {
-        &self.aux_data
-    }
-}
-impl<T: AD> PartialEq for ParryDistanceUpperBoundOutput<T> {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        self.distance_upper_bound.eq(&other.distance_upper_bound)
-    }
-}
-impl<T: AD> PartialOrd for ParryDistanceUpperBoundOutput<T> {
-    #[inline(always)]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.distance_upper_bound.partial_cmp(&other.distance_upper_bound)
-    }
-}
-impl<T: AD> DistanceUpperBoundOutputTrait<T> for ParryDistanceUpperBoundOutput<T> {
-    #[inline(always)]
-    fn distance_upper_bound(&self) -> T {
-        self.distance_upper_bound
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ParryDistanceBoundsOutput<T: AD> {
-    distance_lower_bound: T,
-    distance_upper_bound: T,
-    aux_data: ParryOutputAuxData
-}
-impl<T: AD> ParryDistanceBoundsOutput<T> {
-    pub fn aux_data(&self) -> &ParryOutputAuxData {
-        &self.aux_data
-    }
-}
-impl<T: AD> PartialEq for ParryDistanceBoundsOutput<T> {
-    #[inline(always)]
-    fn eq(&self, other: &Self) -> bool {
-        let self_diff = self.distance_upper_bound - self.distance_lower_bound;
-        let other_diff = other.distance_upper_bound - other.distance_lower_bound;
-
-        self_diff.eq(&other_diff)
-    }
-}
-impl<T: AD> PartialOrd for ParryDistanceBoundsOutput<T> {
-    #[inline(always)]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let self_diff = self.distance_upper_bound - self.distance_lower_bound;
-        let other_diff = other.distance_upper_bound - other.distance_lower_bound;
-
-        other_diff.partial_cmp(&self_diff)
-    }
-}
-impl<T: AD> DistanceBoundsOutputTrait<T> for ParryDistanceBoundsOutput<T> {
-    #[inline(always)]
-    fn distance_lower_bound(&self) -> T {
-        self.distance_lower_bound
-    }
-
-    #[inline(always)]
-    fn distance_upper_bound(&self) -> T {
-        self.distance_upper_bound
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct ParryOutputAuxData {
-    pub (crate) num_queries: usize,
-    pub (crate) duration: Duration
-}
-impl ParryOutputAuxData {
-    #[inline(always)]
-    pub fn num_queries(&self) -> usize {
-        self.num_queries
-    }
-    #[inline(always)]
-    pub fn duration(&self) -> Duration {
-        self.duration
-    }
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////
 

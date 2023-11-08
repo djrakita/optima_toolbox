@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
@@ -17,10 +18,15 @@ use crate::robotics_functions::compute_chain_info;
 use crate::robotics_traits::{AsRobotTrait, JointTrait};
 use optima_misc::arr_storage::MutArrTraitRaw;
 use optima_misc::arr_storage::ImmutArrTraitRaw;
+use optima_sampling::SimpleSampler;
+use crate::robot_shape_scene::ORobotParryShapeScene;
+
 pub type ORobotDefault = ORobot<f64, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>;
+#[serde_as]
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ORobot<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
-    robot_name: String,
+    pub (crate) robot_name: String,
+    robot_type: RobotType,
     #[serde(deserialize_with = "Vec::<OLink<T, C, L>>::deserialize")]
     links: Vec<OLink<T, C, L>>,
     #[serde(deserialize_with = "Vec::<OJoint<T, C>>::deserialize")]
@@ -31,13 +37,18 @@ pub struct ORobot<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTr
     kinematic_hierarchy: Vec<Vec<usize>>,
     num_dofs: usize,
     dof_to_joint_and_sub_dof_idxs: Vec<(usize, usize)>,
+    #[serde_as(as = "Vec<Vec<SerdeAD<T>>>")]
+    non_collision_examples: Vec<Vec<T>>,
     #[serde(deserialize_with = "Vec::<ORobot<T, C, L>>::deserialize")]
     pub (crate) sub_robots: Vec<ORobot<T, C, L>>,
+    #[serde(deserialize_with = "ORobotParryShapeScene::<T, C, L>::deserialize")]
+    pub (crate) parry_shape_scene: ORobotParryShapeScene<T, C, L>,
+    has_been_preprocessed: bool,
     phantom_data: PhantomData<(T, C)>
 }
-impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T, C, L> {
-    pub fn from_urdf(chain_name: &str) -> Self {
-        let urdf_path = get_urdf_path_from_chain_name(chain_name);
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> ORobot<T, C, L> {
+    pub fn from_urdf(robot_name: &str) -> Self {
+        let urdf_path = get_urdf_path_from_chain_name(robot_name);
         let urdf = urdf_path.load_urdf();
 
         let mut links = vec![];
@@ -51,9 +62,9 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
             joints.push(OJoint::from_joint(x));
         });
 
-        Self::from_manual(chain_name, links, joints)
+        Self::from_manual(robot_name, links, joints)
     }
-    pub fn from_manual(chain_name: &str, links: Vec<OLink<T, C, L>>, joints: Vec<OJoint<T, C>>) -> Self {
+    pub fn from_manual(robot_name: &str, links: Vec<OLink<T, C, L>>, joints: Vec<OJoint<T, C>>) -> Self {
         let mut link_name_to_link_idx_map = HashMap::new();
         let mut joint_name_to_joint_idx_map = HashMap::new();
 
@@ -66,7 +77,8 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
         });
 
         let mut out = Self {
-            robot_name: chain_name.into(),
+            robot_name: robot_name.into(),
+            robot_type: RobotType::Robot,
             links,
             joints,
             link_name_to_link_idx_map,
@@ -75,7 +87,10 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
             kinematic_hierarchy: vec![],
             num_dofs: usize::default(),
             dof_to_joint_and_sub_dof_idxs: vec![],
+            non_collision_examples: vec![],
             sub_robots: vec![],
+            parry_shape_scene: ORobotParryShapeScene::new_default(),
+            has_been_preprocessed: false,
             phantom_data: Default::default(),
         };
 
@@ -83,7 +98,29 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
 
         out
     }
-    pub (crate) fn from_manual_no_mesh_setup(chain_name: &str, links: Vec<OLink<T, C, L>>, joints: Vec<OJoint<T, C>>) -> Self {
+    pub fn load_from_saved_robot(robot_name: &str) -> Self {
+        let mut p = OStemCellPath::new_asset_path();
+        p.append_file_location(&OAssetLocation::SavedRobot { robot_name });
+        p.load_object_from_json_file::<ORobot<T, C, L>>()
+    }
+    pub fn save_robot(&self, name: Option<&str>) {
+        if !self.has_been_preprocessed {
+            oprint("cannot save a non-preprocessed robot.  returning.", PrintMode::Println, PrintColor::Yellow);
+        }
+        let name = match name {
+            None => {
+                match &self.robot_type {
+                    RobotType::Robot => { self.robot_name.clone() }
+                    RobotType::RobotSet => { panic!("robot set must be provided a save name.") }
+                }
+            }
+            Some(name) => { name.to_string() }
+        };
+        let mut p = OStemCellPath::new_asset_path();
+        p.append_file_location(&OAssetLocation::SavedRobot { robot_name: &name });
+        p.save_object_to_file_as_json(self);
+    }
+    pub (crate) fn from_manual_internal(robot_name: &str, links: Vec<OLink<T, C, L>>, joints: Vec<OJoint<T, C>>, robot_type: RobotType) -> Self {
         let mut link_name_to_link_idx_map = HashMap::new();
         let mut joint_name_to_joint_idx_map = HashMap::new();
 
@@ -96,7 +133,8 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
         });
 
         let mut out = Self {
-            robot_name: chain_name.into(),
+            robot_name: robot_name.into(),
+            robot_type,
             links,
             joints,
             link_name_to_link_idx_map,
@@ -105,7 +143,10 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
             kinematic_hierarchy: vec![],
             num_dofs: usize::default(),
             dof_to_joint_and_sub_dof_idxs: vec![],
+            non_collision_examples: vec![],
             sub_robots: vec![],
+            parry_shape_scene: ORobotParryShapeScene::new_default(),
+            has_been_preprocessed: false,
             phantom_data: Default::default(),
         };
 
@@ -121,6 +162,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
     pub (crate) fn new_empty() -> Self {
         Self {
             robot_name: "".to_string(),
+            robot_type: RobotType::Robot,
             links: vec![],
             joints: vec![],
             link_name_to_link_idx_map: Default::default(),
@@ -129,7 +171,10 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
             kinematic_hierarchy: vec![],
             num_dofs: 0,
             dof_to_joint_and_sub_dof_idxs: vec![],
+            non_collision_examples: vec![],
             sub_robots: vec![],
+            parry_shape_scene: ORobotParryShapeScene::new_default(),
+            has_been_preprocessed: false,
             phantom_data: Default::default(),
         }
     }
@@ -139,6 +184,18 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
     }
     pub fn to_new_ad_type<T2: AD>(&self) -> ORobot<T2, C, L> {
         self.to_new_generic_types::<T2, C, L>()
+    }
+    #[inline(always)]
+    pub fn robot_name(&self) -> &str {
+        &self.robot_name
+    }
+    #[inline(always)]
+    pub fn robot_type(&self) -> &RobotType {
+        &self.robot_type
+    }
+    #[inline(always)]
+    pub fn sub_robots(&self) -> &Vec<ORobot<T, C, L>> {
+        &self.sub_robots
     }
     #[inline(always)]
     pub fn get_link_idx_from_link_name(&self, link_name: &str) -> usize {
@@ -286,6 +343,126 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
         };
         s
     }
+    /*
+    pub fn get_robot_parry_shape_scene(&self) -> ORobotParryShapeScene<T, C, L> {
+        let mut shapes = vec![];
+        let mut id_to_string = AHashMap::new();
+
+        self.links.iter().for_each(|link| {
+           if link.is_present_in_model {
+               if let Some(convex_hull_file_path) = &link.convex_hull_file_path {
+                   let convex_shape_trimesh = convex_hull_file_path.load_stl().to_trimesh();
+                   let mut convex_shape_subcomponents_trimesh = vec![];
+                   link.convex_decomposition_file_paths.iter().for_each(|x| {
+                       convex_shape_subcomponents_trimesh.push(x.load_stl().to_trimesh());
+                   });
+
+                   let shape = OParryShape::new_convex_shape_from_trimesh(convex_shape_trimesh, C::P::identity(), Some(convex_shape_subcomponents_trimesh));
+
+                   id_to_string.insert(shape.base_shape().base_shape().id(), format!("convex shape for link {} ({})", link.link_idx, link.name));
+                   id_to_string.insert(shape.base_shape().obb().id(), format!("obb for link {} ({})", link.link_idx, link.name));
+                   id_to_string.insert(shape.base_shape().bounding_sphere().id(), format!("bounding sphere for link {} ({})", link.link_idx, link.name));
+                   shape.convex_subcomponents().iter().enumerate().for_each(|(i, x)| {
+                       id_to_string.insert(x.base_shape().id(), format!("convex shape for link {} ({}) subcomponent {}", link.link_idx, link.name, i));
+                       id_to_string.insert(x.obb().id(), format!("obb for link {} ({}) subcomponent {}", link.link_idx, link.name, i));
+                       id_to_string.insert(x.bounding_sphere().id(), format!("bounding sphere for link {} ({}) subcomponent {}", link.link_idx, link.name, i));
+                   });
+
+                   shapes.push(shape);
+               }
+           }
+        });
+
+        ORobotParryShapeScene {
+            shapes,
+            pair_skips: Default::default(),
+            id_to_string,
+            phantom_data: Default::default(),
+        }
+    }
+    */
+    pub (crate) fn get_shape_poses<V: OVec<T>>(&self, state: &V) -> Cow<Vec<C::P<T>>> {
+        let fk_res = self.forward_kinematics(state, None);
+
+        let mut out = vec![];
+
+        fk_res.link_poses.iter().enumerate().for_each(|(i, x)| {
+            if let Some(pose) = x {
+                let link = &self.links()[i];
+                if link.is_present_in_model && link.convex_hull_file_path.is_some() {
+                    out.push(pose.clone());
+                }
+            }
+        });
+
+        Cow::Owned(out)
+    }
+    #[inline(always)]
+    pub fn parry_shape_scene(&self) -> &ORobotParryShapeScene<T, C, L> {
+        &self.parry_shape_scene
+    }
+    #[inline(always)]
+    pub fn get_dof_bounds(&self) -> Vec<(T, T)> {
+        let mut out = vec![];
+        /*
+        self.joints().iter().for_each(|joint| {
+           joint.limit().lower().iter().zip(joint.limit().upper().iter()).for_each(|(l, u)| {
+               out.push( (*l, *u) )
+            });
+        });
+        */
+        self.dof_to_joint_and_sub_dof_idxs().iter().for_each(|(joint_idx, sub_dof_idx)| {
+            let joint = &self.joints[*joint_idx];
+            let l = joint.limit.lower()[*sub_dof_idx];
+            let u = joint.limit.upper()[*sub_dof_idx];
+            out.push((l,u));
+        });
+
+        out
+    }
+    #[inline(always)]
+    pub fn get_dof_lower_bounds(&self) -> Vec<T> {
+        let mut out = vec![];
+        let dof_bounds = self.get_dof_bounds();
+        dof_bounds.iter().for_each(|x| out.push(x.0));
+        out
+    }
+    #[inline(always)]
+    pub fn get_dof_upper_bounds(&self) -> Vec<T> {
+        let mut out = vec![];
+        let dof_bounds = self.get_dof_bounds();
+        dof_bounds.iter().for_each(|x| out.push(x.1));
+        out
+    }
+    #[inline(always)]
+    pub fn sample_pseudorandom_state(&self) -> Vec<T> {
+        let bounds = self.get_dof_bounds();
+        SimpleSampler::uniform_samples(&bounds, None)
+    }
+    pub fn preprocess(&mut self, num_parry_shape_scene_samples: usize) {
+        self.preprocess_robot_parry_shape_scene(num_parry_shape_scene_samples);
+        self.has_been_preprocessed = true;
+    }
+    #[inline(always)]
+    pub fn has_been_preprocessed(&self) -> bool {
+        self.has_been_preprocessed
+    }
+    /*
+    pub (crate) fn get_parry_pair_skips(&self) -> AHashMap<(u64, u64), ()> {
+        let mut out = AHashMap::new();
+        return match &self.robot_type {
+            RobotType::Robot => {
+
+
+                out
+            }
+            RobotType::RobotSet => {
+
+                out
+            }
+        }
+    }
+    */
     fn setup(&mut self) {
         self.set_link_and_joint_idxs();
         self.assign_joint_connection_indices();
@@ -299,9 +476,10 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobot<T
         self.set_link_convex_hull_mesh_file_paths();
         self.set_link_convex_decomposition_mesh_file_paths();
         // self.set_link_convex_decomposition_levels_mesh_file_paths();
+        self.set_robot_parry_shape_scene();
     }
 }
-impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobot<T, C, L> {
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static> ORobot<T, C, L> {
     fn set_link_and_joint_idxs(&mut self) {
         self.links.iter_mut().enumerate().for_each(|(i, x)| {
             x.link_idx = i;
@@ -424,7 +602,7 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobot<T, C, L> {
 
                         let file_check = split.last().unwrap().to_owned();
                         let mut target_path = OStemCellPath::new_asset_path();
-                        target_path.append_file_location(&OAssetLocation::ChainOriginalMeshes { chain_name: &self.robot_name });
+                        target_path.append_file_location(&OAssetLocation::ChainOriginalMeshes { robot_name: &self.robot_name });
                         target_path.append(&file_check);
                         let exists = target_path.exists();
 
@@ -454,7 +632,7 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobot<T, C, L> {
                 let extension = original_mesh_file_path.extension().expect("must have extension");
                 let filename = original_mesh_file_path.filename_without_extension().expect("must have filename");
                 let mut target_path = OStemCellPath::new_asset_path();
-                target_path.append_file_location(&OAssetLocation::ChainSTLMeshes { chain_name: &self.robot_name });
+                target_path.append_file_location(&OAssetLocation::ChainSTLMeshes { robot_name: &self.robot_name });
                 target_path.append(&(filename.clone() + ".stl"));
                 let exists = target_path.exists();
 
@@ -480,7 +658,7 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobot<T, C, L> {
                 let filename = stl_mesh_file.filename().unwrap();
 
                 let mut target_path = OStemCellPath::new_asset_path();
-                target_path.append_file_location(&OAssetLocation::ChainConvexHulls { chain_name: &self.robot_name });
+                target_path.append_file_location(&OAssetLocation::ChainConvexHulls { robot_name: &self.robot_name });
                 target_path.append(&filename);
 
                 let exists = target_path.exists();
@@ -502,7 +680,7 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobot<T, C, L> {
                 let filename = stl_mesh_file.filename_without_extension().unwrap();
 
                 let mut target_path_stub = OStemCellPath::new_asset_path();
-                target_path_stub.append_file_location(&OAssetLocation::LinkConvexDecomposition { chain_name: &self.robot_name, link_mesh_name: &filename });
+                target_path_stub.append_file_location(&OAssetLocation::LinkConvexDecomposition { robot_name: &self.robot_name, link_mesh_name: &filename });
 
                 let exists = target_path_stub.exists();
 
@@ -532,7 +710,7 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobot<T, C, L> {
                     let filename = stl_mesh_file.filename_without_extension().unwrap();
 
                     let mut target_path_stub = OStemCellPath::new_asset_path();
-                    target_path_stub.append_file_location(&OAssetLocation::LinkConvexDecompositionLevel { chain_name: &self.robot_name, level, link_mesh_name: &filename });
+                    target_path_stub.append_file_location(&OAssetLocation::LinkConvexDecompositionLevel { robot_name: &self.robot_name, level, link_mesh_name: &filename });
 
                     let exists = target_path_stub.exists();
 
@@ -554,14 +732,33 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> ORobot<T, C, L> {
             });
         }
     }
+    fn set_robot_parry_shape_scene(&mut self) {
+        self.parry_shape_scene = ORobotParryShapeScene::new(self);
+    }
+    fn preprocess_robot_parry_shape_scene(&mut self, num_samples: usize) {
+        let mut parry_shape_scene = ORobotParryShapeScene::new(self);
+
+        match &self.robot_type {
+            RobotType::Robot => {
+                parry_shape_scene.add_subcomponent_pair_skips();
+                parry_shape_scene.add_non_collision_states_pair_skips::<Vec<T>>(self, &vec![]);
+                parry_shape_scene.add_state_sampler_always_and_never_collision_pair_skips(self, num_samples);
+            }
+            RobotType::RobotSet => {
+                println!("cannot set robot parry shape scene on RobotSet.")
+            }
+        }
+
+        self.parry_shape_scene = parry_shape_scene;
+    }
 }
-impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> AsRobotTrait<T, C, L> for ORobot<T, C, L> {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> AsRobotTrait<T, C, L> for ORobot<T, C, L> {
     #[inline(always)]
     fn as_robot(&self) -> &ORobot<T, C, L> {
         self
     }
 }
-impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> Debug for ORobot<T, C, L> {
+impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static> Debug for ORobot<T, C, L> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut s = "".to_string();
 
@@ -588,6 +785,13 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait> Debug for ORobot<T
         Ok(())
     }
 }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum RobotType {
+    Robot,
+    RobotSet
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FKResult<T: AD, P: O3DPose<T>> {
     #[serde(deserialize_with = "Vec::<Option::<P>>::deserialize")]

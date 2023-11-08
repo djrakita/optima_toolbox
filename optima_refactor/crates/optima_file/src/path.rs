@@ -238,7 +238,17 @@ impl OStemCellPath {
                 Err(s) => { error_strings.push(s) }
             }
         }
-        panic!("No valid optima_path in function {:?} with error strings {:?}", function_name, error_strings);
+        panic!("No valid optima_path {:?} in function {:?} with error strings {:?}", self, function_name, error_strings);
+    }
+    pub fn try_function_on_all_optima_file_paths_return_option<T>(&self, f: fn(&OPath) -> Result<T, String>) -> Option<T> {
+        for p in &self.optima_file_paths {
+            let res = f(p);
+            match res {
+                Ok(a) => { return Some(a) }
+                Err(_) => {  }
+            }
+        }
+        None
     }
     pub fn try_function_on_all_optima_file_paths_with_one_param<T, P>(&self, f: fn(&OPath, &P) -> Result<T, String>, param: &P, function_name: &str) -> T {
         let mut error_strings = vec![];
@@ -295,7 +305,7 @@ impl Serialize for OStemCellPath {
     where
         S: Serializer,
     {
-        let paths_as_strings: Vec<String> = self.split_path_into_string_components();
+        let paths_as_strings: Vec<String> = self.split_path_into_string_components_back_to_assets_dir();
         paths_as_strings.serialize(serializer)
     }
 }
@@ -1131,15 +1141,17 @@ pub enum OAssetLocation<'a> {
     SceneMeshFileConvexShape { name: String },
     SceneMeshFileConvexShapeSubcomponents { name: String },
     FileIO,
-    Chains,
-    Chain { chain_name: &'a str },
-    ChainOriginalMeshes { chain_name: &'a str },
-    ChainSTLMeshes { chain_name: &'a str },
-    ChainConvexHulls { chain_name: &'a str },
-    ChainConvexDecomposition { chain_name: &'a str },
-    LinkConvexDecomposition { chain_name: &'a str, link_mesh_name: &'a str },
-    ChainConvexDecompositionLevel { chain_name: &'a str, level: usize },
-    LinkConvexDecompositionLevel { chain_name: &'a str, level: usize, link_mesh_name: &'a str }
+    UrdfRobots,
+    UrdfRobot { robot_name: &'a str },
+    ChainOriginalMeshes { robot_name: &'a str },
+    ChainSTLMeshes { robot_name: &'a str },
+    ChainConvexHulls { robot_name: &'a str },
+    ChainConvexDecomposition { robot_name: &'a str },
+    LinkConvexDecomposition { robot_name: &'a str, link_mesh_name: &'a str },
+    ChainConvexDecompositionLevel { robot_name: &'a str, level: usize },
+    LinkConvexDecompositionLevel { robot_name: &'a str, level: usize, link_mesh_name: &'a str },
+    SavedRobots,
+    SavedRobot { robot_name: &'a str }
 }
 impl<'a> OAssetLocation<'a> {
     pub fn get_path_wrt_asset_folder(&self) -> Vec<String> {
@@ -1236,48 +1248,56 @@ impl<'a> OAssetLocation<'a> {
             OAssetLocation::FileIO => {
                 vec!["fileIO".to_string()]
             }
-            OAssetLocation::Chains => {
-                vec!["chains".to_string()]
+            OAssetLocation::UrdfRobots => {
+                vec!["urdf_robots".to_string()]
             }
-            OAssetLocation::Chain { chain_name } => {
-                let mut v = Self::Chains.get_path_wrt_asset_folder();
-                v.push(chain_name.to_string());
+            OAssetLocation::UrdfRobot { robot_name } => {
+                let mut v = Self::UrdfRobots.get_path_wrt_asset_folder();
+                v.push(robot_name.to_string());
                 v
             }
-            OAssetLocation::ChainOriginalMeshes { chain_name } => {
-                let mut v = Self::Chain { chain_name }.get_path_wrt_asset_folder();
+            OAssetLocation::ChainOriginalMeshes { robot_name } => {
+                let mut v = Self::UrdfRobot { robot_name: robot_name }.get_path_wrt_asset_folder();
                 v.push("original_meshes".to_string());
                 v
             }
-            OAssetLocation::ChainSTLMeshes { chain_name } => {
-                let mut v = Self::Chain { chain_name }.get_path_wrt_asset_folder();
+            OAssetLocation::ChainSTLMeshes { robot_name } => {
+                let mut v = Self::UrdfRobot { robot_name: robot_name }.get_path_wrt_asset_folder();
                 v.push("stl_meshes".to_string());
                 v
             }
-            OAssetLocation::ChainConvexHulls { chain_name } => {
-                let mut v = Self::Chain { chain_name }.get_path_wrt_asset_folder();
+            OAssetLocation::ChainConvexHulls { robot_name } => {
+                let mut v = Self::UrdfRobot { robot_name: robot_name }.get_path_wrt_asset_folder();
                 v.push("convex_hulls".to_string());
                 v
             }
-            OAssetLocation::ChainConvexDecomposition { chain_name } => {
-                let mut v = Self::Chain { chain_name }.get_path_wrt_asset_folder();
+            OAssetLocation::ChainConvexDecomposition { robot_name } => {
+                let mut v = Self::UrdfRobot { robot_name: robot_name }.get_path_wrt_asset_folder();
                 v.push("convex_decomposition".to_string());
                 v
             }
-            OAssetLocation::LinkConvexDecomposition { chain_name, link_mesh_name } => {
-                let mut v = Self::ChainConvexDecomposition { chain_name }.get_path_wrt_asset_folder();
+            OAssetLocation::LinkConvexDecomposition { robot_name, link_mesh_name } => {
+                let mut v = Self::ChainConvexDecomposition { robot_name }.get_path_wrt_asset_folder();
                 v.push(link_mesh_name.to_string());
                 v
             }
-            OAssetLocation::ChainConvexDecompositionLevel { chain_name, level } => {
-                let mut v = Self::Chain { chain_name }.get_path_wrt_asset_folder();
+            OAssetLocation::ChainConvexDecompositionLevel { robot_name, level } => {
+                let mut v = Self::UrdfRobot { robot_name: robot_name }.get_path_wrt_asset_folder();
                 v.push("convex_decomposition_levels".to_string());
                 v.push(format!("level_{}", level));
                 v
             }
-            OAssetLocation::LinkConvexDecompositionLevel { chain_name, level, link_mesh_name } => {
-                let mut v = Self::ChainConvexDecompositionLevel { chain_name, level: *level }.get_path_wrt_asset_folder();
+            OAssetLocation::LinkConvexDecompositionLevel { robot_name, level, link_mesh_name } => {
+                let mut v = Self::ChainConvexDecompositionLevel { robot_name, level: *level }.get_path_wrt_asset_folder();
                 v.push(link_mesh_name.to_string());
+                v
+            }
+            OAssetLocation::SavedRobots => {
+                vec!["saved_robots".to_string()]
+            }
+            OAssetLocation::SavedRobot { robot_name } => {
+                let mut v = Self::SavedRobots.get_path_wrt_asset_folder();
+                v.push(robot_name.to_string());
                 v
             }
         }
