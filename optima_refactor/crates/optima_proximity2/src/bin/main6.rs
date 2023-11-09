@@ -6,10 +6,10 @@ use optima_proximity2::pair_queries::{ParryShapeRep};
 use optima_proximity2::shapes::OParryShape;
 
 fn main() {
-    let s1 = OParryShape::new(Ball::new(1.0), Isometry3::identity());
-    let s2 = OParryShape::new(Ball::new(1.0), Isometry3::identity());
-    let s3 = OParryShape::new(Ball::new(1.0), Isometry3::identity());
-    let s4 = OParryShape::new(Ball::new(1.0), Isometry3::identity());
+    let s1 = OParryShape::new_with_path_option(Ball::new(1.0), Isometry3::identity());
+    let s2 = OParryShape::new_with_path_option(Ball::new(1.0), Isometry3::identity());
+    let s3 = OParryShape::new_with_path_option(Ball::new(1.0), Isometry3::identity());
+    let s4 = OParryShape::new_with_path_option(Ball::new(1.0), Isometry3::identity());
 
     let s = vec![s1, s2, s3, s4];
 

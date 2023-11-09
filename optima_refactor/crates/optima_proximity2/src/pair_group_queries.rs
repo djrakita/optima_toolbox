@@ -63,6 +63,8 @@ impl PairSkipsTrait for AHashMapWrapper<(u64, u64), ()> {
 pub enum ParryPairSelector {
     AllPairs,
     HalfPairs,
+    AllPairsSubcomponents,
+    HalfPairsSubcomponents,
     PairsByIdxs(Vec<ParryPairIdxs>)
     // PairSubcomponentsByIdxs(Vec<((usize, usize), (usize, usize))>)
 }
@@ -85,7 +87,7 @@ impl<O> ParryPairGroupOutputWrapper<O> {
         self.pair_ids
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ParryPairIdxs {
     Shapes(usize, usize),
     ShapeSubcomponents((usize, usize), (usize, usize))
@@ -630,6 +632,12 @@ impl<T: AD, P: O3DPose<T>> OPairGroupFilterTrait<T, P> for ParryToSubcomponentsF
                     }
                 }
             }
+            ParryPairSelector::AllPairsSubcomponents => {
+                return self.pair_group_filter(shape_group_a, shape_group_b, _poses_a, _poses_b, &ParryPairSelector::AllPairs, _pair_skips);
+            }
+            ParryPairSelector::HalfPairsSubcomponents => {
+                return self.pair_group_filter(shape_group_a, shape_group_b, _poses_a, _poses_b, &ParryPairSelector::HalfPairs, _pair_skips);
+            }
         }
         
         let selector = ParryPairSelector::PairsByIdxs(subcomponent_idxs);
@@ -698,6 +706,31 @@ impl AsParryFilterOutputTrait for ParryFilterOutput {
     fn as_parry_filter_output(&self) -> &ParryFilterOutput {
         self
     }
+}
+
+pub fn get_all_parry_pairs_idxs<T: AD, P: O3DPose<T>>(shape_group_a: &Vec<OParryShape<T, P>>, shape_group_b: &Vec<OParryShape<T, P>>, half_pairs: bool, subcomponents: bool) -> Vec<ParryPairIdxs> {
+    let mut out = vec![];
+
+    for i in 0..shape_group_a.len() {
+        'l: for j in 0..shape_group_b.len() {
+            if half_pairs { if i >= j { continue 'l; } }
+            if subcomponents {
+                let shape_a = &shape_group_a[i];
+                let shape_b = &shape_group_b[j];
+                let num_subcomponents_a = shape_a.convex_subcomponents.len();
+                let num_subcomponents_b = shape_b.convex_subcomponents.len();
+                for k in 0..num_subcomponents_a {
+                    for l in 0..num_subcomponents_b {
+                        out.push(ParryPairIdxs::ShapeSubcomponents((i,k), (j,l)));
+                    }
+                }
+            } else {
+                out.push(ParryPairIdxs::Shapes(i,j));
+            }
+        }
+    }
+
+    out
 }
 
 #[inline]
@@ -795,32 +828,50 @@ fn parry_generic_pair_group_query<T: AD, P: O3DPose<T>, S: PairSkipsTrait, O: As
                 }
             }
         }
-        /*
-        ParryPairSelector::PairSubcomponentsByIdxs(idx_pairs) => {
-            'l: for idx_pair in idx_pairs {
-                let idxs0 = idx_pair.0;
-                let idxs1 = idx_pair.1;
-                let shape_a_idx = idxs0.0;
-                let shape_a_subcomponent_idx = idxs0.1;
-                let shape_b_idx = idxs1.0;
-                let shape_b_subcomponent_idx = idxs1.1;
+        ParryPairSelector::AllPairsSubcomponents => {
+            'l: for (i, (shape_a, pose_a)) in shape_group_a.iter().zip(poses_a.iter()).enumerate() {
+                for (j, (shape_b, pose_b)) in shape_group_b.iter().zip(poses_b.iter()).enumerate() {
+                    let num_subcomponents_a = shape_a.convex_subcomponents.len();
+                    let num_subcomponents_b = shape_b.convex_subcomponents.len();
 
-                let shape_a = &shape_group_a[shape_a_idx];
-                let shape_b = &shape_group_a[shape_b_idx];
-                let pose_a = &poses_a[shape_a_idx];
-                let pose_b = &poses_b[shape_b_idx];
-
-                if pair_skips.skip(shape_a.id, shape_b.id) { continue 'l; }
-
-                count += 1;
-                let o = f(shape_a, shape_b, pose_a, pose_b, &ParryQryShapeType::ConvexSubcomponentsWithIdxs { shape_a_subcomponent_idx, shape_b_subcomponent_idx }, parry_shape_rep);
-                let terminate = termination(&o);
-                out_vec.push(ParryPairGroupOutputWrapper { data: o, pair_idxs: ParryPairIdxs::ShapeSubcomponents((shape_a_idx, shape_a_subcomponent_idx), (shape_b_idx, shape_b_subcomponent_idx) ) });
-                if terminate { break 'l; }
+                    for k in 0..num_subcomponents_a {
+                        let id_a = shape_a.convex_subcomponents.get(k).unwrap().id_from_shape_rep(parry_shape_rep);
+                        'l2: for l in 0..num_subcomponents_b {
+                            let id_b = shape_b.convex_subcomponents.get(l).unwrap().id_from_shape_rep(parry_shape_rep);
+                            if pair_skips.skip(id_a, id_b) { continue 'l2; }
+                            count += 1;
+                            let o = f(shape_a, shape_b, pose_a, pose_b, &ParryQryShapeType::ConvexSubcomponentsWithIdxs { shape_a_subcomponent_idx: k, shape_b_subcomponent_idx: l }, parry_shape_rep);
+                            let terminate = termination(&o);
+                            out_vec.push(ParryPairGroupOutputWrapper { data: o, pair_ids: (id_a, id_b), pair_idxs: ParryPairIdxs::Shapes(i, j) });
+                            if terminate { break 'l; }
+                        }
+                    }
+                }
             }
-
         }
-        */
+        ParryPairSelector::HalfPairsSubcomponents => {
+            'l: for (i, (shape_a, pose_a)) in shape_group_a.iter().zip(poses_a.iter()).enumerate() {
+                for (j, (shape_b, pose_b)) in shape_group_b.iter().zip(poses_b.iter()).enumerate() {
+                    if i < j {
+                        let num_subcomponents_a = shape_a.convex_subcomponents.len();
+                        let num_subcomponents_b = shape_b.convex_subcomponents.len();
+
+                        for k in 0..num_subcomponents_a {
+                            let id_a = shape_a.convex_subcomponents.get(k).unwrap().id_from_shape_rep(parry_shape_rep);
+                            'l2: for l in 0..num_subcomponents_b {
+                                let id_b = shape_b.convex_subcomponents.get(l).unwrap().id_from_shape_rep(parry_shape_rep);
+                                if pair_skips.skip(id_a, id_b) { continue 'l2; }
+                                count += 1;
+                                let o = f(shape_a, shape_b, pose_a, pose_b, &ParryQryShapeType::ConvexSubcomponentsWithIdxs { shape_a_subcomponent_idx: k, shape_b_subcomponent_idx: l }, parry_shape_rep);
+                                let terminate = termination(&o);
+                                out_vec.push(ParryPairGroupOutputWrapper { data: o, pair_ids: (id_a, id_b), pair_idxs: ParryPairIdxs::Shapes(i, j) });
+                                if terminate { break 'l; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     (out_vec, count)

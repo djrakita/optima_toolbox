@@ -56,6 +56,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobotSe
         self.to_new_generic_types::<T2, C, L>()
     }
     pub fn add_robot(&mut self, mut robot: ORobot<T, C, L>, parent_robot_idx: usize, parent_link_idx_in_parent_robot: usize, origin: &C::P<T>, axis: [T; 3], joint_type: OJointType, limit: OJointLimit<T>) {
+        assert!(robot.has_been_preprocessed(), "robots must be preprocessed before they are included in a robot set");
         assert!(parent_robot_idx <= self.robot_wrappers.len());
         assert!(parent_link_idx_in_parent_robot <= self.robot_wrappers[parent_robot_idx].robot.joints().len());
         assert!(limit.upper().len() >= joint_type.num_dofs());

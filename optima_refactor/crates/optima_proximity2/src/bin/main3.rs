@@ -6,8 +6,8 @@ use optima_proximity2::shape_queries::{OShpQryContactTrait, OShpQryIntersectTrai
 use optima_proximity2::shapes::{OParryShape, ParryShapeRep, ParryQryShapeType, ParryDistanceOutput, ParryDisMode, OParryBoundingSphere};
 
 fn main() {
-    let s1 = OParryShape::new(Cuboid::new(Vector3::new(1., 1., 1.)), Isometry3::identity());
-    let s2 = OParryShape::new(Ball::new(2.0), Isometry3::identity());
+    let s1 = OParryShape::new_with_path_option(Cuboid::new(Vector3::new(1., 1., 1.)), Isometry3::identity());
+    let s2 = OParryShape::new_with_path_option(Ball::new(2.0), Isometry3::identity());
 
     let p1 = Isometry3::from_constructors(&[0.0; 3], &[0.0; 3]);
     let p2 = Isometry3::from_constructors(&[0.0; 3], &[0.0; 3]);

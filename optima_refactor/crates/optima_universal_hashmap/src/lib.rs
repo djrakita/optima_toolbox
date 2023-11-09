@@ -3,11 +3,13 @@ use std::fmt::Formatter;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 use std::sync::{OnceLock};
+use ad_trait::{AD};
 use ahash::{AHashMap};
 use fnv::FnvHasher;
 use serde::de::{DeserializeOwned, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::ser::SerializeSeq;
+use serde_with::{DeserializeAs, SerializeAs};
 use optima_file::traits::ToJsonString;
 use optima_file::traits::FromJsonString;
 
@@ -40,6 +42,21 @@ impl<'de, K : Serialize + DeserializeOwned + Hash + Eq, V: Serialize + Deseriali
     }
 }
 
+impl<K : Serialize + DeserializeOwned + Hash + Eq, T: AD> SerializeAs<AHashMapWrapper<K, T>> for AHashMapWrapper<K, T> {
+    fn serialize_as<S>(source: &AHashMapWrapper<K, T>, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let mut s = serializer.serialize_seq(None).expect("error");
+        source.hashmap.iter().for_each(|x| {
+            s.serialize_element(&(x.0.to_json_string(), x.1.to_constant())).expect("error");
+        });
+        s.end()
+    }
+}
+impl<'de, K : Serialize + DeserializeOwned + Hash + Eq, T: AD> DeserializeAs<'de, AHashMapWrapper<K, T>> for AHashMapWrapper<K, T> {
+    fn deserialize_as<D>(deserializer: D) -> Result<AHashMapWrapper<K, T>, D::Error> where D: Deserializer<'de> {
+        deserializer.deserialize_seq(AHashMapWrapperVisitorAD { 0: Default::default() })
+    }
+}
+
 pub struct AHashMapWrapperVisitor<K : Serialize + DeserializeOwned + Hash + Eq, V: Serialize + DeserializeOwned>(PhantomData<(K, V)>);
 impl<'de, K : Serialize + DeserializeOwned + Hash + Eq, V: Serialize + DeserializeOwned> Visitor<'de> for AHashMapWrapperVisitor<K, V> {
     type Value = AHashMapWrapper<K, V>;
@@ -61,6 +78,36 @@ impl<'de, K : Serialize + DeserializeOwned + Hash + Eq, V: Serialize + Deseriali
 
                     let k = K::from_json_string(&k_str);
                     let v = V::from_json_string(&v_str);
+                    out.hashmap.insert(k, v);
+                }
+            }
+        }
+
+        Ok(out)
+    }
+}
+
+pub struct AHashMapWrapperVisitorAD<K : Serialize + DeserializeOwned + Hash + Eq, T: AD>(PhantomData<(K, T)>);
+impl<'de, K : Serialize + DeserializeOwned + Hash + Eq, T: AD> Visitor<'de> for AHashMapWrapperVisitorAD<K, T> {
+    type Value = AHashMapWrapper<K, T>;
+
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+        formatter.write_str("a sequence of serializable and deserializable data")
+    }
+
+    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error> where A: SeqAccess<'de> {
+        let mut out = AHashMapWrapper { hashmap: AHashMap::new() };
+
+        'l: loop {
+            let element: Option<(String, f64)> = seq.next_element().expect("error");
+            match element {
+                None => { break 'l; }
+                Some(el) => {
+                    let k_str = el.0;
+                    let f = el.1;
+
+                    let k = K::from_json_string(&k_str);
+                    let v = T::constant(f);
                     out.hashmap.insert(k, v);
                 }
             }

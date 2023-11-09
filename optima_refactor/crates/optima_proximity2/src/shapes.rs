@@ -131,7 +131,10 @@ pub struct OParryShape<T: AD, P: O3DPose<T>> {
     pub (crate) convex_subcomponents: Vec<OParryShpGenericHierarchy<T, P>>
 }
 impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
-    pub fn new<S: Shape<T>>(shape: S, offset: P, path: Option<OStemCellPath>) -> Self {
+    pub fn new<S: Shape<T>>(shape: S, offset: P) -> Self {
+        Self::new_with_path_option(shape, offset, None)
+    }
+    pub fn new_with_path_option<S: Shape<T>>(shape: S, offset: P, path: Option<OStemCellPath>) -> Self {
         let is_convex = shape.is_convex();
 
         let base_shape = OParryShpGenericHierarchy::new(shape, offset, path);
@@ -160,7 +163,7 @@ impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
 
         match &convex_subcomponents_paths {
             None => {
-                Self::new(convex_polyhedron, offset, Some(trimesh_path.clone()))
+                Self::new_with_path_option(convex_polyhedron, offset, Some(trimesh_path.clone()))
             }
             Some(convex_subcomponents) => {
                 // let convex_polyhedron = ConvexPolyhedron::from_convex_hull(&trimesh.to_convex_hull().points_to_point3s()).expect("error");
@@ -189,7 +192,7 @@ impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
 
         match &convex_subcomponents {
             None => {
-                Self::new(t, offset, None)
+                Self::new_with_path_option(t, offset, None)
             }
             Some(convex_subcomponents) => {
                 let convex_polyhedron = ConvexPolyhedron::from_convex_hull(&trimesh.to_convex_hull().points_to_point3s()).expect("error");

@@ -439,9 +439,16 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
         let bounds = self.get_dof_bounds();
         SimpleSampler::uniform_samples(&bounds, None)
     }
-    pub fn preprocess(&mut self, num_parry_shape_scene_samples: usize) {
-        self.preprocess_robot_parry_shape_scene(num_parry_shape_scene_samples);
+    pub fn preprocess(&mut self, save: SaveRobot, always_and_never_collision_stasis_point_cutoff: Option<usize>, shape_average_dis_num_samples: Option<usize>) {
+        self.preprocess_robot_parry_shape_scene(always_and_never_collision_stasis_point_cutoff, shape_average_dis_num_samples);
         self.has_been_preprocessed = true;
+
+        match save {
+            SaveRobot::Save(name) => {
+                self.save_robot(name);
+            }
+            SaveRobot::DoNotSave => {  }
+        }
     }
     #[inline(always)]
     pub fn has_been_preprocessed(&self) -> bool {
@@ -735,19 +742,21 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static> ORobot<T
     fn set_robot_parry_shape_scene(&mut self) {
         self.parry_shape_scene = ORobotParryShapeScene::new(self);
     }
-    fn preprocess_robot_parry_shape_scene(&mut self, num_samples: usize) {
+    fn preprocess_robot_parry_shape_scene(&mut self, always_and_never_collision_stasis_point_cutoff: Option<usize>, shape_average_dis_num_samples: Option<usize>) {
         let mut parry_shape_scene = ORobotParryShapeScene::new(self);
 
-        match &self.robot_type {
-            RobotType::Robot => {
-                parry_shape_scene.add_subcomponent_pair_skips();
-                parry_shape_scene.add_non_collision_states_pair_skips::<Vec<T>>(self, &vec![]);
-                parry_shape_scene.add_state_sampler_always_and_never_collision_pair_skips(self, num_samples);
-            }
-            RobotType::RobotSet => {
-                println!("cannot set robot parry shape scene on RobotSet.")
-            }
-        }
+        parry_shape_scene.add_subcomponent_pair_skips();
+        parry_shape_scene.add_non_collision_states_pair_skips::<Vec<T>>(self, &vec![]);
+        let stasis_point_cutoff = match always_and_never_collision_stasis_point_cutoff {
+            None => { 15_000 }
+            Some(c) => { c }
+        };
+        parry_shape_scene.add_state_sampler_always_and_never_collision_pair_skips(self, stasis_point_cutoff);
+        let num_samples = match shape_average_dis_num_samples {
+            None => { 1000 }
+            Some(s) => { s }
+        };
+        parry_shape_scene.compute_shape_average_distances(self, num_samples);
 
         self.parry_shape_scene = parry_shape_scene;
     }
@@ -785,13 +794,11 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static> Debug fo
         Ok(())
     }
 }
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum RobotType {
     Robot,
     RobotSet
 }
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct FKResult<T: AD, P: O3DPose<T>> {
     #[serde(deserialize_with = "Vec::<Option::<P>>::deserialize")]
@@ -807,5 +814,11 @@ impl<T: AD, P: O3DPose<T>> FKResult<T, P> {
     pub fn get_link_pose(&self, link_idx: usize) -> &Option<P> {
         &self.link_poses[link_idx]
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum SaveRobot<'a> {
+    Save(Option<&'a str>),
+    DoNotSave
 }
 

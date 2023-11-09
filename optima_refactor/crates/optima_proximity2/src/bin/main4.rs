@@ -9,7 +9,7 @@ use ahash::{AHashMap, HashMapExt};
 fn main() {
     let mut v: Vec<Box<dyn AsAny>> = vec![];
 
-    let s = OParryShape::new(Ball::new(1.0), Isometry3::identity());
+    let s = OParryShape::new_with_path_option(Ball::new(1.0), Isometry3::identity());
     v.push(Box::new(s));
 
     let res = v[0].as_ref().downcast_ref::<OParryShape<f64, Isometry3<f64>>>();

@@ -1,19 +1,20 @@
-use optima_proximity2::pair_group_queries::{OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryPairSelector};
-use optima_proximity2::pair_queries::{ParryDisMode, ParryShapeRep};
-use optima_proximity2::shape_scene::ShapeSceneTrait;
-use optima_robotics::robot::ORobotDefault;
+use nalgebra::Isometry3;
+use optima_robotics::robot::{ORobotDefault, SaveRobot};
+use optima_robotics::robot_set::ORobotSetDefault;
+use optima_robotics::robotics_components::{OJointLimit, OJointType};
+use optima_robotics::robotics_traits::AsRobotTrait;
 
 fn main() {
-    // let mut r = ORobotDefault::from_urdf("ur5");
-    // r.preprocess(100);
-    // r.save_robot(None);
+    // let mut r = ORobotDefault::from_urdf("b1");
+    // r.preprocess(SaveRobot::Save(None), None, None);
 
-    let r = ORobotDefault::load_from_saved_robot("ur5");
+    let r1 = ORobotDefault::load_from_saved_robot("b1");
+    let r2 = ORobotDefault::load_from_saved_robot("b1");
 
-    let s = r.parry_shape_scene().get_shapes();
-    let p = r.parry_shape_scene().get_poses(&(&r, &[0.0, 0.0, 2.87, 0.0, 0.0, 0.0]));
-    let skips = r.parry_shape_scene().get_pair_skips();
+    let mut r = ORobotSetDefault::new_empty();
+    r.add_robot(r1, 0, 0, &Isometry3::identity(), [0.0; 3], OJointType::Fixed, OJointLimit::default());
+    r.add_robot(r2, 0, 0, &Isometry3::identity(), [0.0; 3], OJointType::Fixed, OJointLimit::default());
 
-    let res = ParryDistanceGroupQry::query(&s, &s, &p, &p, &ParryPairSelector::HalfPairs, skips, &ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, -1000000.0));
-    println!("{:?}", res.min_dis());
+    let mut rr = r.as_robot().to_owned();
+    rr.preprocess(SaveRobot::DoNotSave, Some(1000), None);
 }
