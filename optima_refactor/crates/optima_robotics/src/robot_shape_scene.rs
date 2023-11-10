@@ -86,7 +86,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             let poses = self.get_poses(&(robot, non_collision_state));
             let poses = poses.as_ref();
             let shapes = self.get_shapes();
-            let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &(), &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
+            let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &self.pair_skips, &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
             out.outputs().iter().for_each(|x| {
                if x.data().intersect() {
                    let idxs = x.pair_idxs();
@@ -109,7 +109,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
 
             let filter = ParryToSubcomponentsFilter;
             let f = filter.pair_group_filter(shapes, shapes, poses, poses, &ParryPairSelector::HalfPairs, &());
-            let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, f.selector(), &(), &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
+            let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, f.selector(), &self.pair_skips, &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
             out.outputs().iter().for_each(|x| {
                 if x.data().intersect() {
                     let idxs = x.pair_idxs();
@@ -309,10 +309,10 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             let mut change = false;
             let state = robot.sample_pseudorandom_state();
             let p = self.get_poses(&(robot, &state));
-            let npi_res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::PairsByIdxs(npi.clone()), &(), &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
-            let api_res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::PairsByIdxs(api.clone()), &(), &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
-            let npsi_res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::PairsByIdxs(npsi.clone()), &(), &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
-            let apsi_res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::PairsByIdxs(apsi.clone()), &(), &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
+            let npi_res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::PairsByIdxs(npi.clone()), &self.pair_skips, &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
+            let api_res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::PairsByIdxs(api.clone()), &self.pair_skips, &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
+            let npsi_res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::PairsByIdxs(npsi.clone()), &self.pair_skips, &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
+            let apsi_res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::PairsByIdxs(apsi.clone()), &self.pair_skips, &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
 
             npi_res.outputs().iter().for_each(|x| {
                if x.data().intersect() { change = true; let idxs = x.pair_idxs(); npi = npi.iter().filter(|y| **y != *idxs ).map(|y| y.clone()).collect(); }

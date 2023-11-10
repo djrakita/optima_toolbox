@@ -244,6 +244,7 @@ impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P, OParryShape<T, P>> for OP
 
         return match &args.0 {
             ParryQryShapeType::Standard => { self.base_shape().intersect(other.base_shape(), pose_a, pose_b, &args.1)  }
+            /*
             ParryQryShapeType::AllConvexSubcomponents => {
                 let start = Instant::now();
                 let mut count = 0;
@@ -263,6 +264,7 @@ impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P, OParryShape<T, P>> for OP
                     aux_data: ParryOutputAuxData { num_queries: count, duration: start.elapsed()}
                 }
             }
+            */
             ParryQryShapeType::ConvexSubcomponentsWithIdxs { shape_a_subcomponent_idx, shape_b_subcomponent_idx } => {
                 let shape_a = self.convex_subcomponents.get(*shape_a_subcomponent_idx).expect(&format!("idx error: idx {}, {:?}", shape_a_subcomponent_idx, self.convex_subcomponents.len()));
                 let shape_b = other.convex_subcomponents.get(*shape_b_subcomponent_idx).expect(&format!("idx error: idx {}, len {:?}", shape_b_subcomponent_idx, self.convex_subcomponents.len()));
@@ -279,6 +281,7 @@ impl<T: AD, P: O3DPose<T>> OShpQryDistanceTrait<T, P, OParryShape<T, P>> for OPa
     fn distance(&self, other: &OParryShape<T, P>, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         match &args.1 {
             ParryQryShapeType::Standard => { self.base_shape().distance(other.base_shape(), pose_a, pose_b, &(args.0.clone(), args.2.clone()))  }
+            /*
             ParryQryShapeType::AllConvexSubcomponents => {
                 let start = Instant::now();
                 let mut count = 0;
@@ -295,9 +298,10 @@ impl<T: AD, P: O3DPose<T>> OShpQryDistanceTrait<T, P, OParryShape<T, P>> for OPa
                     aux_data: ParryOutputAuxData { num_queries: count, duration: start.elapsed() }
                 }
             }
+            */
             ParryQryShapeType::ConvexSubcomponentsWithIdxs { shape_a_subcomponent_idx, shape_b_subcomponent_idx } => {
                 let shape_a = self.convex_subcomponents.get(*shape_a_subcomponent_idx).expect("idx error");
-                let shape_b = self.convex_subcomponents.get(*shape_b_subcomponent_idx).expect("idx error");
+                let shape_b = other.convex_subcomponents.get(*shape_b_subcomponent_idx).expect("idx error");
 
                 shape_a.distance(shape_b, pose_a, pose_b, &(args.0.clone(), args.2.clone()))
             }
@@ -313,6 +317,7 @@ impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P, OParryShape<T, P>> for OPar
             ParryQryShapeType::Standard => {
                 self.base_shape().contact(other.base_shape(), pose_a, pose_b, &(args.0.clone(), args.2.clone()))
             }
+            /*
             ParryQryShapeType::AllConvexSubcomponents => {
                 let start = Instant::now();
                 let mut count = 0;
@@ -331,9 +336,10 @@ impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P, OParryShape<T, P>> for OPar
                     aux_data: ParryOutputAuxData { num_queries: count, duration: start.elapsed() },
                 }
             }
+            */
             ParryQryShapeType::ConvexSubcomponentsWithIdxs { shape_a_subcomponent_idx, shape_b_subcomponent_idx } => {
                 let shape_a = self.convex_subcomponents.get(*shape_a_subcomponent_idx).expect("idx error");
-                let shape_b = self.convex_subcomponents.get(*shape_b_subcomponent_idx).expect("idx error");
+                let shape_b = other.convex_subcomponents.get(*shape_b_subcomponent_idx).expect("idx error");
 
                 shape_a.contact(shape_b, pose_a, pose_b, &(args.0.clone(), args.2.clone()))
             }

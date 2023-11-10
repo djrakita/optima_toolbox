@@ -12,7 +12,7 @@ use optima_console::output::{oprint, PrintColor, PrintMode};
 use optima_console::tab;
 use optima_file::path::{OAssetLocation, OPath, OPathMatchingPattern, OPathMatchingStopCondition, OStemCellPath};
 use optima_file::traits::{FromJsonString, ToJsonString};
-use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategoryTrait, OVec};
+use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategoryTrait, OVec, OVecCategoryVec};
 use crate::robotics_components::*;
 use crate::robotics_functions::compute_chain_info;
 use crate::robotics_traits::{AsRobotTrait, JointTrait};
@@ -38,7 +38,7 @@ pub struct ORobot<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTr
     num_dofs: usize,
     dof_to_joint_and_sub_dof_idxs: Vec<(usize, usize)>,
     #[serde_as(as = "Vec<Vec<SerdeAD<T>>>")]
-    non_collision_examples: Vec<Vec<T>>,
+    non_collision_states: Vec<Vec<T>>,
     #[serde(deserialize_with = "Vec::<ORobot<T, C, L>>::deserialize")]
     pub (crate) sub_robots: Vec<ORobot<T, C, L>>,
     #[serde(deserialize_with = "ORobotParryShapeScene::<T, C, L>::deserialize")]
@@ -87,7 +87,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             kinematic_hierarchy: vec![],
             num_dofs: usize::default(),
             dof_to_joint_and_sub_dof_idxs: vec![],
-            non_collision_examples: vec![],
+            non_collision_states: vec![],
             sub_robots: vec![],
             parry_shape_scene: ORobotParryShapeScene::new_default(),
             has_been_preprocessed: false,
@@ -143,7 +143,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             kinematic_hierarchy: vec![],
             num_dofs: usize::default(),
             dof_to_joint_and_sub_dof_idxs: vec![],
-            non_collision_examples: vec![],
+            non_collision_states: vec![],
             sub_robots: vec![],
             parry_shape_scene: ORobotParryShapeScene::new_default(),
             has_been_preprocessed: false,
@@ -171,7 +171,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             kinematic_hierarchy: vec![],
             num_dofs: 0,
             dof_to_joint_and_sub_dof_idxs: vec![],
-            non_collision_examples: vec![],
+            non_collision_states: vec![],
             sub_robots: vec![],
             parry_shape_scene: ORobotParryShapeScene::new_default(),
             has_been_preprocessed: false,
@@ -453,6 +453,17 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
     #[inline(always)]
     pub fn has_been_preprocessed(&self) -> bool {
         self.has_been_preprocessed
+    }
+    pub fn add_non_collision_state<V: OVec<T>>(&mut self, state: V, save_robot: SaveRobot) {
+        self.non_collision_states.push(state.to_other_generic_category::<T, OVecCategoryVec>());
+        let mut parry_shape_scene = self.parry_shape_scene.clone();
+        parry_shape_scene.add_non_collision_states_pair_skips(&self, &self.non_collision_states);
+        self.parry_shape_scene = parry_shape_scene;
+
+        match save_robot {
+            SaveRobot::Save(s) => { self.save_robot(s) }
+            SaveRobot::DoNotSave => {}
+        }
     }
     /*
     pub (crate) fn get_parry_pair_skips(&self) -> AHashMap<(u64, u64), ()> {
