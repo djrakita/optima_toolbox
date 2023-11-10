@@ -7,11 +7,11 @@ use serde_with::serde_as;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
 use optima_console::output::{get_default_progress_bar, oprint, PrintColor, PrintMode};
 use optima_linalg::{OLinalgCategoryTrait, OVec};
-use optima_proximity2::pair_group_queries::{get_all_parry_pairs_idxs, OPairGroupFilterTrait, OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryPairIdxs, ParryPairSelector, ParryToSubcomponentsFilter};
-use optima_proximity2::pair_queries::{ParryDisMode, ParryShapeRep};
-use optima_proximity2::shape_queries::{DistanceOutputTrait, IntersectOutputTrait};
-use optima_proximity2::shape_scene::ShapeSceneTrait;
-use optima_proximity2::shapes::OParryShape;
+use optima_proximity::pair_group_queries::{get_all_parry_pairs_idxs, OPairGroupFilterTrait, OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryPairIdxs, ParryPairSelector, ParryToSubcomponentsFilter};
+use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
+use optima_proximity::shape_queries::{DistanceOutputTrait, IntersectOutputTrait};
+use optima_proximity::shape_scene::ShapeSceneTrait;
+use optima_proximity::shapes::OParryShape;
 use optima_universal_hashmap::AHashMapWrapper;
 use crate::robot::{ORobot, RobotType};
 

@@ -22,16 +22,17 @@ members = [
     "crates/optima_3d_mesh",
     "crates/optima_network",
     "crates/optima_optimization",
+    "crates/optima_optimization",
     "crates/optima_bevy",
     "crates/optima_geometry",
     "crates/optima_sampling",
     "crates/optima_interpolation",
     "crates/optima_proximity",
-    "crates/optima_proximity2",
     "crates/optima_universal_hashmap"
 ]
 
 [dependencies]
+ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
 optima_file = { path = "crates/optima_file" }
 optima_console = { path = "crates/optima_console" }
 optima_3d_spatial = { path = "crates/optima_3d_spatial" }
@@ -46,7 +47,6 @@ optima_geometry = { path = "crates/optima_geometry" }
 optima_sampling = { path = "crates/optima_sampling" }
 optima_interpolation = { path = "crates/optima_interpolation" }
 optima_proximity = { path = "crates/optima_proximity" }
-optima_proximity2 = { path = "crates/optima_proximity2" }
 optima_universal_hashmap = { path = "crates/optima_universal_hashmap" }
 
 [features]

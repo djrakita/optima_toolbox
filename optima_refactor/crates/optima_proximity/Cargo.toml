@@ -8,8 +8,17 @@ edition = "2021"
 [dependencies]
 ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
 parry_ad = { package = "parry3d-f64", path = "/Users/djrakita/Documents/parry_ad/crates/parry3d-f64" }
-parry3d-f64 = { path = "/Users/djrakita/Documents/parry/crates/parry3d-f64" }
+# parry3d-f64 = { path = "/Users/djrakita/Documents/parry/crates/parry3d-f64" }
+parry3d-f64 = { version="0.13.5", features=["serde-serialize"] }
 optima_3d_spatial = { path = "../optima_3d_spatial" }
 optima_3d_mesh = { path = "../optima_3d_mesh" }
 optima_linalg = { path = "../optima_linalg" }
+optima_sampling = { path = "../optima_sampling" }
+optima_universal_hashmap = { path = "../optima_universal_hashmap" }
+optima_file = { path = "../optima_file" }
+serde = { version="*", features = ["derive"] }
+serde_json = { version="*" }
+serde_with = { version="3.2.0" }
 as-any = { version="0.3.1" }
+ahash = "0.8.6"
+rayon = "1.8.0"

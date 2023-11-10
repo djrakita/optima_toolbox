@@ -107,6 +107,20 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync + AsAny  {
             }
         }
     }
+    #[inline]
+    fn eq<T2: AD, V: OVec<T2>>(&self, other: V) -> bool {
+        if self.len() != other.len() { return false; }
+
+        for x in self.as_slice_ovec() {
+            for y in other.as_slice_ovec() {
+                let xc = x.to_constant();
+                let yc = y.to_constant();
+                if xc != yc { return false; }
+            }
+        }
+
+        return true;
+    }
 }
 
 /*
@@ -186,7 +200,6 @@ impl<'a> OVecCategoryTrait for OVecCategorySliceRef<'a> {
     type V<T: AD> = &'a [T];
 }
 */
-
 
 impl<T: AD, const N: usize> OVec<T> for [T; N] {
     type Category = OVecCategoryArr<N>;

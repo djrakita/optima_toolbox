@@ -1,3 +1,50 @@
+use std::marker::PhantomData;
+use ad_trait::AD;
+use ad_trait::differentiable_function::{DifferentiableFunctionTrait};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
+use optima_linalg::OLinalgCategoryTrait;
+use crate::robot::ORobot;
+
+pub struct ADTraitBasedIKObjective<C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(PhantomData<(C, L)>);
+impl<C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> DifferentiableFunctionTrait for ADTraitBasedIKObjective<C, L> {
+    type ArgsType<'a, T: AD> = ADTraitBasedIKArgs<'a, T, C, L>;
+
+    fn call<'a, T1: AD>(inputs: &[T1], args: &Self::ArgsType<'a, T1>) -> Vec<T1> {
+        let fk_res = args.robot.forward_kinematics(&inputs.to_vec(), None);
+
+        let mut out = T1::zero();
+        args.goals.iter().for_each(|g| {
+            let pose = fk_res.get_link_pose(g.goal_link_idx).as_ref().expect("error");
+            let dis = pose.dis(&g.goal_pose);
+            out += g.weight * dis;
+        });
+
+        vec![out]
+    }
+
+    fn num_inputs<T1: AD>(args: &Self::ArgsType<'_, T1>) -> usize {
+        args.robot.num_dofs()
+    }
+
+    fn num_outputs<T1: AD>(_args: &Self::ArgsType<'_, T1>) -> usize {
+        1
+    }
+}
+
+pub struct ADTraitBasedIKArgs<'a, T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> {
+    pub robot: &'a ORobot<T, C, L>,
+    pub goals: Vec<IKGoal<T, C::P<T>>>
+}
+
+pub struct IKGoal<T: AD, P: O3DPose<T>> {
+    pub goal_link_idx: usize,
+    pub goal_pose: P,
+    pub weight: T,
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 /*
 use std::marker::PhantomData;
 use ad_trait::AD;

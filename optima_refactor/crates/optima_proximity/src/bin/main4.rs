@@ -1,28 +1,47 @@
-
-pub struct Test {
-    a: Vec<usize>,
-    b: Vec<usize>,
-    c: usize
-}
-impl Test {
-    fn refs(&self) -> Vec<&usize> {
-        let mut out = vec![];
-        self.a.iter().for_each(|x| { out.push(x) });
-        self.b.iter().for_each(|x| { out.push(x) });
-        out.push(&self.c);
-        out
-    }
-}
-
-#[derive(Debug)]
-pub struct Test2<'a> {
-    refs: Vec<&'a usize>
-}
+use std::collections::HashMap;
+use std::time::Instant;
+use as_any::{AsAny, Downcast};
+use parry_ad::na::Isometry3;
+use parry_ad::shape::Ball;
+use optima_proximity2::shapes::OParryShape;
+use ahash::{AHashMap, HashMapExt};
 
 fn main() {
-    let t = Test { a: vec![1,2,3,4,5,6,7,8,9], b: vec![10,11,12], c: 13 };
-    let r = t.refs();
-    let t2 = Test2 { refs: r };
+    let mut v: Vec<Box<dyn AsAny>> = vec![];
 
-    println!("{:?}", t2);
+    let s = OParryShape::new_with_path_option(Ball::new(1.0), Isometry3::identity());
+    v.push(Box::new(s));
+
+    let res = v[0].as_ref().downcast_ref::<OParryShape<f64, Isometry3<f64>>>();
+
+    println!("{:?}", res.is_some());
+
+    /*
+    let mut map: AHashMap<(usize, usize, usize), usize> = AHashMap::new();
+    for i in 0..10000 {
+        for j in 0..1000 {
+            map.insert((i,j, 1), 1);
+        }
+    }
+
+    let start = Instant::now();
+    for _ in 0..1000 {
+        let res = map.get(&(1,2, 1));
+    }
+    println!("{:?}", start.elapsed());
+
+
+    let mut map: HashMap<(usize, usize, usize), usize> = HashMap::new();
+    for i in 0..10000 {
+        for j in 0..1000 {
+            map.insert((i,j, 1), 1);
+        }
+    }
+
+    let start = Instant::now();
+    for _ in 0..1000 {
+        let res = map.get(&(1,2,1));
+    }
+    println!("{:?}", start.elapsed());
+    */
 }

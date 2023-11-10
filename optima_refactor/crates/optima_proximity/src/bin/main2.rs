@@ -1,17 +1,15 @@
+use parry3d_f64::na::Vector3;
+use parry3d_f64::query::PointQuery;
+use parry3d_f64::shape::{Ball, Cuboid};
 use parry_ad::na::Point3;
-use parry_ad::shape::ConvexPolyhedron;
-use optima_3d_spatial::optima_3d_vec::O3DVec;
 
 fn main() {
-    let a = ConvexPolyhedron::from_convex_hull(&[Point3::new(2.,0.,0.), Point3::new(1.,1.,0.), Point3::new(1.,0.,0.)]);
-    let a = a.unwrap();
-    let aabb = a.local_aabb();
-    let bs = a.local_bounding_sphere();
-    println!("{:?}", aabb);
+    let c = Cuboid::new(Vector3::new(1.,1.,1.));
 
-    let center = 0.5*(aabb.mins.add(&aabb.maxs));
-    println!("{:?}", center);
-    println!("{:?}", aabb.maxs.x - aabb.mins.x);
-    println!("{:?}", aabb.maxs.y - aabb.mins.y);
-    println!("{:?}", aabb.maxs.z - aabb.mins.z);
+    let res = c.project_local_point(&Point3::new(1.1,0.,0.), false);
+    println!("{:?}", res);
+
+    let s = Ball::new(2.0);
+    let res = s.project_local_point(&Point3::new(1.1,0.2,0.), false);
+    println!("{:?}", res.is_inside);
 }
