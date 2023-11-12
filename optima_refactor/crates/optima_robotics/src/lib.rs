@@ -1,3 +1,5 @@
+#![feature(associated_type_bounds)]
+
 pub mod robotics_traits;
 pub mod robot;
 pub mod robot_set;

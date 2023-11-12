@@ -1,29 +1,25 @@
-use std::sync::Mutex;
-use ad_trait::differentiable_function::ForwardADMulti;
-use ad_trait::forward_ad::adf::adf_f32x8;
-use nalgebra::Isometry3;
-use optimization_engine::panoc::PANOCCache;
-use optima_3d_spatial::optima_3d_pose::O3DPose;
-use optima_optimization::optimization_engine::SimpleOpEnEngine;
-use optima_optimization::OptimizerTrait;
+use ad_trait::differentiable_function::FiniteDifferencing;
+use optima_optimization::optimization_engine::{SimpleOpEnEngineConstructor, SimpleOpEnEngineConstructorArgs};
 use optima_robotics::robot::ORobotDefault;
-use optima_robotics::robotics_optimization_solvers::{ADTraitBasedIKArgs, ADTraitBasedIKObjective, IKGoal};
 
-type A = adf_f32x8;
 fn main() {
+    let r = ORobotDefault::from_urdf("ur5");
+    let mut ik = r.get_ik_solver::<FiniteDifferencing, SimpleOpEnEngineConstructor>((), &SimpleOpEnEngineConstructorArgs { tolerance: 0.001 });
+
+    /*
     let r1 = ORobotDefault::load_from_saved_robot("ur5");
     let r2 = r1.to_new_ad_type::<A>();
 
     let p1 = Isometry3::from_constructors(&[0.2,0.,0.6], &[0.,0.,0.]);
     let p2 = p1.to_other_ad_type::<A>();
 
-    let s = SimpleOpEnEngine::<ADTraitBasedIKObjective<_, _>, ForwardADMulti<A>> {
-        call_args: ADTraitBasedIKArgs { robot: &r1, goals: vec![IKGoal {
+    let s = SimpleOpEnEngineOptimizer::<IKObjective<_, _>, ForwardADMulti<A>> {
+        call_args: IKArgs { robot: &r1, goals: vec![IKGoal {
             goal_link_idx: 6,
             goal_pose: p1,
             weight: 1.0,
         }] },
-        derivative_args: ADTraitBasedIKArgs {
+        derivative_args: IKArgs {
             robot: &r2,
             goals: vec![ IKGoal {
                 goal_link_idx: 6,
@@ -40,4 +36,5 @@ fn main() {
 
     let res = s.optimize();
     println!("{:?}", res.solver_status());
+    */
 }

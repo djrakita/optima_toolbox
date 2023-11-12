@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use ad_trait::*;
+use ad_trait::differentiable_block::DifferentiableBlock;
+use ad_trait::differentiable_function::DerivativeMethodTrait;
 use serde::{Serialize, Deserialize};
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3, O3DPoseCategoryTrait};
 use crate::utils::get_urdf_path_from_chain_name;
@@ -18,8 +20,10 @@ use crate::robotics_functions::compute_chain_info;
 use crate::robotics_traits::{AsRobotTrait, JointTrait};
 use optima_misc::arr_storage::MutArrTraitRaw;
 use optima_misc::arr_storage::ImmutArrTraitRaw;
+use optima_optimization::{DiffBlockObjectiveOptimizerConstructorTrait};
 use optima_sampling::SimpleSampler;
 use crate::robot_shape_scene::ORobotParryShapeScene;
+use crate::robotics_optimization_solvers::{IKArgs, IKObjective};
 
 pub type ORobotDefault = ORobot<f64, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>;
 #[serde_as]
@@ -465,6 +469,67 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             SaveRobot::DoNotSave => {}
         }
     }
+    pub fn get_ik_solver<'a, E : DerivativeMethodTrait, OC : DiffBlockObjectiveOptimizerConstructorTrait<'a, IKObjective<C, L>, E>>(&self, derivative_method_data: E::DerivativeMethodData, args: &OC::ConstructorArgsType) -> OC::Optimizer {
+        let r1 = self.to_new_ad_type::<f64>();
+        let r2 = r1.to_new_ad_type::<E::T>();
+
+        let lower_bounds = r1.get_dof_lower_bounds();
+        let upper_bounds = r1.get_dof_upper_bounds();
+
+        let initial_condition = r1.sample_pseudorandom_state();
+
+        let args1 = IKArgs {
+            robot: r1,
+            goals: vec![],
+        };
+        let args2 = IKArgs {
+            robot: r2,
+            goals: vec![],
+        };
+
+        let differentiable_block = DifferentiableBlock::<IKObjective<C, L>, E>::new(args1, args2, derivative_method_data);
+
+        OC::construct(differentiable_block, initial_condition, lower_bounds, upper_bounds, args)
+    }
+    /*
+    pub fn get_ik_solver<E: DerivativeMethodTrait, OC: DiffBlockObjectiveOptimizerConstructorTrait>(&self, _derivative_method_data: E::DerivativeMethodData) -> Box<dyn IKOptimizer<D=IKObjective<C, L>, E=E, DataType=f64, OutputType = f64>> {
+        /*
+        let c = OC::optimizer_category();
+
+        return match c {
+            OptimizerCategory::SimpleOpEnEngineOptimizer => {
+                let r1 = self.to_new_ad_type::<f64>();
+                let r2 = r1.to_new_ad_type::<E::T>();
+
+                let lower_bounds = r1.get_dof_lower_bounds();
+                let upper_bounds = r1.get_dof_upper_bounds();
+
+                let initial_condition = r1.sample_pseudorandom_state();
+
+                let args1 = IKArgs {
+                    robot: r1,
+                    goals: vec![],
+                };
+                let args2 = IKArgs {
+                    robot: r2,
+                    goals: vec![],
+                };
+
+                let differentiable_block = DifferentiableBlock::<IKObjective<C, L>, E>::new(args1, args2, derivative_method_data);
+
+                Box::new(SimpleOpEnEngineOptimizer {
+                    differentiable_block,
+                    initial_condition,
+                    lower_bounds,
+                    upper_bounds,
+                    cache: Mutex::new(PANOCCache::new(self.num_dofs, 0.001, 3)),
+                })
+            }
+        }
+        */
+        todo!()
+    }
+    */
     /*
     pub (crate) fn get_parry_pair_skips(&self) -> AHashMap<(u64, u64), ()> {
         let mut out = AHashMap::new();
