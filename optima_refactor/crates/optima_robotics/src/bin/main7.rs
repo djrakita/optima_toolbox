@@ -1,40 +1,37 @@
-use ad_trait::differentiable_function::FiniteDifferencing;
-use optima_optimization::optimization_engine::{SimpleOpEnEngineConstructor, SimpleOpEnEngineConstructorArgs};
-use optima_robotics::robot::ORobotDefault;
+use ad_trait::differentiable_function::{DerivativeMethodTrait, ForwardAD, ForwardADMulti};
+use ad_trait::forward_ad::adf::adf_f32x8;
+use nalgebra::Isometry3;
+use optima_3d_spatial::optima_3d_pose::O3DPose;
+use optima_optimization::{DiffBlockUnconstrainedOptimizerTrait, OptimizerOutputTrait};
+use optima_optimization::optimization_engine::SimpleOpEnEngineOptimizer;
+use optima_robotics::robotics_diffblock_spawners::RoboticsDiffBlockSpawners;
+use optima_robotics::robotics_optimization_solvers::IKGoal;
+use optima_robotics::robotics_optimization_utils::RoboticsOptimizationUtils;
+use num_traits::identities::Zero;
+use num_traits::One;
 
+type Deriv = ForwardADMulti<adf_f32x8>;
+type T = adf_f32x8;
 fn main() {
-    let r = ORobotDefault::from_urdf("ur5");
-    let mut ik = r.get_ik_solver::<FiniteDifferencing, SimpleOpEnEngineConstructor>((), &SimpleOpEnEngineConstructorArgs { tolerance: 0.001 });
-
-    /*
-    let r1 = ORobotDefault::load_from_saved_robot("ur5");
-    let r2 = r1.to_new_ad_type::<A>();
-
-    let p1 = Isometry3::from_constructors(&[0.2,0.,0.6], &[0.,0.,0.]);
-    let p2 = p1.to_other_ad_type::<A>();
-
-    let s = SimpleOpEnEngineOptimizer::<IKObjective<_, _>, ForwardADMulti<A>> {
-        call_args: IKArgs { robot: &r1, goals: vec![IKGoal {
+    let robots = RoboticsOptimizationUtils::get_f64_and_ad_default_robots::<Deriv>("ur5");
+    let mut diff_block = RoboticsDiffBlockSpawners::spawn_ik_diff_block::<Deriv, _, _>(&robots, ());
+    diff_block.update_args(|x, y| {
+        x.goals.push(IKGoal {
             goal_link_idx: 6,
-            goal_pose: p1,
+            goal_pose: Isometry3::from_constructors(&[0.1, 0.1, 0.6], &[0., 0., 0.]),
             weight: 1.0,
-        }] },
-        derivative_args: IKArgs {
-            robot: &r2,
-            goals: vec![ IKGoal {
-                goal_link_idx: 6,
-                goal_pose: p2,
-                weight: A::constant(1.0),
-            } ],
-        },
-        derivative_method_data: (),
-        initial_condition: vec![0.1; 6],
-        lower_bounds: r1.get_dof_lower_bounds(),
-        upper_bounds: r1.get_dof_upper_bounds(),
-        cache: Mutex::new(PANOCCache::new(r1.num_dofs(), 0.001, 3)),
-    };
+        });
 
-    let res = s.optimize();
+        y.goals.push(IKGoal {
+            goal_link_idx: 6,
+            goal_pose: Isometry3::from_constructors(&[T::constant(0.1), T::constant(0.1), T::constant(0.6)], &[T::zero(), T::zero(), T::zero()]),
+            weight: T::one(),
+        });
+    });
+    let s = SimpleOpEnEngineOptimizer::new(robots.0.get_dof_lower_bounds(), robots.0.get_dof_upper_bounds(), 0.0001);
+    let init = robots.0.sample_pseudorandom_state();
+    let res = s.diff_block_unconstrained_optimize(&diff_block, &init);
+    println!("{:?}", res.x_star());
+    println!("{:?}", res.f_star());
     println!("{:?}", res.solver_status());
-    */
 }

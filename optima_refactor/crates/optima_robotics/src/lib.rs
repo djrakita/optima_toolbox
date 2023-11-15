@@ -8,3 +8,5 @@ pub mod utils;
 pub mod robotics_optimization_solvers;
 pub mod robotics_functions;
 pub mod robot_shape_scene;
+pub mod robotics_optimization_utils;
+pub mod robotics_diffblock_spawners;
