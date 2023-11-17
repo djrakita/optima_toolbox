@@ -29,8 +29,8 @@ impl DiffBlockUnconstrainedOptimizerTrait for SimpleOpEnEngineOptimizer {
     type DataType = f64;
     type OutputType = Box<SimpleOpEnEngineOptimizerOutput>;
 
-    fn diff_block_unconstrained_optimize<'a, D1: DifferentiableFunctionTrait, E1: DerivativeMethodTrait>(&self, objective_function: &DifferentiableBlock<D1, E1>, initial_condition: &Vec<Self::DataType>) -> Self::OutputType {
-        assert_eq!(initial_condition.len(), self.problem_size);
+    fn diff_block_unconstrained_optimize<'a, D1: DifferentiableFunctionTrait, E1: DerivativeMethodTrait>(&self, objective_function: &DifferentiableBlock<D1, E1>, initial_condition: &[f64]) -> Self::OutputType {
+        assert_eq!(self.problem_size, initial_condition.len());
 
         let df = |u: &[f64], grad: &mut [f64]| -> Result<(), SolverError> {
             let res = objective_function.derivative(u);

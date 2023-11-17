@@ -22,7 +22,6 @@ use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsActions;
 
 
 pub struct RoboticsActions;
-
 impl RoboticsActions {
     pub fn action_spawn_robot_as_stl_meshes<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static>(robot: &ORobot<T, C, L>,
                                                                                                                fk_res: &FKResult<T, C::P<T>>,

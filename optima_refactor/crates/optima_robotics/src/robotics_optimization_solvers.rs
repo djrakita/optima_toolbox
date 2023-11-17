@@ -1,6 +1,9 @@
+use std::borrow::Cow;
 use std::marker::PhantomData;
 use ad_trait::AD;
-use ad_trait::differentiable_function::DifferentiableFunctionTrait;
+use ad_trait::differentiable_block::{DifferentiableBlock};
+use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFunctionTrait};
+use num_traits::One;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
 use optima_linalg::OLinalgCategoryTrait;
 use crate::robot::ORobot;
@@ -31,11 +34,54 @@ impl<C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> Diffe
     }
 }
 
+pub trait DifferentiableBlockIKObjectiveTrait {
+    fn add_initial_ik_goals(&mut self, link_idxs: Vec<usize>);
+    fn update_ik_goal_pose<P: O3DPose<f64>>(&mut self, goal_idx: usize, pose: &P);
+    fn update_ik_goal_weight(&mut self, goal_idx: usize, weight: f64);
+}
+
+impl<'a, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, E: DerivativeMethodTrait> DifferentiableBlockIKObjectiveTrait for DifferentiableBlock<'a, IKObjective<C, L>, E> {
+    fn add_initial_ik_goals(&mut self, link_idxs: Vec<usize>) {
+        self.update_args(|x, y| {
+            x.goals.clear();
+            y.goals.clear();
+            for link_idx in &link_idxs {
+                x.goals.push(IKGoal {
+                    goal_link_idx: *link_idx,
+                    goal_pose: C::P::<f64>::identity(),
+                    weight: 1.0,
+                });
+
+                y.goals.push( IKGoal {
+                    goal_link_idx: *link_idx,
+                    goal_pose: C::P::<E::T>::identity(),
+                    weight: E::T::one(),
+                });
+            }
+        });
+    }
+
+    fn update_ik_goal_pose<P: O3DPose<f64>>(&mut self, goal_idx: usize, pose: &P) {
+        self.update_args(|x, y| {
+            x.goals[goal_idx].goal_pose = pose.to_other_generic_category::<f64, C>();
+            y.goals[goal_idx].goal_pose = pose.to_other_generic_category::<E::T, C>();
+        });
+    }
+
+    fn update_ik_goal_weight(&mut self, goal_idx: usize, weight: f64) {
+        self.update_args(|x, y| {
+            x.goals[goal_idx].weight = weight;
+            y.goals[goal_idx].weight = E::T::constant(weight);
+        });
+    }
+}
+
 pub struct IKArgs<'a, T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> {
-    pub robot: &'a ORobot<T, C, L>,
+    pub robot: Cow<'a, ORobot<T, C, L>>,
     pub goals: Vec<IKGoal<T, C::P<T>>>
 }
 
+#[derive(Clone)]
 pub struct IKGoal<T: AD, P: O3DPose<T>> {
     pub goal_link_idx: usize,
     pub goal_pose: P,

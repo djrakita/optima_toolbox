@@ -9,7 +9,7 @@ pub trait DiffBlockUnconstrainedOptimizerTrait {
     type DataType : AD;
     type OutputType : Any + OptimizerOutputTrait<DataType = Self::DataType>;
 
-    fn diff_block_unconstrained_optimize<'a, D1: DifferentiableFunctionTrait, E1: DerivativeMethodTrait>(&self, objective_function: &DifferentiableBlock<D1, E1>, initial_condition: &Vec<Self::DataType>) -> Self::OutputType;
+    fn diff_block_unconstrained_optimize<'a, D1: DifferentiableFunctionTrait, E1: DerivativeMethodTrait>(&self, objective_function: &DifferentiableBlock<D1, E1>, initial_condition: &[Self::DataType]) -> Self::OutputType;
 }
 
 pub trait OptimizerOutputTrait {
@@ -31,3 +31,4 @@ impl<O: OptimizerOutputTrait> OptimizerOutputTrait for Box<O> {
         self.as_ref().f_star()
     }
 }
+

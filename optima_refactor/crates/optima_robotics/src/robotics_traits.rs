@@ -65,7 +65,8 @@ pub trait JointTrait<T: AD, C: O3DPoseCategoryTrait + 'static> {
         let joint = self;
         if let Some(mimic) = &joint.mimic() {
             let mimic_joint_idx = mimic.joint_idx();
-            let range = joint.dof_idxs_range();
+            let mimic_joint = &all_joints[mimic_joint_idx];
+            let range = mimic_joint.dof_idxs_range();
             match range {
                 None => { panic!("mimicked joint must have exactly one dof.") }
                 Some(range) => {
@@ -107,6 +108,17 @@ pub trait JointTrait<T: AD, C: O3DPoseCategoryTrait + 'static> {
 pub trait AsRobotTrait<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
     fn as_robot(&self) -> &ORobot<T, C, L>;
 }
+
+pub trait AsTrajectoryWaypoint<T: AD> {
+    fn get_waypoint_time(&self) -> T;
+    fn waypoint_as_slice(&self) -> &[T];
+}
+
+pub trait AsTrajectory<T: AD, W: AsTrajectoryWaypoint<T>> {
+    fn get_waypoints(&self) -> &Vec<W>;
+}
+
+
 
 /*
 pub trait OForwardKinematicsTrait<T: AD, P: O3DPose<T>> {
