@@ -11,6 +11,7 @@ use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_3d_spatial::optima_3d_vec::O3DVec;
 use optima_bevy_egui::{OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSidePanel, OEguiSlider, OEguiWidgetTrait};
+use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategoryTrait, OVec};
 use optima_robotics::robot::{FKResult, ORobot};
 use optima_robotics::robot_set::ORobotSet;
@@ -254,11 +255,12 @@ impl RoboticsSystems {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub trait BevyRoboticsTrait {
+pub trait BevyRoboticsTrait<T: AD> {
     fn bevy_display(&self);
+    fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V>>(&self, interpolator: &I);
 }
 
-impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> BevyRoboticsTrait for ORobot<T, C, L> {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> BevyRoboticsTrait<T> for ORobot<T, C, L> {
     fn bevy_display(&self) {
 
         App::new()
@@ -272,10 +274,27 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             .add_systems(Update, RoboticsSystems::system_robot_main_info_panel_egui::<T, C, L>.before(BevySystemSet::Camera))
             .run();
     }
+
+    fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V>>(&self, _interpolator: &I) {
+        App::new()
+            .optima_bevy_base()
+            .optima_bevy_robotics_base(self.clone())
+            .optima_bevy_pan_orbit_camera()
+            .optima_bevy_starter_lights()
+            .optima_bevy_spawn_robot::<T, C, L>()
+            .optima_bevy_robotics_scene_visuals_starter()
+            .optima_bevy_egui()
+            // .add_systems(Update, RoboticsSystems::system_robot_main_info_panel_egui::<T, C, L>.before(BevySystemSet::Camera))
+            .run();
+    }
 }
-impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> BevyRoboticsTrait for ORobotSet<T, C, L> {
+impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> BevyRoboticsTrait<T> for ORobotSet<T, C, L> {
     fn bevy_display(&self) {
         self.as_robot().bevy_display();
+    }
+
+    fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V>>(&self, interpolator: &I) {
+        self.as_robot().bevy_motion_playback(interpolator);
     }
 }
 

@@ -1,8 +1,15 @@
+use optima_bevy::optima_bevy_utils::robotics::BevyRoboticsTrait;
 use optima_interpolation::splines::{InterpolatingSpline, InterpolatingSplineType};
+use optima_interpolation::{InterpolatorTrait, TimedInterpolator};
+use optima_robotics::robot::ORobotDefault;
 
 fn main() {
-    let s = InterpolatingSpline::new(vec![vec![0.0], vec![1.0], vec![2.0], vec![3.0], vec![4.0], vec![5.0], vec![6.0], vec![7.0], vec![8.0]], InterpolatingSplineType::BezierCubic);
+    let waypoints = vec![ vec![0.0; 8], vec![1.0; 8], vec![1.2; 8] ];
+    let s = InterpolatingSpline::new(waypoints, InterpolatingSplineType::Linear)
+        .to_arclength_parameterized_interpolator(100)
+        .to_timed_interpolator(3.0);
 
-    let res = s.interpolating_spline_interpolate(0.0);
-    println!("{:?}", res);
+    let r = ORobotDefault::from_urdf("panda");
+
+    r.bevy_motion_playback(&s);
 }

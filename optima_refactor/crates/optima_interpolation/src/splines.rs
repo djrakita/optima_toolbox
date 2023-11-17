@@ -1,5 +1,6 @@
 use ad_trait::AD;
 use optima_linalg::OVec;
+use crate::InterpolatorTrait;
 
 #[derive(Clone, Debug)]
 pub struct InterpolatingSpline<T: AD, V: OVec<T>> {
@@ -36,7 +37,6 @@ impl<T: AD, V: OVec<T>> InterpolatingSpline<T, V> {
 
         out_self
     }
-
     #[inline]
     pub fn update_control_point(&mut self, idx: usize, control_point: V) {
         self.control_points[idx] = control_point;
@@ -46,7 +46,7 @@ impl<T: AD, V: OVec<T>> InterpolatingSpline<T, V> {
         }
     }
     #[inline]
-    pub fn interpolating_spline_interpolate(&self, t: T) -> V {
+    fn interpolating_spline_interpolate(&self, t: T) -> V {
         if t == self.max_allowable_t_value() { return self.interpolating_spline_interpolate(t - T::constant(0.00000001)); }
 
         assert!(t >= T::zero());
@@ -191,8 +191,17 @@ impl<T: AD, V: OVec<T>> InterpolatingSpline<T, V> {
         &self.control_points
     }
     #[inline]
-    pub fn max_allowable_t_value(&self) -> T {
+    fn max_allowable_t_value(&self) -> T {
         return T::constant(self.num_spline_segments as f64);
+    }
+}
+impl<T: AD, V: OVec<T>> InterpolatorTrait<T, V> for InterpolatingSpline<T, V> {
+    fn interpolate(&self, t: T) -> V {
+        self.interpolating_spline_interpolate(t)
+    }
+
+    fn max_t(&self) -> T {
+        self.max_allowable_t_value()
     }
 }
 
@@ -254,5 +263,78 @@ impl<T: AD> InterpolatingSplineType<T> {
             InterpolatingSplineType::CardinalCubic { w } => { vec![vec![T::constant(0.),T::constant(1.),T::constant(0.),T::constant(0.)], vec![T::constant((w.to_constant()-1.0)/2.0),T::constant(0.),T::constant((1.0 - w.to_constant())/2.),T::constant(0.)], vec![T::constant(1. -w.to_constant()),T::constant(0.5*(-w.to_constant() - 5.)),T::constant(w.to_constant()+2.),T::constant((w.to_constant()-1.)/2.)], vec![T::constant((w.to_constant()-1.)/2.),T::constant((w.to_constant()+3.)/2.),T::constant(0.5*(-w.to_constant() - 3.)),T::constant((1.-w.to_constant())/2.)]]  }
             InterpolatingSplineType::BezierCubic => { vec![vec![T::constant(1.),T::constant(0.),T::constant(0.),T::constant(0.)], vec![T::constant(-3.),T::constant(3.),T::constant(0.),T::constant(0.)], vec![T::constant(3.),T::constant(-6.),T::constant(3.),T::constant(0.)], vec![T::constant(-1.),T::constant(3.),T::constant(-3.),T::constant(1.)]] }
         }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct BSpline<T: AD, V: OVec<T>> {
+    control_points: Vec<V>,
+    knot_vector: Vec<T>,
+    k: usize,
+    k_2: T
+}
+impl<T: AD, V: OVec<T>> BSpline<T, V> {
+    pub fn new(control_points: Vec<V>, k: usize) -> Self {
+        assert!(k > 1);
+        let mut knot_vector = vec![];
+        let k_2 = k as f64 / 2.0;
+        for i in 0..(k+control_points.len()) {
+            knot_vector.push( T::constant(-k_2 + i as f64))
+        }
+        Self {
+            control_points,
+            knot_vector,
+            k,
+            k_2: T::constant(k_2)
+        }
+    }
+    #[inline]
+    pub fn cox_de_boor_recurrence(&self, i: usize, k: usize, t: T) -> T {
+        assert!(k > 0);
+        if k == 1 {
+            return if self.knot_vector[i] <= t && t < self.knot_vector[i + 1] { T::constant(1.0) } else { T::constant(0.0) }
+        }
+
+        let c0 = (t - self.knot_vector[i]) / (self.knot_vector[i+k-1] - self.knot_vector[i]);
+        let c1 = (self.knot_vector[i+k] - t) / (self.knot_vector[i+k] - self.knot_vector[i+1]);
+
+        return c0 * self.cox_de_boor_recurrence(i, k-1, t) + c1 * self.cox_de_boor_recurrence(i+1, k-1, t);
+    }
+    #[inline]
+    fn bspline_interpolate(&self, t: T) -> V {
+        let k_2 = self.k_2;
+
+        let mut out_sum = V::from_slice_ovec(&vec![T::zero(); self.control_points[0].len()]);
+        for (control_point_idx, control_point) in self.control_points.iter().enumerate() {
+            let c = T::constant(control_point_idx as f64);
+            if c - k_2 <= t && t < c + k_2 {
+                // out_sum += control_point*self.cox_de_boor_recurrence(control_point_idx, self.k, t);
+                out_sum = out_sum.add(&control_point.scalar_mul( &self.cox_de_boor_recurrence(control_point_idx, self.k, t) ));
+            }
+        }
+        out_sum
+    }
+    #[inline(always)]
+    pub fn update_control_point(&mut self, idx: usize, control_point: V) {
+        self.control_points[idx] = control_point;
+    }
+    #[inline(always)]
+    pub fn control_points(&self) -> &Vec<V> {
+        &self.control_points
+    }
+    #[inline(always)]
+    fn max_allowable_t_value(&self) -> T {
+        return T::constant(self.control_points.len() as f64 - 1.0);
+    }
+}
+impl<T: AD, V: OVec<T>> InterpolatorTrait<T, V> for BSpline<T, V> {
+    #[inline]
+    fn interpolate(&self, t: T) -> V {
+        self.bspline_interpolate(t)
+    }
+
+    #[inline(always)]
+    fn max_t(&self) -> T {
+        self.max_allowable_t_value()
     }
 }
