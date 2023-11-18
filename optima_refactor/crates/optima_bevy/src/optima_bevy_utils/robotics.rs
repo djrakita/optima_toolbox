@@ -1,16 +1,17 @@
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use ad_trait::AD;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use bevy_egui::egui::panel::Side;
+use bevy_egui::egui::panel::{Side, TopBottomSide};
 use bevy_egui::egui::Ui;
 use bevy_egui::{egui, EguiContexts};
 use bevy_prototype_debug_lines::DebugLines;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_3d_spatial::optima_3d_vec::O3DVec;
-use optima_bevy_egui::{OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSidePanel, OEguiSlider, OEguiWidgetTrait};
+use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSidePanel, OEguiSlider, OEguiTopBottomPanel, OEguiWidgetTrait};
 use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategoryTrait, OVec};
 use optima_robotics::robot::{FKResult, ORobot};
@@ -19,6 +20,7 @@ use optima_robotics::robotics_traits::AsRobotTrait;
 use crate::optima_bevy_utils::file::get_asset_path_str_from_ostemcellpath;
 use crate::optima_bevy_utils::transform::TransformUtils;
 use crate::{BevySystemSet, OptimaBevyTrait};
+use crate::optima_bevy_utils::storage::BevyAnyHashmap;
 use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsActions;
 
 
@@ -58,9 +60,9 @@ impl RoboticsActions {
         });
     }
     pub fn action_set_state_of_robot<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static, V: OVec<T>>(robot: &ORobot<T, C, L>,
-                                                                                                          state: &V,
-                                                                                                          robot_instance_idx: usize,
-                                                                                                          query: &mut Query<(&LinkMeshID, &mut Transform)>) {
+                                                                                                                    state: &V,
+                                                                                                                    robot_instance_idx: usize,
+                                                                                                                    query: &mut Query<(&LinkMeshID, &mut Transform)>) {
         let fk_res = robot.forward_kinematics(state, None);
         for (link_mesh_id, mut transform) in query.iter_mut() {
             let link_mesh_id: &LinkMeshID = &link_mesh_id;
@@ -251,18 +253,63 @@ impl RoboticsSystems {
                     });
             });
     }
+    pub fn system_robot_motion_interpolator<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(interpolator: Res<BevyRobotInterpolator<T, V, I>>,
+                                                                                                     mut contexts: EguiContexts,
+                                                                                                     mut robot_state_engine: ResMut<RobotStateEngine>,
+                                                                                                     mut h: ResMut<BevyAnyHashmap>,
+                                                                                                     egui_engine: Res<OEguiEngineWrapper>,
+                                                                                                     window_query: Query<&Window, With<PrimaryWindow>>) {
+        OEguiTopBottomPanel::new(TopBottomSide::Bottom, 100.0)
+            .show("interpolator_bottom_pannel", contexts.ctx_mut(), &egui_engine, &window_query, &(), |ui| {
+                ui.horizontal(|ui| {
+                    OEguiSlider::new(0.0, interpolator.0.max_t().to_constant())
+                        .show("playback_slider", ui, &egui_engine, &());
+
+                    let playing = h.0.get_or_insert(&"playing".to_string(), false).clone();
+                    let button_str = match playing {
+                        true => { "⏸" }
+                        false => { "⏵" }
+                    };
+
+                    OEguiButton::new(button_str)
+                        .show("play_stop", ui, &egui_engine, &());
+
+                    let binding = egui_engine.get_mutex_guard();
+                    let response = binding.get_button_response("play_stop").unwrap();
+                    if response.widget_response().clicked() { h.0.insert("playing".to_string(), !playing); }
+                    drop(binding);
+
+                    if playing {
+                        let mut binding = egui_engine.get_mutex_guard();
+                        let response = binding.get_slider_response_mut("playback_slider").unwrap();
+                        response.slider_value += 0.02;
+                        if response.slider_value > interpolator.0.max_t().to_constant() { response.slider_value = 0.0; }
+                    }
+                });
+            });
+
+        let binding = egui_engine.get_mutex_guard();
+        let slider_result = binding.get_slider_response("playback_slider");
+        if let Some(slider_result) = slider_result {
+            if slider_result.widget_response().dragged() { h.0.insert("playing".to_string(), false); }
+
+            let slider_value = slider_result.slider_value;
+
+            let state = interpolator.0.interpolate(T::constant(slider_value));
+            robot_state_engine.add_update_request(0, &state);
+        }
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 pub trait BevyRoboticsTrait<T: AD> {
     fn bevy_display(&self);
-    fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V>>(&self, interpolator: &I);
+    fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(&self, interpolator: &I);
 }
 
 impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> BevyRoboticsTrait<T> for ORobot<T, C, L> {
     fn bevy_display(&self) {
-
         App::new()
             .optima_bevy_base()
             .optima_bevy_robotics_base(self.clone())
@@ -275,7 +322,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             .run();
     }
 
-    fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V>>(&self, _interpolator: &I) {
+    fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(&self, interpolator: &I) {
         App::new()
             .optima_bevy_base()
             .optima_bevy_robotics_base(self.clone())
@@ -284,7 +331,9 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             .optima_bevy_spawn_robot::<T, C, L>()
             .optima_bevy_robotics_scene_visuals_starter()
             .optima_bevy_egui()
+            .insert_resource(BevyRobotInterpolator(interpolator.clone(), PhantomData::default()))
             // .add_systems(Update, RoboticsSystems::system_robot_main_info_panel_egui::<T, C, L>.before(BevySystemSet::Camera))
+            .add_systems(Update, RoboticsSystems::system_robot_motion_interpolator::<T, V, I>.before(BevySystemSet::Camera))
             .run();
     }
 }
@@ -293,7 +342,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
         self.as_robot().bevy_display();
     }
 
-    fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V>>(&self, interpolator: &I) {
+    fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(&self, interpolator: &I) {
         self.as_robot().bevy_motion_playback(interpolator);
     }
 }
@@ -327,3 +376,9 @@ impl RobotStateEngine {
 
 #[derive(Resource)]
 pub struct BevyORobot<T: AD, C: O3DPoseCategoryTrait + Send + 'static, L: OLinalgCategoryTrait>(pub ORobot<T, C, L>);
+
+#[derive(Resource)]
+pub struct BevyRobotInterpolator<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(pub I, PhantomData<(T, V)>);
+unsafe impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> Send for BevyRobotInterpolator<T, V, I> { }
+unsafe impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> Sync for BevyRobotInterpolator<T, V, I> { }
+

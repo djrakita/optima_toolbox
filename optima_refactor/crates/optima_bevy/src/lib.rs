@@ -11,9 +11,11 @@ use optima_3d_spatial::optima_3d_pose::{O3DPoseCategoryTrait};
 use optima_bevy_egui::{OEguiEngineWrapper};
 use optima_linalg::OLinalgCategoryTrait;
 use optima_robotics::robotics_traits::AsRobotTrait;
+use optima_universal_hashmap::AnyHashmap;
 use crate::optima_bevy_utils::camera::CameraSystems;
 use crate::optima_bevy_utils::lights::LightSystems;
 use crate::optima_bevy_utils::robotics::{BevyORobot, RoboticsSystems, RobotStateEngine};
+use crate::optima_bevy_utils::storage::BevyAnyHashmap;
 use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsSystems;
 
 pub mod scripts;
@@ -33,6 +35,7 @@ impl OptimaBevyTrait for App {
         self
             .insert_resource(ClearColor(Color::rgb(0.5, 0.5, 0.5)))
             .insert_resource(Msaa::default())
+            .insert_resource(BevyAnyHashmap(AnyHashmap::new()))
             .add_plugins(DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {

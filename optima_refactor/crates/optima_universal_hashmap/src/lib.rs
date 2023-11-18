@@ -147,10 +147,10 @@ impl GUH {
     }
 }
 
-pub struct AnyHashmap<K : Hash + Eq + PartialEq> {
+pub struct AnyHashmap<K : Hash + Eq + PartialEq + Clone> {
     hashmap: AHashMap<K, Box<dyn Any>>,
 }
-impl<K : Hash + Eq + PartialEq> AnyHashmap<K> {
+impl<K : Hash + Eq + PartialEq + Clone> AnyHashmap<K> {
     pub fn new() -> Self {
         Self {
             hashmap: AHashMap::new()
@@ -187,6 +187,16 @@ impl<K : Hash + Eq + PartialEq> AnyHashmap<K> {
                 }
             }
         }
+    }
+    #[inline(always)]
+    pub fn get_or_insert<V: Any + Clone>(&mut self, key: &K, set_value: V) -> &V {
+        let exists = self.hashmap.contains_key(key);
+
+        if !exists {
+            self.insert(key.clone(), set_value.clone());
+        }
+
+        self.get_ref::<V>(key).unwrap()
     }
 }
 
