@@ -107,7 +107,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
                }
             });
 
-            let filter = ParryToSubcomponentsFilter;
+            let filter = ParryToSubcomponentsFilter {};
             let f = filter.pair_group_filter(shapes, shapes, poses, poses, &ParryPairSelector::HalfPairs, &());
             let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, f.selector(), &self.pair_skips, &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
             out.outputs().iter().for_each(|x| {

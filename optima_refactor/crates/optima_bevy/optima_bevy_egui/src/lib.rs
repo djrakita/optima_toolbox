@@ -235,13 +235,22 @@ impl OEguiButtonResponse {
 
 pub struct OEguiSlider {
     lower_range: f64,
-    upper_range: f64
+    upper_range: f64,
+    start_value: f64
 }
 impl OEguiSlider {
-    pub fn new(lower_range: f64, upper_range: f64) -> Self {
+    pub fn new(lower_range: f64, upper_range: f64, start_value: f64) -> Self {
+        // assert!(lower_range <= start_value && start_value <= upper_range, format!("lower_range {:?}, start_value: {:?}", upper_range: {:?}));
+
+        let mut start_value  = start_value;
+        if start_value < lower_range || start_value > upper_range {
+            start_value = (upper_range + lower_range) / 2.0;
+        }
+
         Self {
             lower_range,
             upper_range,
+            start_value,
         }
     }
 }
@@ -252,7 +261,7 @@ impl OEguiWidgetTrait for OEguiSlider {
         let mut mutex_guard = egui_engine.get_mutex_guard();
         let stored_response = mutex_guard.slider_responses.get(id_str);
         let mut slider_value = match stored_response {
-            None => { 0.0 }
+            None => { self.start_value }
             Some(stored_response) => { stored_response.slider_value }
         };
         let response = ui.add(egui::widgets::Slider::new(&mut slider_value, self.lower_range..=self.upper_range));

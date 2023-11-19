@@ -220,7 +220,6 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
     pub fn joints(&self) -> &Vec<OJoint<T, C>> {
         &self.joints
     }
-    /*
     pub fn set_joint_as_fixed(&mut self, joint_idx: usize, fixed_values: &[T]) {
         let joint = self.joints.get_element_mut(joint_idx);
 
@@ -229,6 +228,12 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
         assert_eq!(fixed_values.len(), joint.joint_type().num_dofs());
 
         joint.fixed_values = Some(fixed_values.into());
+
+        self.joints.iter_mut().for_each(|x| {
+           if let Some(mimic) = &x.mimic {
+               if mimic.joint_idx == joint_idx { x.fixed_values = Some(fixed_values.into()); }
+           }
+        });
 
         self.set_num_dofs();
         self.set_all_sub_dof_idxs();
@@ -241,17 +246,17 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
         while !link_idx_stack.is_empty() {
             let link_idx = link_idx_stack.pop().unwrap();
             self.links.get_element_mut(link_idx).is_present_in_model = false;
-            let parent_joint_idx = self.links.get_element(link_idx).parent_joint_idx();
+            // let parent_joint_idx = self.links.get_element(link_idx).parent_joint_idx();
+            let parent_joint_idx = self.links.get(link_idx).unwrap().parent_joint_idx;
             if let Some(parent_joint_idx) = parent_joint_idx {
-                self.joints[*parent_joint_idx].is_present_in_model = false;
+                self.joints[parent_joint_idx].is_present_in_model = false;
             }
-            self.links.get_element(link_idx).children_link_idxs().iter().for_each(|x| link_idx_stack.push(*x));
+            self.links.get(link_idx).as_ref().unwrap().children_link_idxs.iter().for_each(|x| link_idx_stack.push(*x));
         }
 
         self.set_num_dofs();
         self.set_all_sub_dof_idxs();
     }
-    */
     #[inline]
     pub fn get_joint_transform<V: OVec<T>>(&self, state: &V, joint_idx: usize) -> C::P<T> {
         self.joints[joint_idx].get_joint_transform(state, &self.joints)

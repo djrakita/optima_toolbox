@@ -13,12 +13,15 @@ impl<T: AD, V: OVec<T>> InterpolatingSpline<T, V> {
     pub fn new(control_points: Vec<V>, spline_type: InterpolatingSplineType<T>) -> Self {
         let num_points = control_points.len();
         assert!(num_points > 0);
+        /*
         let legal = (num_points - spline_type.num_overlap_between_segments()) % (spline_type.num_control_points_per_segment() - spline_type.num_overlap_between_segments()) == 0;
         if !legal {
             let mut control_points_clone = control_points.clone();
             control_points_clone.push(control_points.last().unwrap().clone());
             return Self::new(control_points_clone, spline_type);
         }
+        */
+        assert_eq!((num_points - spline_type.num_overlap_between_segments()) % (spline_type.num_control_points_per_segment() - spline_type.num_overlap_between_segments()), 0);
         let num_spline_segments = (num_points - spline_type.num_overlap_between_segments()) / (spline_type.num_control_points_per_segment() - spline_type.num_overlap_between_segments());
         let control_point_dim = control_points[0].len();
 

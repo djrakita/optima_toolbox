@@ -69,6 +69,12 @@ impl<T: AD> PairAverageDistanceTrait<T> for AHashMapWrapper<(u64, u64), T> {
         *self.hashmap.get(&(shape_a_id, shape_b_id)).unwrap()
     }
 }
+impl<T: AD> PairAverageDistanceTrait<T> for () {
+    #[inline(always)]
+    fn average_distance(&self, _shape_a_id: u64, _shape_b_id: u64) -> T {
+        T::one()
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum ParryPairSelector {
@@ -664,6 +670,47 @@ impl<T: AD, P: O3DPose<T>> OPairGroupFilterTrait<T, P> for ParryDistanceGroupFil
 }
 impl<T: AD, P: O3DPose<T>> OParryPairGroupFilterTrait<T, P> for ParryDistanceGroupFilter<T> { }
 
+pub struct ParryDistanceWrtAverageGroupFilter<'a, T: AD> {
+    parry_shape_rep: ParryShapeRep,
+    parry_dis_mode: ParryDisMode,
+    average_distances: &'a AHashMapWrapper<(u64, u64), T>,
+    distance_wrt_average_threshold: T
+}
+impl<'a, T: AD> ParryDistanceWrtAverageGroupFilter<'a, T> {
+    pub fn new(parry_shape_rep: ParryShapeRep, parry_dis_mode: ParryDisMode, average_distances: &'a AHashMapWrapper<(u64, u64), T>, distance_wrt_average_threshold: T) -> Self {
+        Self { parry_shape_rep, parry_dis_mode, average_distances, distance_wrt_average_threshold }
+    }
+}
+impl<'a, T: AD, P: O3DPose<T>> OPairGroupFilterTrait<T, P> for ParryDistanceWrtAverageGroupFilter<'a, T> {
+    type ShapeTypeA = OParryShape<T, P>;
+    type ShapeTypeB = OParryShape<T, P>;
+    type SelectorType = ParryPairSelector;
+    type Output = ParryFilterOutput;
+
+    fn pair_group_filter<S: PairSkipsTrait>(&self, shape_group_a: &Vec<Self::ShapeTypeA>, shape_group_b: &Vec<Self::ShapeTypeB>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S) -> Self::Output {
+        let start = Instant::now();
+
+        let output = ParryDistanceWrtAverageGroupQry::query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, &ParryDistanceWrtAverageGroupArgs::new(self.parry_shape_rep.clone(), self.parry_dis_mode.clone(), self.average_distances, T::constant(f64::MIN)));
+
+        let mut a = vec![];
+
+        output.outputs.iter().for_each(|x| {
+            if x.data.distance_wrt_average < self.distance_wrt_average_threshold {
+                a.push(x.pair_idxs.clone());
+            }
+        });
+
+        let selector = convert_parry_pair_idxs_to_parry_pair_selector(a);
+
+        ParryFilterOutput {
+            selector,
+            duration: start.elapsed(),
+            aux_datas: vec![ParryOutputAuxData { num_queries: 0, duration: start.elapsed() }],
+        }
+    }
+}
+impl<'a, T: AD, P: O3DPose<T>> OParryPairGroupFilterTrait<T, P> for ParryDistanceWrtAverageGroupFilter<'a, T> { }
+
 pub struct ParryIntersectGroupFilter {
     parry_shape_rep: ParryShapeRep
 }
@@ -702,7 +749,7 @@ impl<T: AD, P: O3DPose<T>> OPairGroupFilterTrait<T, P> for ParryIntersectGroupFi
 }
 impl<T: AD, P: O3DPose<T>> OParryPairGroupFilterTrait<T, P> for ParryIntersectGroupFilter { }
 
-pub struct ParryToSubcomponentsFilter;
+pub struct ParryToSubcomponentsFilter { }
 impl<T: AD, P: O3DPose<T>> OPairGroupFilterTrait<T, P> for ParryToSubcomponentsFilter {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
@@ -792,6 +839,111 @@ impl<T: AD, P: O3DPose<T>> OPairGroupFilterTrait<T, P> for ParryToSubcomponentsF
     }
 }
 impl<T: AD, P: O3DPose<T>> OParryPairGroupFilterTrait<T, P> for ParryToSubcomponentsFilter { }
+
+pub struct ParryDistanceGroupSequenceFilter<T: AD> {
+    shape_rep_seq: Vec<ParryShapeRep>,
+    subcomponent_shape_rep_seq: Vec<ParryShapeRep>,
+    distance_threshold: T,
+    parry_dis_mode: ParryDisMode
+}
+impl<T: AD> ParryDistanceGroupSequenceFilter<T> {
+    pub fn new(distance_threshold: T, parry_dis_mode: ParryDisMode, shape_rep_seq: Vec<ParryShapeRep>, subcomponent_shape_rep_seq: Vec<ParryShapeRep>) -> Self {
+        Self { distance_threshold, parry_dis_mode, shape_rep_seq, subcomponent_shape_rep_seq }
+    }
+}
+impl<T: AD, P: O3DPose<T>> OPairGroupFilterTrait<T, P> for ParryDistanceGroupSequenceFilter<T> {
+    type ShapeTypeA = OParryShape<T, P>;
+    type ShapeTypeB = OParryShape<T, P>;
+    type SelectorType = ParryPairSelector;
+    type Output = ParryFilterOutput;
+
+    fn pair_group_filter<S: PairSkipsTrait>(&self, shape_group_a: &Vec<Self::ShapeTypeA>, shape_group_b: &Vec<Self::ShapeTypeB>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S) -> Self::Output {
+        let start = Instant::now();
+
+        let mut curr = pair_selector.clone();
+        let mut aux_datas = vec![];
+
+        self.shape_rep_seq.iter().for_each(|x| {
+            let f = ParryDistanceGroupFilter::new(x.clone(), self.parry_dis_mode.clone(), self.distance_threshold);
+            let res = f.pair_group_filter(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips);
+            aux_datas.extend(res.aux_datas);
+            curr = res.selector;
+        });
+
+        if self.subcomponent_shape_rep_seq.len() > 0 {
+            let f = ParryToSubcomponentsFilter { };
+            let res = f.pair_group_filter(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips);
+            aux_datas.extend(res.aux_datas);
+            curr = res.selector;
+        }
+
+        self.subcomponent_shape_rep_seq.iter().for_each(|x| {
+            let f = ParryDistanceGroupFilter::new(x.clone(), self.parry_dis_mode.clone(), self.distance_threshold);
+            let res = f.pair_group_filter(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips);
+            aux_datas.extend(res.aux_datas);
+            curr = res.selector;
+        });
+
+        ParryFilterOutput {
+            selector: curr,
+            duration: start.elapsed(),
+            aux_datas,
+        }
+    }
+}
+
+pub struct ParryDistanceWrtAverageGroupSequenceFilter<'a, T: AD> {
+    shape_rep_seq: Vec<ParryShapeRep>,
+    subcomponent_shape_rep_seq: Vec<ParryShapeRep>,
+    average_distances: &'a AHashMapWrapper<(u64, u64), T>,
+    distance_wrt_average_threshold: T,
+    parry_dis_mode: ParryDisMode
+}
+impl<'a, T: AD> ParryDistanceWrtAverageGroupSequenceFilter<'a, T> {
+    pub fn new(shape_rep_seq: Vec<ParryShapeRep>, subcomponent_shape_rep_seq: Vec<ParryShapeRep>, average_distances: &'a AHashMapWrapper<(u64, u64), T>, distance_wrt_average_threshold: T, parry_dis_mode: ParryDisMode) -> Self {
+        Self { shape_rep_seq, subcomponent_shape_rep_seq, average_distances, distance_wrt_average_threshold, parry_dis_mode }
+    }
+}
+impl<'a, T: AD, P: O3DPose<T>> OPairGroupFilterTrait<T, P> for ParryDistanceWrtAverageGroupSequenceFilter<'a, T> {
+    type ShapeTypeA = OParryShape<T, P>;
+    type ShapeTypeB = OParryShape<T, P>;
+    type SelectorType = ParryPairSelector;
+    type Output = ParryFilterOutput;
+
+    fn pair_group_filter<S: PairSkipsTrait>(&self, shape_group_a: &Vec<Self::ShapeTypeA>, shape_group_b: &Vec<Self::ShapeTypeB>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S) -> Self::Output {
+        let start = Instant::now();
+
+        let mut curr = pair_selector.clone();
+        let mut aux_datas = vec![];
+
+        self.shape_rep_seq.iter().for_each(|x| {
+            let f = ParryDistanceWrtAverageGroupFilter::new(x.clone(), self.parry_dis_mode.clone(), self.average_distances, self.distance_wrt_average_threshold);
+            let res = f.pair_group_filter(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips);
+            aux_datas.extend(res.aux_datas);
+            curr = res.selector;
+        });
+
+        if self.subcomponent_shape_rep_seq.len() > 0 {
+            let f = ParryToSubcomponentsFilter { };
+            let res = f.pair_group_filter(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips);
+            aux_datas.extend(res.aux_datas);
+            curr = res.selector;
+        }
+
+        self.subcomponent_shape_rep_seq.iter().for_each(|x| {
+            let f = ParryDistanceWrtAverageGroupFilter::new(x.clone(), self.parry_dis_mode.clone(), self.average_distances, self.distance_wrt_average_threshold);
+            let res = f.pair_group_filter(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips);
+            aux_datas.extend(res.aux_datas);
+            curr = res.selector;
+        });
+
+        ParryFilterOutput {
+            selector: curr,
+            duration: start.elapsed(),
+            aux_datas,
+        }
+    }
+}
 
 /*
 pub struct ParryGenericFilter<T: AD, P: O3DPose<T>> {

@@ -73,19 +73,23 @@ impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> InterpolatorTrait<T, V> for 
         let r = s * self.total_arclength;
 
         let binary_search_res = self.arclength_markers.binary_search_by(|x| x.0.partial_cmp(&r).unwrap());
+        // let binary_search_res = self.arclength_markers.binary_search_by(|x| r.partial_cmp(&x.0).unwrap() );
 
         return match binary_search_res {
             Ok(idx) => {
                 self.interpolator.interpolate(self.arclength_markers[idx].1)
             }
             Err(idx) => {
-                let upper_bound_idx = idx + 1;
-                let lower_bound_idx = idx;
+                if idx == 0 { return self.interpolator.interpolate(T::zero()) }
+                let upper_bound_idx = idx;
+                let lower_bound_idx = idx - 1;
 
-                if upper_bound_idx == self.arclength_markers.len() { return self.interpolator.interpolate(self.interpolator.max_t()); }
+                // if upper_bound_idx == self.arclength_markers.len() { return self.interpolator.interpolate(self.interpolator.max_t()); }
 
                 let upper_bound_dis = self.arclength_markers[upper_bound_idx].0;
                 let lower_bound_dis = self.arclength_markers[lower_bound_idx].0;
+
+                assert!(lower_bound_dis <= r && r <= upper_bound_dis);
 
                 let upper_bound_t = self.arclength_markers[upper_bound_idx].1;
                 let lower_bound_t = self.arclength_markers[lower_bound_idx].1;

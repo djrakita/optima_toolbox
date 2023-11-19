@@ -63,7 +63,9 @@ pub trait JointTrait<T: AD, C: O3DPoseCategoryTrait + 'static> {
     #[inline]
     fn get_joint_variable_transform<V: OVec<T>>(&self, state: &V, all_joints: &Vec<Self>) -> C::P<T> where Self: Sized {
         let joint = self;
-        if let Some(mimic) = &joint.mimic() {
+        if let Some(fixed_values) = &joint.fixed_values() {
+            joint.get_variable_transform_from_joint_values_subslice(fixed_values)
+        } else if let Some(mimic) = &joint.mimic() {
             let mimic_joint_idx = mimic.joint_idx();
             let mimic_joint = &all_joints[mimic_joint_idx];
             let range = mimic_joint.dof_idxs_range();
@@ -81,8 +83,6 @@ pub trait JointTrait<T: AD, C: O3DPoseCategoryTrait + 'static> {
                     return all_joints.get_element(mimic_joint_idx).get_variable_transform_from_joint_values_subslice(&[value]);
                 }
             }
-        } else if let Some(fixed_values) = &joint.fixed_values() {
-            joint.get_variable_transform_from_joint_values_subslice(fixed_values)
         } else {
             let range = joint.dof_idxs_range();
             return match range {

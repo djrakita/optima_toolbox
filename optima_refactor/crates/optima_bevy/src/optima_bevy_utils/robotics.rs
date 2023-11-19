@@ -101,7 +101,7 @@ impl RoboticsActions {
                             ui.label(format!("DOF idx {}", dof_idx));
                             ui.label(format!("{}, sub dof {}", joint.name(), i));
                             ui.label(format!("Joint type {:?}, Axis {:?}", joint.joint_type(), joint.axis()));
-                            OEguiSlider::new(lower.to_constant(), upper.to_constant())
+                            OEguiSlider::new(lower.to_constant(), upper.to_constant(), 0.0)
                                 .show(&label, ui, &egui_engine, &());
 
                             let mut mutex_guard = egui_engine.get_mutex_guard();
@@ -156,7 +156,7 @@ impl RoboticsActions {
         });
 
         ui.label("link axis display length");
-        OEguiSlider::new(0.04, 1.0)
+        OEguiSlider::new(0.04, 1.0, 0.1)
             .show("link_axis_display_length", ui, egui_engine, &());
 
         ui.group(|ui| {
@@ -258,11 +258,13 @@ impl RoboticsSystems {
                                                                                                      mut robot_state_engine: ResMut<RobotStateEngine>,
                                                                                                      mut h: ResMut<BevyAnyHashmap>,
                                                                                                      egui_engine: Res<OEguiEngineWrapper>,
+                                                                                                     time: Res<Time>,
                                                                                                      window_query: Query<&Window, With<PrimaryWindow>>) {
         OEguiTopBottomPanel::new(TopBottomSide::Bottom, 100.0)
             .show("interpolator_bottom_pannel", contexts.ctx_mut(), &egui_engine, &window_query, &(), |ui| {
                 ui.horizontal(|ui| {
-                    OEguiSlider::new(0.0, interpolator.0.max_t().to_constant())
+                    ui.label("Playback Slider: ");
+                    OEguiSlider::new(0.0, interpolator.0.max_t().to_constant(), 0.0)
                         .show("playback_slider", ui, &egui_engine, &());
 
                     let playing = h.0.get_or_insert(&"playing".to_string(), false).clone();
@@ -274,6 +276,10 @@ impl RoboticsSystems {
                     OEguiButton::new(button_str)
                         .show("play_stop", ui, &egui_engine, &());
 
+                    ui.label("Speed Slider: ");
+                    OEguiSlider::new(0.0, 3.0, 1.0)
+                        .show("speed_slider", ui, &egui_engine, &());
+
                     let binding = egui_engine.get_mutex_guard();
                     let response = binding.get_button_response("play_stop").unwrap();
                     if response.widget_response().clicked() { h.0.insert("playing".to_string(), !playing); }
@@ -281,8 +287,10 @@ impl RoboticsSystems {
 
                     if playing {
                         let mut binding = egui_engine.get_mutex_guard();
+                        let response2 = binding.get_slider_response("speed_slider").unwrap();
+                        let speed = response2.slider_value.clone();
                         let response = binding.get_slider_response_mut("playback_slider").unwrap();
-                        response.slider_value += 0.02;
+                        response.slider_value += speed * time.delta_seconds_f64();
                         if response.slider_value > interpolator.0.max_t().to_constant() { response.slider_value = 0.0; }
                     }
                 });
