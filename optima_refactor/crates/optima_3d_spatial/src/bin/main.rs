@@ -4,7 +4,7 @@ use nalgebra::Isometry3;
 use optima_3d_spatial::optima_3d_pose::{ImplicitDualQuaternion, O3DPose};
 
 fn get_cow<T: AD, P: O3DPose<T>>(p: &P) -> Cow<ImplicitDualQuaternion<T>> {
-    p.downcast_or_convert::<ImplicitDualQuaternion<T>>()
+    p.o3dpose_downcast_or_convert::<ImplicitDualQuaternion<T>>()
 }
 
 fn main() {

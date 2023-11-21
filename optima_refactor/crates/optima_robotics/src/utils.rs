@@ -34,7 +34,7 @@ impl<T: AD, V: OVec<T>> AsTrajectoryWaypoint<T> for RobotTrajectoryWaypoint<T, V
 
     #[inline(always)]
     fn waypoint_as_slice(&self) -> &[T] {
-        self.waypoint.as_slice_ovec()
+        self.waypoint.ovec_as_slice()
     }
 }
 

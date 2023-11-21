@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::marker::PhantomData;
 use ad_trait::AD;
-use ad_trait::differentiable_block::{DifferentiableBlock};
+use ad_trait::differentiable_block::{DifferentiableBlock, DifferentiableBlockArgPrepTrait};
 use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFunctionTrait};
 use num_traits::One;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
@@ -34,13 +34,22 @@ impl<C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> Diffe
     }
 }
 
+pub type DifferentiableBlockIKObjective<'a, C, L, E, AP> = DifferentiableBlock<'a, IKObjective<C, L>, E, AP>;
+
+/*
+pub struct DiffBlockWrapper<'a, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, E: DerivativeMethodTrait>(DifferentiableBlock<'a, IKObjective<C, L>, E>);
+
+impl<'a, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, E: DerivativeMethodTrait> DifferentiableBlockPrepArgs for DiffBlockWrapper<'a, C, L, E> {
+    fn prep_args(&mut self, _inputs: &[f64]) { }
+}
+*/
+
 pub trait DifferentiableBlockIKObjectiveTrait {
     fn add_initial_ik_goals(&mut self, link_idxs: Vec<usize>);
     fn update_ik_goal_pose<P: O3DPose<f64>>(&mut self, goal_idx: usize, pose: &P);
     fn update_ik_goal_weight(&mut self, goal_idx: usize, weight: f64);
 }
-
-impl<'a, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, E: DerivativeMethodTrait> DifferentiableBlockIKObjectiveTrait for DifferentiableBlock<'a, IKObjective<C, L>, E> {
+impl<'a, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, E: DerivativeMethodTrait, AP: DifferentiableBlockArgPrepTrait<'a, IKObjective<C, L>, E>> DifferentiableBlockIKObjectiveTrait for DifferentiableBlockIKObjective<'a, C, L, E, AP> {
     fn add_initial_ik_goals(&mut self, link_idxs: Vec<usize>) {
         self.update_args(|x, y| {
             x.goals.clear();
@@ -63,8 +72,8 @@ impl<'a, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, E
 
     fn update_ik_goal_pose<P: O3DPose<f64>>(&mut self, goal_idx: usize, pose: &P) {
         self.update_args(|x, y| {
-            x.goals[goal_idx].goal_pose = pose.to_other_generic_category::<f64, C>();
-            y.goals[goal_idx].goal_pose = pose.to_other_generic_category::<E::T, C>();
+            x.goals[goal_idx].goal_pose = pose.o3dpose_to_other_generic_category::<f64, C>();
+            y.goals[goal_idx].goal_pose = pose.o3dpose_to_other_generic_category::<E::T, C>();
         });
     }
 

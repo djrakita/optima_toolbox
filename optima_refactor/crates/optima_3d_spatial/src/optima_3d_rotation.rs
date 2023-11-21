@@ -53,15 +53,15 @@ pub trait O3DRotation<T: AD> :
     fn displacement(&self, other: &Self) -> Self;
     fn dis(&self, other: &Self) -> T;
     fn interpolate(&self, to: &Self, t: T) -> Self;
-    fn to_other_generic_category<T2: AD, C: O3DRotationCategoryTrait>(&self) -> C::R<T2> {
-        let scaled_axis = self.scaled_axis_of_rotation().to_other_ad_type::<T2>();
+    fn o3drot_to_other_generic_category<T2: AD, C: O3DRotationCategoryTrait>(&self) -> C::R<T2> {
+        let scaled_axis = self.scaled_axis_of_rotation().o3dvec_to_other_ad_type::<T2>();
         C::R::from_scaled_axis_of_rotation(&scaled_axis)
     }
-    fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as O3DRotationCategoryTrait>::R<T2> {
-        self.to_other_generic_category::<T2, Self::Category>()
+    fn o3drot_to_other_ad_type<T2: AD>(&self) -> <Self::Category as O3DRotationCategoryTrait>::R<T2> {
+        self.o3drot_to_other_generic_category::<T2, Self::Category>()
     }
     #[inline(always)]
-    fn downcast_or_convert<R: O3DRotation<T>>(&self) -> Cow<R> {
+    fn o3drot_downcast_or_convert<R: O3DRotation<T>>(&self) -> Cow<R> {
         let downcast = self.as_any().downcast_ref::<R>();
         match downcast {
             Some(d) => { Cow::Borrowed(d) }
@@ -95,8 +95,8 @@ impl<T: AD> O3DRotation<T> for Rotation3<T> {
 
     #[inline]
     fn mul_by_point_generic<V: O3DVec<T>>(&self, point: &V) -> V {
-        let res = self * Vector3::from_column_slice(point.as_slice());
-        V::from_slice(res.as_slice())
+        let res = self * Vector3::from_column_slice(point.o3dvec_as_slice());
+        V::o3dvec_from_slice(res.as_slice())
     }
 
     #[inline]
@@ -107,7 +107,7 @@ impl<T: AD> O3DRotation<T> for Rotation3<T> {
 
     #[inline]
     fn from_scaled_axis_of_rotation<V: O3DVec<T>>(axis: &V) -> Self {
-        let slice = axis.as_slice();
+        let slice = axis.o3dvec_as_slice();
         Rotation3::from_scaled_axis(Vector3::from_column_slice(slice))
     }
 
@@ -208,8 +208,8 @@ impl<T: AD> O3DRotation<T> for UnitQuaternion<T> {
 
     #[inline]
     fn mul_by_point_generic<V: O3DVec<T>>(&self, point: &V) -> V {
-        let res = self * Vector3::from_column_slice(point.as_slice());
-        V::from_slice(res.as_slice())
+        let res = self * Vector3::from_column_slice(point.o3dvec_as_slice());
+        V::o3dvec_from_slice(res.as_slice())
     }
 
     #[inline]
@@ -220,7 +220,7 @@ impl<T: AD> O3DRotation<T> for UnitQuaternion<T> {
 
     #[inline]
     fn from_scaled_axis_of_rotation<V: O3DVec<T>>(axis: &V) -> Self {
-        let slice = axis.as_slice();
+        let slice = axis.o3dvec_as_slice();
         UnitQuaternion::from_scaled_axis(Vector3::from_column_slice(slice))
     }
 

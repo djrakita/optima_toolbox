@@ -4,12 +4,12 @@ use optima_linalg::OVec;
 use optima_sampling::SimpleSampler;
 
 pub fn proj<T: AD, V: OVec<T>>(v: &V, u: &V) -> V {
-    return u.scalar_mul(&proj_scalar(v, u))
+    return u.ovec_scalar_mul(&proj_scalar(v, u))
 }
 
 pub fn proj_scalar<T: AD, V: OVec<T>>(v: &V, u: &V) -> T {
-    let n = v.dot(u);
-    let d = u.dot(u);
+    let n = v.ovec_dot(u);
+    let d = u.ovec_dot(u);
     return n/d;
 }
 
@@ -22,11 +22,11 @@ pub fn get_orthonormal_basis<T: AD, V: OVec<T>>(initial_vector: &V, basis_dim: u
         match seed {
             None => {
                 let s = SimpleSampler::uniform_samples(&vec![(T::constant(-1.0), T::constant(1.0)); dim], None);
-                out_vecs.push( V::from_slice_ovec(&s) );
+                out_vecs.push( V::ovec_from_slice(&s) );
             }
             Some(seed) => {
                 let s = SimpleSampler::uniform_samples(&vec![(T::constant(-1.0), T::constant(1.0)); dim], Some(seed + i as u64));
-                out_vecs.push( V::from_slice_ovec(&s ) );
+                out_vecs.push( V::ovec_from_slice(&s ) );
             }
         }
     }
@@ -36,7 +36,7 @@ pub fn get_orthonormal_basis<T: AD, V: OVec<T>>(initial_vector: &V, basis_dim: u
         for j in 0..i {
             let tmp2 = out_vecs[j].clone();
             // out_vecs[i] -= &proj(&tmp1, &tmp2)
-            out_vecs[i] = out_vecs[i].sub(&proj(&tmp1, &tmp2));
+            out_vecs[i] = out_vecs[i].ovec_sub(&proj(&tmp1, &tmp2));
         }
     }
 
@@ -65,8 +65,8 @@ pub fn get_points_around_circle<T: AD, V: OVec<T>>(center_point: &V, rotation_ax
 
     let l = range.len();
     for i in 0..l {
-        let point = local_x.scalar_mul(&(circle_radius * range[i].cos())).add(&local_y.scalar_mul(&(circle_radius * range[i].sin())));
-        out_points.push(point.add(&center_point));
+        let point = local_x.ovec_scalar_mul(&(circle_radius * range[i].cos())).ovec_add(&local_y.ovec_scalar_mul(&(circle_radius * range[i].sin())));
+        out_points.push(point.ovec_add(&center_point));
     }
 
     out_points

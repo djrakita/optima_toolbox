@@ -1,5 +1,5 @@
 use std::sync::Mutex;
-use ad_trait::differentiable_block::DifferentiableBlock;
+use ad_trait::differentiable_block::{DifferentiableBlock, DifferentiableBlockArgPrepTrait};
 use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFunctionTrait};
 use optimization_engine::core::SolverStatus;
 use optimization_engine::panoc::{PANOCCache, PANOCOptimizer};
@@ -29,7 +29,7 @@ impl DiffBlockUnconstrainedOptimizerTrait for SimpleOpEnEngineOptimizer {
     type DataType = f64;
     type OutputType = Box<SimpleOpEnEngineOptimizerOutput>;
 
-    fn diff_block_unconstrained_optimize<'a, D1: DifferentiableFunctionTrait, E1: DerivativeMethodTrait>(&self, objective_function: &DifferentiableBlock<D1, E1>, initial_condition: &[f64]) -> Self::OutputType {
+    fn diff_block_unconstrained_optimize<'a, D1: DifferentiableFunctionTrait, E1: DerivativeMethodTrait, AP: DifferentiableBlockArgPrepTrait<'a, D1, E1>>(&self, objective_function: &DifferentiableBlock<'a, D1, E1, AP>, initial_condition: &[f64]) -> Self::OutputType {
         assert_eq!(self.problem_size, initial_condition.len());
 
         let df = |u: &[f64], grad: &mut [f64]| -> Result<(), SolverError> {

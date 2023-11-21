@@ -40,7 +40,7 @@ impl ToTriMesh for Document {
 
         if meter != 1.0 {
             out_trimesh.points.iter_mut().for_each(|x| {
-                *x = x.scalar_mul_o3dvec(meter);
+                *x = x.o3dvec_scalar_mul(meter);
             })
         }
 

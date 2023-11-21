@@ -25,7 +25,7 @@ impl<T: AD, V: OVec<T>> InterpolatingSpline<T, V> {
         let num_spline_segments = (num_points - spline_type.num_overlap_between_segments()) / (spline_type.num_control_points_per_segment() - spline_type.num_overlap_between_segments());
         let control_point_dim = control_points[0].len();
 
-        let spline_segment_a_coefficients = vec![vec![V::from_slice_ovec(&vec![T::zero(); control_point_dim]); spline_type.num_control_points_per_segment()]; num_spline_segments];
+        let spline_segment_a_coefficients = vec![vec![V::ovec_from_slice(&vec![T::zero(); control_point_dim]); spline_type.num_control_points_per_segment()]; num_spline_segments];
 
         let mut out_self = Self {
             control_points,
@@ -59,9 +59,9 @@ impl<T: AD, V: OVec<T>> InterpolatingSpline<T, V> {
 
         let a_vecs = &self.spline_segment_a_coefficients[spline_segment_idx];
 
-        let mut out = V::from_slice_ovec(&vec![T::zero(); a_vecs[0].len()]);
+        let mut out = V::ovec_from_slice(&vec![T::zero(); a_vecs[0].len()]);
         for (i, a) in a_vecs.iter().enumerate() {
-            out = out.add(&a.scalar_mul(&rt.powi(i as i32)));
+            out = out.ovec_add(&a.ovec_scalar_mul(&rt.powi(i as i32)));
         }
 
         return out;
@@ -156,8 +156,8 @@ impl<T: AD, V: OVec<T>> InterpolatingSpline<T, V> {
                 // let p0 = p2 - (2.0/(1.0-w))* d_p1_d_t;
                 // let p3 = p1 + (2.0/(1.0-w))* d_p2_d_t;
 
-                let p0 = p2.sub(  &d_p1_d_t.scalar_mul(&T::constant(2.0 / 1.0-w.to_constant()))  );
-                let p3 = p1.add(  &d_p2_d_t.scalar_mul( &T::constant(2.0/(1.0-w.to_constant())) )  );
+                let p0 = p2.ovec_sub(  &d_p1_d_t.ovec_scalar_mul(&T::constant(2.0 / 1.0-w.to_constant()))  );
+                let p3 = p1.ovec_add(  &d_p2_d_t.ovec_scalar_mul( &T::constant(2.0/(1.0-w.to_constant())) )  );
 
                 let control_points = vec![&p0, p1, p2, &p3];
                 let a_vecs = calculate_a_vector_coefficients_generic(&control_points, &basis_matrix);
@@ -172,8 +172,8 @@ impl<T: AD, V: OVec<T>> InterpolatingSpline<T, V> {
                 // let p1 = (1./3.)*d_p0_d_t + p0;
                 // let p2 = p3 - (1./3.)*d_p3_d_t;
 
-                let p1 = d_p0_d_t.scalar_mul( &(T::constant(1./3.)) ).add( p0 );
-                let p2 = p3.sub( &d_p3_d_t.scalar_mul(&T::constant(1./3.)) );
+                let p1 = d_p0_d_t.ovec_scalar_mul( &(T::constant(1./3.)) ).ovec_add( p0 );
+                let p2 = p3.ovec_sub( &d_p3_d_t.ovec_scalar_mul(&T::constant(1./3.)) );
 
                 let control_points = vec![p0, &p1, &p2, p3];
                 let a_vecs = calculate_a_vector_coefficients_generic(&control_points, &basis_matrix);
@@ -214,9 +214,9 @@ fn calculate_a_vector_coefficients_generic<T: AD, V: OVec<T>>(p: &Vec<&V>, basis
 
     for row in basis_matrix {
         assert_eq!(row.len(), p.len());
-        let mut a = V::from_slice_ovec(&vec![T::zero(); p[0].len()]);
+        let mut a = V::ovec_from_slice(&vec![T::zero(); p[0].len()]);
         for (i, value) in row.iter().enumerate() {
-            a = a.add( &p[i].scalar_mul(value) );
+            a = a.ovec_add( &p[i].ovec_scalar_mul(value) );
         }
         out_vec.push(a);
     }
@@ -307,12 +307,12 @@ impl<T: AD, V: OVec<T>> BSpline<T, V> {
     fn bspline_interpolate(&self, t: T) -> V {
         let k_2 = self.k_2;
 
-        let mut out_sum = V::from_slice_ovec(&vec![T::zero(); self.control_points[0].len()]);
+        let mut out_sum = V::ovec_from_slice(&vec![T::zero(); self.control_points[0].len()]);
         for (control_point_idx, control_point) in self.control_points.iter().enumerate() {
             let c = T::constant(control_point_idx as f64);
             if c - k_2 <= t && t < c + k_2 {
                 // out_sum += control_point*self.cox_de_boor_recurrence(control_point_idx, self.k, t);
-                out_sum = out_sum.add(&control_point.scalar_mul( &self.cox_de_boor_recurrence(control_point_idx, self.k, t) ));
+                out_sum = out_sum.ovec_add(&control_point.ovec_scalar_mul( &self.cox_de_boor_recurrence(control_point_idx, self.k, t) ));
             }
         }
         out_sum

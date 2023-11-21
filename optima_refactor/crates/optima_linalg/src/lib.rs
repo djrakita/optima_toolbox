@@ -63,46 +63,46 @@ pub trait OVecCategoryTrait : Debug + Clone + Send + Sync {
 pub trait OVec<T: AD> : Debug + Clone + Send + Sync + AsAny  {
     type Category: OVecCategoryTrait;
 
-    fn type_identifier() -> OVecType;
-    fn from_slice_ovec(slice: &[T]) -> Self;
-    fn as_slice_ovec(&self) -> &[T];
-    fn as_mut_slice_ovec(&mut self) -> &mut [T];
+    fn ovec_type_identifier() -> OVecType;
+    fn ovec_from_slice(slice: &[T]) -> Self;
+    fn ovec_as_slice(&self) -> &[T];
+    fn ovec_as_mut_slice(&mut self) -> &mut [T];
     /// start idx is inclusive, end idx is exclusive
-    fn subslice(&self, start: usize, end: usize) -> &[T] { &self.as_slice_ovec()[start..end]  }
-    fn dot(&self, other: &Self) -> T;
-    fn add(&self, other: &Self) -> Self;
-    fn sub(&self, other: &Self) -> Self;
-    fn scalar_mul(&self, scalar: &T) -> Self;
-    fn scalar_div(&self, scalar: &T) -> Self;
+    fn subslice(&self, start: usize, end: usize) -> &[T] { &self.ovec_as_slice()[start..end]  }
+    fn ovec_dot(&self, other: &Self) -> T;
+    fn ovec_add(&self, other: &Self) -> Self;
+    fn ovec_sub(&self, other: &Self) -> Self;
+    fn ovec_scalar_mul(&self, scalar: &T) -> Self;
+    fn ovec_scalar_div(&self, scalar: &T) -> Self;
     fn lp_norm(&self, p: &T) -> T {
         let mut out = T::zero();
-        self.as_slice_ovec().iter().for_each(|x| { out += x.powf(*p); });
+        self.ovec_as_slice().iter().for_each(|x| { out += x.powf(*p); });
         out.powf(p.recip())
     }
     fn normalize(&self) -> Self {
-        self.scalar_div(&self.lp_norm(&T::constant(2.0)))
+        self.ovec_scalar_div(&self.lp_norm(&T::constant(2.0)))
     }
-    fn get_element(&self, i: usize) -> &T;
-    fn get_element_mut(&mut self, i: usize) -> &mut T;
-    fn set_element(&mut self, i: usize, element: T);
+    fn ovec_get_element(&self, i: usize) -> &T;
+    fn ovec_get_element_mut(&mut self, i: usize) -> &mut T;
+    fn ovec_set_element(&mut self, i: usize, element: T);
     fn len(&self) -> usize;
     fn to_constant_vec(&self) -> Vec<f64> {
-        self.as_slice_ovec().iter().map(|x| x.to_constant()).collect()
+        self.ovec_as_slice().iter().map(|x| x.to_constant()).collect()
     }
-    fn to_other_generic_category<T2: AD, C: OVecCategoryTrait>(&self) -> C::V<T2> {
+    fn ovec_to_other_generic_category<T2: AD, C: OVecCategoryTrait>(&self) -> C::V<T2> {
         let s: Vec<T2> = self.to_constant_vec().iter().map(|x| T2::constant(*x)).collect();
-        C::V::from_slice_ovec(&s)
+        C::V::ovec_from_slice(&s)
     }
-    fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as OVecCategoryTrait>::V<T2> {
-        self.to_other_generic_category::<T2, Self::Category>()
+    fn ovec_to_other_ad_type<T2: AD>(&self) -> <Self::Category as OVecCategoryTrait>::V<T2> {
+        self.ovec_to_other_generic_category::<T2, Self::Category>()
     }
     #[inline(always)]
-    fn downcast_or_convert<V: OVec<T>>(&self) -> Cow<V> {
+    fn ovec_downcast_or_convert<V: OVec<T>>(&self) -> Cow<V> {
         let downcast = self.downcast_ref();
         match downcast {
             Some(d) => { Cow::Borrowed(d) }
             None => {
-                let out = V::from_slice_ovec(&self.as_slice_ovec());
+                let out = V::ovec_from_slice(&self.ovec_as_slice());
                 Cow::Owned(out)
             }
         }
@@ -111,8 +111,8 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync + AsAny  {
     fn eq<T2: AD, V: OVec<T2>>(&self, other: V) -> bool {
         if self.len() != other.len() { return false; }
 
-        for x in self.as_slice_ovec() {
-            for y in other.as_slice_ovec() {
+        for x in self.ovec_as_slice() {
+            for y in other.ovec_as_slice() {
                 let xc = x.to_constant();
                 let yc = y.to_constant();
                 if xc != yc { return false; }
@@ -205,12 +205,12 @@ impl<T: AD, const N: usize> OVec<T> for [T; N] {
     type Category = OVecCategoryArr<N>;
 
     #[inline]
-    fn type_identifier() -> OVecType {
+    fn ovec_type_identifier() -> OVecType {
         OVecType::Arr
     }
 
     #[inline]
-    fn from_slice_ovec(slice: &[T]) -> Self {
+    fn ovec_from_slice(slice: &[T]) -> Self {
         assert_eq!(slice.len(), N);
         let mut out = [T::zero(); N];
         out.iter_mut().zip(slice.iter()).for_each(|(x,y)| *x = *y );
@@ -218,62 +218,62 @@ impl<T: AD, const N: usize> OVec<T> for [T; N] {
     }
 
     #[inline]
-    fn as_slice_ovec(&self) -> &[T] {
+    fn ovec_as_slice(&self) -> &[T] {
         self
     }
 
     #[inline]
-    fn as_mut_slice_ovec(&mut self) -> &mut [T] {
+    fn ovec_as_mut_slice(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 
     #[inline]
-    fn dot(&self, other: &Self) -> T {
+    fn ovec_dot(&self, other: &Self) -> T {
         let mut out = T::zero();
         self.iter().zip(other.iter()).for_each(|(x, y)| out +=  *x * *y);
         out
     }
 
     #[inline]
-    fn add(&self, other: &Self) -> Self {
+    fn ovec_add(&self, other: &Self) -> Self {
         let mut out = [T::zero(); N];
         out.iter_mut().enumerate().for_each(|(i, x)| *x = self[i]+other[i]);
         out
     }
 
     #[inline]
-    fn sub(&self, other: &Self) -> Self {
+    fn ovec_sub(&self, other: &Self) -> Self {
         let mut out = [T::zero(); N];
         out.iter_mut().enumerate().for_each(|(i, x)| *x = self[i]-other[i]);
         out
     }
 
     #[inline]
-    fn scalar_mul(&self, scalar: &T) -> Self {
+    fn ovec_scalar_mul(&self, scalar: &T) -> Self {
         let mut out = self.clone();
         out.iter_mut().for_each(|x| *x *= *scalar);
         out
     }
 
     #[inline]
-    fn scalar_div(&self, scalar: &T) -> Self {
+    fn ovec_scalar_div(&self, scalar: &T) -> Self {
         let mut out = self.clone();
         out.iter_mut().for_each(|x| *x /= *scalar);
         out
     }
 
     #[inline]
-    fn get_element(&self, i: usize) -> &T {
+    fn ovec_get_element(&self, i: usize) -> &T {
         &self[i]
     }
 
     #[inline]
-    fn get_element_mut(&mut self, i: usize) -> &mut T {
+    fn ovec_get_element_mut(&mut self, i: usize) -> &mut T {
         &mut self[i]
     }
 
     #[inline]
-    fn set_element(&mut self, i: usize, element: T) {
+    fn ovec_set_element(&mut self, i: usize, element: T) {
         self[i] = element
     }
 
@@ -293,34 +293,34 @@ impl<T: AD> OVec<T> for Vec<T> {
     type Category = OVecCategoryVec;
 
     #[inline]
-    fn type_identifier() -> OVecType {
+    fn ovec_type_identifier() -> OVecType {
         OVecType::Vec
     }
 
     #[inline]
-    fn from_slice_ovec(slice: &[T]) -> Self {
+    fn ovec_from_slice(slice: &[T]) -> Self {
         slice.into()
     }
 
     #[inline]
-    fn as_slice_ovec(&self) -> &[T] {
+    fn ovec_as_slice(&self) -> &[T] {
         self.as_slice()
     }
 
     #[inline]
-    fn as_mut_slice_ovec(&mut self) -> &mut [T] {
+    fn ovec_as_mut_slice(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 
     #[inline]
-    fn dot(&self, other: &Self) -> T {
+    fn ovec_dot(&self, other: &Self) -> T {
         let mut out = T::zero();
         self.iter().zip(other.iter()).for_each(|(x, y)| out +=  *x * *y);
         out
     }
 
     #[inline]
-    fn add(&self, other: &Self) -> Self {
+    fn ovec_add(&self, other: &Self) -> Self {
         assert_eq!(self.len(), other.len());
         let mut out = vec![T::zero(); self.len()];
         out.iter_mut().enumerate().for_each(|(i, x)| *x = self[i]+other[i]);
@@ -328,7 +328,7 @@ impl<T: AD> OVec<T> for Vec<T> {
     }
 
     #[inline]
-    fn sub(&self, other: &Self) -> Self {
+    fn ovec_sub(&self, other: &Self) -> Self {
         assert_eq!(self.len(), other.len());
         let mut out = vec![T::zero(); self.len()];
         out.iter_mut().enumerate().for_each(|(i, x)| *x = self[i]-other[i]);
@@ -336,31 +336,31 @@ impl<T: AD> OVec<T> for Vec<T> {
     }
 
     #[inline]
-    fn scalar_mul(&self, scalar: &T) -> Self {
+    fn ovec_scalar_mul(&self, scalar: &T) -> Self {
         let mut out = self.clone();
         out.iter_mut().for_each(|x| *x *= *scalar);
         out
     }
 
     #[inline]
-    fn scalar_div(&self, scalar: &T) -> Self {
+    fn ovec_scalar_div(&self, scalar: &T) -> Self {
         let mut out = self.clone();
         out.iter_mut().for_each(|x| *x /= *scalar);
         out
     }
 
     #[inline]
-    fn get_element(&self, i: usize) -> &T {
+    fn ovec_get_element(&self, i: usize) -> &T {
         &self[i]
     }
 
     #[inline]
-    fn get_element_mut(&mut self, i: usize) -> &mut T {
+    fn ovec_get_element_mut(&mut self, i: usize) -> &mut T {
         &mut self[i]
     }
 
     #[inline]
-    fn set_element(&mut self, i: usize, element: T) {
+    fn ovec_set_element(&mut self, i: usize, element: T) {
         self[i] = element
     }
 
@@ -379,72 +379,72 @@ impl<T: AD, const M: usize> OVec<T> for ArrayVec<T, M> {
     type Category = OVecCategoryArrayVec<M>;
 
     #[inline]
-    fn type_identifier() -> OVecType {
+    fn ovec_type_identifier() -> OVecType {
         OVecType::ArrayVec
     }
 
     #[inline]
-    fn from_slice_ovec(slice: &[T]) -> Self {
+    fn ovec_from_slice(slice: &[T]) -> Self {
         ArrayVec::try_from(slice).expect("error")
     }
 
     #[inline]
-    fn as_slice_ovec(&self) -> &[T] {
+    fn ovec_as_slice(&self) -> &[T] {
         self.as_slice()
     }
 
     #[inline]
-    fn as_mut_slice_ovec(&mut self) -> &mut [T] {
+    fn ovec_as_mut_slice(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 
     #[inline]
-    fn dot(&self, other: &Self) -> T {
+    fn ovec_dot(&self, other: &Self) -> T {
         let mut out = T::zero();
         self.iter().zip(other.iter()).for_each(|(x, y)| out +=  *x * *y);
         out
     }
 
     #[inline]
-    fn add(&self, other: &Self) -> Self {
+    fn ovec_add(&self, other: &Self) -> Self {
         let mut out = ArrayVec::new();
         self.iter().zip(other.iter()).for_each(|(x, y)| out.push(*x + *y));
         out
     }
 
     #[inline]
-    fn sub(&self, other: &Self) -> Self {
+    fn ovec_sub(&self, other: &Self) -> Self {
         let mut out = ArrayVec::new();
         self.iter().zip(other.iter()).for_each(|(x, y)| out.push(*x - *y));
         out
     }
 
     #[inline]
-    fn scalar_mul(&self, scalar: &T) -> Self {
+    fn ovec_scalar_mul(&self, scalar: &T) -> Self {
         let mut out = self.clone();
         out.iter_mut().for_each(|x| *x *= *scalar);
         out
     }
 
     #[inline]
-    fn scalar_div(&self, scalar: &T) -> Self {
+    fn ovec_scalar_div(&self, scalar: &T) -> Self {
         let mut out = self.clone();
         out.iter_mut().for_each(|x| *x /= *scalar);
         out
     }
 
     #[inline]
-    fn get_element(&self, i: usize) -> &T {
+    fn ovec_get_element(&self, i: usize) -> &T {
         &self[i]
     }
 
     #[inline]
-    fn get_element_mut(&mut self, i: usize) -> &mut T {
+    fn ovec_get_element_mut(&mut self, i: usize) -> &mut T {
         &mut self[i]
     }
 
     #[inline]
-    fn set_element(&mut self, i: usize, element: T) {
+    fn ovec_set_element(&mut self, i: usize, element: T) {
         self[i] = element
     }
 
@@ -463,62 +463,62 @@ impl<T: AD> OVec<T> for DVector<T> {
     type Category = OVecCategoryDVector;
 
     #[inline]
-    fn type_identifier() -> OVecType {
+    fn ovec_type_identifier() -> OVecType {
         OVecType::DVector
     }
 
     #[inline]
-    fn from_slice_ovec(slice: &[T]) -> Self {
+    fn ovec_from_slice(slice: &[T]) -> Self {
         DVector::from_column_slice(slice)
     }
 
     #[inline]
-    fn as_slice_ovec(&self) -> &[T] {
+    fn ovec_as_slice(&self) -> &[T] {
         self.as_slice()
     }
 
     #[inline]
-    fn as_mut_slice_ovec(&mut self) -> &mut [T] {
+    fn ovec_as_mut_slice(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 
     #[inline]
-    fn dot(&self, other: &Self) -> T {
+    fn ovec_dot(&self, other: &Self) -> T {
         self.dot(other)
     }
 
     #[inline]
-    fn add(&self, other: &Self) -> Self {
+    fn ovec_add(&self, other: &Self) -> Self {
         self + other
     }
 
     #[inline]
-    fn sub(&self, other: &Self) -> Self {
+    fn ovec_sub(&self, other: &Self) -> Self {
         self - other
     }
 
     #[inline]
-    fn scalar_mul(&self, scalar: &T) -> Self {
+    fn ovec_scalar_mul(&self, scalar: &T) -> Self {
         scalar.mul_by_nalgebra_matrix_ref(self)
     }
 
     #[inline]
-    fn scalar_div(&self, scalar: &T) -> Self {
+    fn ovec_scalar_div(&self, scalar: &T) -> Self {
         (T::one() / *scalar).mul_by_nalgebra_matrix_ref(self)
     }
 
     #[inline]
-    fn get_element(&self, i: usize) -> &T {
+    fn ovec_get_element(&self, i: usize) -> &T {
         &self[i]
     }
 
     #[inline]
-    fn get_element_mut(&mut self, i: usize) -> &mut T {
+    fn ovec_get_element_mut(&mut self, i: usize) -> &mut T {
         &mut self[i]
     }
 
     #[inline]
-    fn set_element(&mut self, i: usize, element: T) {
+    fn ovec_set_element(&mut self, i: usize, element: T) {
         self[i] = element
     }
 
@@ -537,61 +537,61 @@ impl<T: AD, const N: usize> OVec<T> for SVector<T, N> {
     type Category = OVecCategorySVector<N>;
 
     #[inline]
-    fn type_identifier() -> OVecType {
+    fn ovec_type_identifier() -> OVecType {
         OVecType::SVector
     }
 
     #[inline]
-    fn from_slice_ovec(slice: &[T]) -> Self {
+    fn ovec_from_slice(slice: &[T]) -> Self {
         SVector::from_column_slice(slice)
     }
 
     #[inline]
-    fn as_slice_ovec(&self) -> &[T] {
+    fn ovec_as_slice(&self) -> &[T] {
         self.as_slice()
     }
 
     #[inline]
-    fn as_mut_slice_ovec(&mut self) -> &mut [T] {
+    fn ovec_as_mut_slice(&mut self) -> &mut [T] {
         self.as_mut_slice()
     }
 
     #[inline]
-    fn dot(&self, other: &Self) -> T {
+    fn ovec_dot(&self, other: &Self) -> T {
         self.dot(other)
     }
 
     #[inline]
-    fn add(&self, other: &Self) -> Self {
+    fn ovec_add(&self, other: &Self) -> Self {
         self + other
     }
 
     #[inline]
-    fn sub(&self, other: &Self) -> Self {
+    fn ovec_sub(&self, other: &Self) -> Self {
         self - other
     }
 
     #[inline]
-    fn scalar_mul(&self, scalar: &T) -> Self {
+    fn ovec_scalar_mul(&self, scalar: &T) -> Self {
         scalar.mul_by_nalgebra_matrix_ref(self)
     }
 
-    fn scalar_div(&self, scalar: &T) -> Self {
+    fn ovec_scalar_div(&self, scalar: &T) -> Self {
         (T::one() / *scalar).mul_by_nalgebra_matrix_ref(self)
     }
 
     #[inline]
-    fn get_element(&self, i: usize) -> &T {
+    fn ovec_get_element(&self, i: usize) -> &T {
         &self[i]
     }
 
     #[inline]
-    fn get_element_mut(&mut self, i: usize) -> &mut T {
+    fn ovec_get_element_mut(&mut self, i: usize) -> &mut T {
         &mut self[i]
     }
 
     #[inline]
-    fn set_element(&mut self, i: usize, element: T) {
+    fn ovec_set_element(&mut self, i: usize, element: T) {
         self[i] = element;
     }
 
@@ -610,61 +610,61 @@ impl<T: AD> OVec<T> for ArrayBase<OwnedRepr<T>, Ix1> {
     type Category = OVecCategoryNDarray;
 
     #[inline]
-    fn type_identifier() -> OVecType {
+    fn ovec_type_identifier() -> OVecType {
         OVecType::NDarray
     }
 
     #[inline]
-    fn from_slice_ovec(slice: &[T]) -> Self {
+    fn ovec_from_slice(slice: &[T]) -> Self {
         ArrayBase::from_vec(slice.to_vec())
     }
 
     #[inline]
-    fn as_slice_ovec(&self) -> &[T] {
+    fn ovec_as_slice(&self) -> &[T] {
         self.as_slice().unwrap()
     }
 
     #[inline]
-    fn as_mut_slice_ovec(&mut self) -> &mut [T] {
+    fn ovec_as_mut_slice(&mut self) -> &mut [T] {
         self.as_slice_mut().unwrap()
     }
 
     #[inline]
-    fn dot(&self, other: &Self) -> T {
+    fn ovec_dot(&self, other: &Self) -> T {
         self.dot(other)
     }
 
     #[inline]
-    fn add(&self, other: &Self) -> Self {
+    fn ovec_add(&self, other: &Self) -> Self {
         self + other
     }
 
     #[inline]
-    fn sub(&self, other: &Self) -> Self {
+    fn ovec_sub(&self, other: &Self) -> Self {
         self - other
     }
 
     #[inline]
-    fn scalar_mul(&self, scalar: &T) -> Self {
+    fn ovec_scalar_mul(&self, scalar: &T) -> Self {
         scalar.mul_by_ndarray_matrix_ref(self)
     }
 
-    fn scalar_div(&self, scalar: &T) -> Self {
+    fn ovec_scalar_div(&self, scalar: &T) -> Self {
         (T::one() / *scalar).mul_by_ndarray_matrix_ref(self)
     }
 
     #[inline]
-    fn get_element(&self, i: usize) -> &T {
+    fn ovec_get_element(&self, i: usize) -> &T {
         &self[i]
     }
 
     #[inline]
-    fn get_element_mut(&mut self, i: usize) -> &mut T {
+    fn ovec_get_element_mut(&mut self, i: usize) -> &mut T {
         &mut self[i]
     }
 
     #[inline]
-    fn set_element(&mut self, i: usize, element: T) {
+    fn ovec_set_element(&mut self, i: usize, element: T) {
         self[i] = element;
     }
 
@@ -684,7 +684,7 @@ pub fn ovec_custom_serialize<S, T: AD, V: OVec<T>>(value: &V, serializer: S) -> 
 where
     S: serde::Serializer
 {
-    let slice = value.as_slice_ovec();
+    let slice = value.ovec_as_slice();
     let slice_as_f64: Vec<f64> = slice.iter().map(|x| x.to_constant()).collect();
     let mut tuple = serializer.serialize_tuple(slice_as_f64.len())?;
     for element in &slice_as_f64 {
@@ -713,7 +713,7 @@ impl<'de, T2: AD, V2: OVec<T2>> Visitor<'de> for OVecVisitor<T2, V2> {
         while let Some(val) = seq.next_element()? {
             values.push(T2::constant(val));
         }
-        Ok(V2::from_slice_ovec(&values))
+        Ok(V2::ovec_from_slice(&values))
     }
 }
 
@@ -848,13 +848,13 @@ pub trait OMat<T: AD> : Debug + Clone + Send + Sync  {
     fn scalar_mul(&self, scalar: T) -> Self;
     /// (rows, cols)
     fn dims(&self) -> (usize, usize);
-    fn to_other_generic_category<T2: AD, C: OMatCategoryTrait>(&self) -> C::M<T2> {
-        let column_major_slice = self.as_column_major_slice().to_vec().to_other_generic_category::<T2, OVecCategoryVec>();
+    fn omat_to_other_generic_category<T2: AD, C: OMatCategoryTrait>(&self) -> C::M<T2> {
+        let column_major_slice = self.as_column_major_slice().to_vec().ovec_to_other_generic_category::<T2, OVecCategoryVec>();
         let dims = self.dims();
         C::M::from_column_major_slice(&column_major_slice, dims.0, dims.1)
     }
-    fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as OMatCategoryTrait>::M<T2> {
-        self.to_other_generic_category::<T2, Self::Category>()
+    fn omat_to_other_ad_type<T2: AD>(&self) -> <Self::Category as OMatCategoryTrait>::M<T2> {
+        self.omat_to_other_generic_category::<T2, Self::Category>()
     }
     /*
     #[inline(always)]

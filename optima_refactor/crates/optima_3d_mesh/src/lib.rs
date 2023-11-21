@@ -67,8 +67,8 @@ impl OTriMesh {
             let v2 = t[1];
             let v3 = t[2];
 
-            let a = v2.sub(&v1);
-            let b = v3.sub(&v2);
+            let a = v2.o3dvec_sub(&v1);
+            let b = v3.o3dvec_sub(&v2);
             let n = a.cross(&b);
 
             let normal = stl_io::Normal::new([n[0] as f32, n[1] as f32, n[2] as f32]);
@@ -149,7 +149,7 @@ impl OTriMesh {
     }
     #[inline(always)]
     pub fn points_to_point3s<T: AD>(&self) -> Vec<Point3<T>> {
-        let points: Vec<Point3<T>> = self.points().iter().map(|x| x.to_other_generic_category::<T, O3DVecCategoryPoint3>() ).collect();
+        let points: Vec<Point3<T>> = self.points().iter().map(|x| x.o3dvec_to_other_generic_category::<T, O3DVecCategoryPoint3>() ).collect();
         points
     }
     #[inline(always)]

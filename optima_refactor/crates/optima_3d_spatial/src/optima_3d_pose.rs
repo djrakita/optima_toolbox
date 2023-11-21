@@ -41,19 +41,19 @@ pub trait O3DPose<T: AD> :
     fn update_rotation_direct<R: O3DRotation<T>>(&mut self, rotation: &R);
     fn mul(&self, other: &Self) -> Self;
     fn mul_by_point_native(&self, point: &<Self::RotationType as O3DRotation<T>>::Native3DVecType) -> <Self::RotationType as O3DRotation<T>>::Native3DVecType {
-        self.rotation().mul_by_point_native(point).add(self.translation())
+        self.rotation().mul_by_point_native(point).o3dvec_add(self.translation())
     }
     fn mul_by_point_generic<V: O3DVec<T>>(&self, point: &V) -> V {
-        let tmp = <Self::RotationType as O3DRotation<T>>::Native3DVecType::from_slice(point.as_slice());
+        let tmp = <Self::RotationType as O3DRotation<T>>::Native3DVecType::o3dvec_from_slice(point.o3dvec_as_slice());
         let res = self.mul_by_point_native(&tmp);
-        V::from_slice(res.as_slice())
+        V::o3dvec_from_slice(res.o3dvec_as_slice())
     }
     fn inverse(&self) -> Self;
     fn displacement(&self, other: &Self) -> Self;
     fn dis(&self, other: &Self) -> T;
     fn interpolate(&self, to: &Self, t: T) -> Self;
-    fn to_other_generic_category<T2: AD, C: O3DPoseCategoryTrait>(&self) -> C::P<T2> {
-        let translation_slice = self.translation().as_slice();
+    fn o3dpose_to_other_generic_category<T2: AD, C: O3DPoseCategoryTrait>(&self) -> C::P<T2> {
+        let translation_slice = self.translation().o3dvec_as_slice();
         let binding = self.rotation().scaled_axis_of_rotation();
         let rotation_slice = binding.as_slice();
         let s = [
@@ -66,11 +66,11 @@ pub trait O3DPose<T: AD> :
         ];
         C::P::from_constructors( &[T2::constant(s[0]), T2::constant(s[1]), T2::constant(s[2])], &ScaledAxis([T2::constant(s[3]), T2::constant(s[4]), T2::constant(s[5])]))
     }
-    fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as O3DPoseCategoryTrait>::P::<T2> {
-        self.to_other_generic_category::<T2, Self::Category>()
+    fn o3dpose_to_other_ad_type<T2: AD>(&self) -> <Self::Category as O3DPoseCategoryTrait>::P::<T2> {
+        self.o3dpose_to_other_generic_category::<T2, Self::Category>()
     }
     #[inline(always)]
-    fn downcast_or_convert<P: O3DPose<T>>(&self) -> Cow<P> {
+    fn o3dpose_downcast_or_convert<P: O3DPose<T>>(&self) -> Cow<P> {
         let downcast = self.as_any().downcast_ref::<P>();
         match downcast {
             Some(d) => { Cow::Borrowed(d) }
@@ -99,7 +99,7 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
 
     #[inline(always)]
     fn from_translation_and_rotation<V: O3DVec<T>, R: O3DRotation<T>>(location: &V, orientation: &R) -> Self {
-        let location = Vector3::from_column_slice(location.as_slice());
+        let location = Vector3::from_column_slice(location.o3dvec_as_slice());
         let orientation = UnitQuaternion::from_scaled_axis(Vector3::from_column_slice(&orientation.scaled_axis_of_rotation()));
         Self {
             translation: location,
@@ -109,7 +109,7 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
 
     #[inline(always)]
     fn from_constructors<V: O3DVec<T>, RC: O3DRotationConstructor<T, Self::RotationType>>(translation: &V, rotation_constructor: &RC) -> Self {
-        let translation = Vector3::from_column_slice(translation.as_slice());
+        let translation = Vector3::from_column_slice(translation.o3dvec_as_slice());
         let rotation = rotation_constructor.construct();
 
         Self {
@@ -368,7 +368,7 @@ impl<T: AD> ImplicitDualQuaternion<T>
 }
 
 pub fn o3d_pose_custom_serialize<S, T: AD, P: O3DPose<T>>(value: &P, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-    let translation_slice = value.translation().as_slice();
+    let translation_slice = value.translation().o3dvec_as_slice();
     let binding = value.rotation().scaled_axis_of_rotation();
     let rotation_slice = binding.as_slice();
     let slice_as_f64 = [

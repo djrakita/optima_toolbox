@@ -242,7 +242,7 @@ impl<T: AD, C: O3DPoseCategoryTrait> OJoint<T, C> {
             child_link_idx: usize::default(),
             dof_idxs: vec![],
             dof_idxs_range: None,
-            limit: OJointLimit::from_joint_limit(&joint.limit),
+            limit: OJointLimit::from_joint_limit(&joint.limit, &joint.joint_type),
             dynamics: match &joint.dynamics {
                 None => { None }
                 Some(dynamics) => { Some(ODynamics::from_dynamics(dynamics)) }
@@ -431,11 +431,14 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static> Debug for OJoint<T, C> {
         s += &format!("  OJoint\n");
         s += &format!("  Joint name: {}\n", self.name());
         s += &format!("  Joint idx: {}\n", self.joint_idx());
+        s += &format!("  Present in model: {}\n", self.is_present_in_model());
         s += &format!("  Joint Type: {:?}\n", self.joint_type);
         s += &format!("  Axis: {:?}\n", self.axis);
         s += &format!("  DOF idxs: {:?}\n", self.dof_idxs);
         s += &format!("  Parent Link idx: {:?}\n", self.parent_link_idx);
         s += &format!("  Child Link idx: {:?}\n", self.child_link_idx);
+        s += &format!("  Joint upper bounds: {:?}\n", self.limit().upper);
+        s += &format!("  Joint lower bounds: {:?}\n", self.limit().lower);
         s += &format!("}}");
 
         f.write_str(&s)?;
@@ -981,13 +984,23 @@ pub struct OJointLimit<T: AD> {
     velocity: Vec<T>
 }
 impl<T: AD> OJointLimit<T> {
-    pub (crate) fn from_joint_limit(joint_limit: &JointLimit) -> Self {
-        Self {
+    pub (crate) fn from_joint_limit(joint_limit: &JointLimit, joint_type: &JointType) -> Self {
+        let mut out = Self {
             effort:   vec![T::constant(joint_limit.effort)],
             lower:    vec![ T::constant(joint_limit.lower)],
             upper:    vec![ T::constant(joint_limit.upper)],
             velocity: vec![ T::constant(joint_limit.velocity)]
+        };
+
+        match joint_type {
+            JointType::Continuous => {
+                out.lower = vec![T::constant(-100.0)];
+                out.upper = vec![T::constant(100.0)];
+            }
+            _ => { }
         }
+
+        out
     }
     pub fn new_manual(effort: Vec<T>, lower: Vec<T>, upper: Vec<T>, velocity: Vec<T>) -> Self {
         Self {

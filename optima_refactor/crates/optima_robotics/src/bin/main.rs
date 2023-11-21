@@ -21,7 +21,7 @@ fn main() {
     let robot1 = ORobotSet::<f64, PoseCategory, LinalgCategory>::new_from_single_robot_name("z1");
     let robot2 = robot1.to_new_ad_type::<DerivativeT>();
     let goal_pose1 = PoseType::from_constructors(&[0.1,0.,0.7], &[0.,0.,0.]);
-    let goal_pose2 = goal_pose1.to_other_ad_type::<DerivativeT>();
+    let goal_pose2 = goal_pose1.o3dpose_to_other_ad_type::<DerivativeT>();
 
     let mut ik = DerivBasedOptSolver::<SimpleIKFunction<PoseCategory, LinalgCategory>, DerivativeMethod, OpEnSimple>::new(
         SimpleIKArgs::new(robot1, 1, 6, goal_pose1),

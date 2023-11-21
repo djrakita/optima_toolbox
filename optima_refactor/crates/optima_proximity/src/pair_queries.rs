@@ -68,7 +68,7 @@ pub struct ParryDistanceQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep);
+    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, Option<T>);
     type Output = ParryDistanceOutput<T>;
 
     fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
@@ -77,6 +77,7 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceQry {
 }
 // impl<T: AD, P: O3DPose<T>> OPairQryDistanceTrait<T, P> for ParryDistanceQry { }
 
+/*
 pub struct ParryDistanceWrtAverageQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceWrtAverageQry {
     type ShapeTypeA = OParryShape<T, P>;
@@ -87,19 +88,20 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceWrtAverageQry {
     fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         let distance = shape_a.distance(shape_b, pose_a, pose_b, &(args.0.clone(), args.1.clone(), args.2.clone()));
         ParryDistanceWrtAverageOutput {
-            distance_wrt_average: distance.distance / args.3,
-            raw_distance: distance.distance,
+            distance_wrt_average: distance.raw_distance / args.3,
+            raw_distance: distance.raw_distance,
             aux_data: distance.aux_data,
         }
     }
 }
+*/
 
 #[derive(Clone, Debug)]
 pub struct ParryContactQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryContactQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args = (T, ParryQryShapeType, ParryShapeRep);
+    type Args = (T, ParryQryShapeType, ParryShapeRep, Option<T>);
     type Output = ParryContactOutput<T>;
 
     fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
@@ -108,6 +110,7 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryContactQry {
 }
 // impl<T: AD, P: O3DPose<T>> OPairQryContactTrait<T, P> for ParryContactQry { }
 
+/*
 pub struct ParryContactWrtAverageQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryContactWrtAverageQry {
     type ShapeTypeA = OParryShape<T, P>;
@@ -127,56 +130,62 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryContactWrtAverageQry {
         }
     }
 }
+*/
 
 pub struct ParryDistanceLowerBoundQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceLowerBoundQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep);
+    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, Option<T>);
     type Output = ParryDistanceLowerBoundOutput<T>;
 
     fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
-        let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2);
+        let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, args.3);
         ParryDistanceLowerBoundOutput {
-            distance_lower_bound: res.distance_lower_bound,
+            distance_lower_bound_wrt_average: res.distance_lower_bound_wrt_average,
+            raw_distance_lower_bound: res.raw_distance_lower_bound,
             aux_data: res.aux_data.clone()
         }
     }
 }
 
+/*
 pub struct ParryDistanceLowerBoundWrtAverageQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceLowerBoundWrtAverageQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, T);
+    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, T, Option<T>);
     type Output = ParryDistanceLowerBoundWrtAverageOutput<T>;
 
     fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
-        let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2);
+        let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, args.4);
         ParryDistanceLowerBoundWrtAverageOutput {
-            distance_lower_bound_wrt_average: res.distance_lower_bound / args.3,
-            raw_distance_lower_bound: res.distance_lower_bound,
+            distance_lower_bound_wrt_average: res.raw_distance_lower_bound / args.3,
+            raw_distance_lower_bound: res.raw_distance_lower_bound,
             aux_data: res.aux_data,
         }
     }
 }
+*/
 
 pub struct ParryDistanceUpperBoundQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceUpperBoundQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep);
+    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, Option<T>);
     type Output = ParryDistanceUpperBoundOutput<T>;
 
     fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
-        let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2);
+        let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, args.3);
         ParryDistanceUpperBoundOutput {
-            distance_upper_bound: res.distance_upper_bound,
+            distance_upper_bound_wrt_average: res.distance_upper_bound_wrt_average,
+            raw_distance_upper_bound: res.raw_distance_upper_bound,
             aux_data: res.aux_data.clone()
         }
     }
 }
 
+/*
 pub struct ParryDistanceUpperBoundWrtAverageQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceUpperBoundWrtAverageQry {
     type ShapeTypeA = OParryShape<T, P>;
@@ -187,25 +196,27 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceUpperBoundWrtAve
     fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2);
         ParryDistanceUpperBoundWrtAverageOutput {
-            distance_upper_bound_wrt_average: res.distance_upper_bound / args.3,
-            raw_distance_upper_bound: res.distance_upper_bound,
+            distance_upper_bound_wrt_average: res.raw_distance_upper_bound / args.3,
+            raw_distance_upper_bound: res.raw_distance_upper_bound,
             aux_data: res.aux_data,
         }
     }
 }
+*/
 
 pub struct ParryDistanceBoundsQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceBoundsQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep);
+    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, Option<T>);
     type Output = ParryDistanceBoundsOutput<T>;
 
     fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
-        parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2)
+        parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, args.3)
     }
 }
 
+/*
 pub struct ParryDistanceBoundsWrtAverageQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceBoundsWrtAverageQry {
     type ShapeTypeA = OParryShape<T, P>;
@@ -216,30 +227,38 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceBoundsWrtAverage
     fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2);
         ParryDistanceBoundsWrtAverageOutput {
-            distance_lower_bound_wrt_average: res.distance_lower_bound / args.3,
-            distance_upper_bound_wrt_average: res.distance_upper_bound / args.3,
-            raw_distance_lower_bound: res.distance_lower_bound,
-            raw_distance_upper_bound: res.distance_upper_bound,
+            distance_lower_bound_wrt_average: res.raw_distance_lower_bound / args.3,
+            distance_upper_bound_wrt_average: res.raw_distance_upper_bound / args.3,
+            raw_distance_lower_bound: res.raw_distance_lower_bound,
+            raw_distance_upper_bound: res.raw_distance_upper_bound,
             aux_data: res.aux_data,
         }
     }
 }
+*/
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub (crate) fn parry_shape_lower_and_upper_bound<T: AD, P: O3DPose<T>>(shape_a: &OParryShape<T, P>, shape_b: &OParryShape<T, P>, pose_a: &P, pose_b: &P, parry_dis_mode: &ParryDisMode, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep: &ParryShapeRep) -> ParryDistanceBoundsOutput<T> {
+pub (crate) fn parry_shape_lower_and_upper_bound<T: AD, P: O3DPose<T>>(shape_a: &OParryShape<T, P>, shape_b: &OParryShape<T, P>, pose_a: &P, pose_b: &P, parry_dis_mode: &ParryDisMode, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep: &ParryShapeRep, average_dis: Option<T>) -> ParryDistanceBoundsOutput<T> {
     let start = Instant::now();
+    let average_dis = match average_dis {
+        None => { T::one() }
+        Some(a) => {a}
+    };
+
     return match parry_qry_shape_type {
         ParryQryShapeType::Standard => {
-            let dis = shape_b.base_shape().distance(shape_b.base_shape(), pose_a, pose_b, &(parry_dis_mode.clone(), parry_shape_rep.clone()));
+            let dis = shape_b.base_shape().distance(shape_b.base_shape(), pose_a, pose_b, &(parry_dis_mode.clone(), parry_shape_rep.clone(), Some(average_dis)));
             let upper_bound = match parry_shape_rep {
-                ParryShapeRep::Full => { dis.distance }
-                ParryShapeRep::OBB => { dis.distance + shape_a.base_shape.obb_max_dis_error + shape_b.base_shape.obb_max_dis_error }
-                ParryShapeRep::BoundingSphere => { dis.distance + shape_a.base_shape.bounding_sphere_max_dis_error + shape_b.base_shape.bounding_sphere_max_dis_error }
+                ParryShapeRep::Full => { dis.raw_distance }
+                ParryShapeRep::OBB => { dis.raw_distance  + shape_a.base_shape.obb_max_dis_error + shape_b.base_shape.obb_max_dis_error }
+                ParryShapeRep::BoundingSphere => { dis.raw_distance  + shape_a.base_shape.bounding_sphere_max_dis_error + shape_b.base_shape.bounding_sphere_max_dis_error }
             };
             ParryDistanceBoundsOutput {
-                distance_lower_bound: dis.distance,
-                distance_upper_bound: upper_bound,
+                distance_lower_bound_wrt_average: dis.raw_distance / average_dis,
+                distance_upper_bound_wrt_average: upper_bound/average_dis,
+                raw_distance_lower_bound: dis.raw_distance,
+                raw_distance_upper_bound: upper_bound,
                 aux_data: ParryOutputAuxData { num_queries: 1, duration: start.elapsed() },
             }
         }
@@ -276,15 +295,17 @@ pub (crate) fn parry_shape_lower_and_upper_bound<T: AD, P: O3DPose<T>>(shape_a: 
             let shape_a_ = shape_a.convex_subcomponents.get(*shape_a_subcomponent_idx).expect("idx error");
             let shape_b_ = shape_b.convex_subcomponents.get(*shape_b_subcomponent_idx).expect("idx error");
 
-            let dis = shape_a_.distance(shape_b_, pose_a, pose_b, &(parry_dis_mode.clone(), parry_shape_rep.clone()));
+            let dis = shape_a_.distance(shape_b_, pose_a, pose_b, &(parry_dis_mode.clone(), parry_shape_rep.clone(), Some(average_dis)));
             let upper_bound = match parry_shape_rep {
-                ParryShapeRep::Full => { dis.distance }
-                ParryShapeRep::OBB => { dis.distance + shape_a.base_shape.obb_max_dis_error + shape_b.base_shape.obb_max_dis_error }
-                ParryShapeRep::BoundingSphere => { dis.distance + shape_a.base_shape.bounding_sphere_max_dis_error + shape_b.base_shape.bounding_sphere_max_dis_error }
+                ParryShapeRep::Full => { dis.raw_distance }
+                ParryShapeRep::OBB => { dis.raw_distance + shape_a.base_shape.obb_max_dis_error + shape_b.base_shape.obb_max_dis_error }
+                ParryShapeRep::BoundingSphere => { dis.raw_distance + shape_a.base_shape.bounding_sphere_max_dis_error + shape_b.base_shape.bounding_sphere_max_dis_error }
             };
             ParryDistanceBoundsOutput {
-                distance_lower_bound: dis.distance,
-                distance_upper_bound: upper_bound,
+                distance_lower_bound_wrt_average: dis.raw_distance / average_dis,
+                distance_upper_bound_wrt_average: upper_bound/average_dis,
+                raw_distance_lower_bound: dis.raw_distance,
+                raw_distance_upper_bound: upper_bound,
                 aux_data: ParryOutputAuxData { num_queries: 1, duration: start.elapsed() },
             }
         }
@@ -339,33 +360,40 @@ impl ParryApproximationRep {
 
 #[derive(Clone, Debug)]
 pub struct ParryDistanceOutput<T: AD> {
-    pub (crate) distance: T,
+    pub (crate) distance_wrt_average: T,
+    pub (crate) raw_distance: T,
     pub (crate) aux_data: ParryOutputAuxData
 }
 impl<T: AD> ParryDistanceOutput<T> {
+    #[inline(always)]
     pub fn aux_data(&self) -> &ParryOutputAuxData {
         &self.aux_data
+    }
+    #[inline(always)]
+    pub fn raw_distance(&self) -> &T {
+        &self.raw_distance
     }
 }
 impl<T: AD> PartialEq for ParryDistanceOutput<T> {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
-        self.distance.eq(&other.distance)
+        self.distance_wrt_average.eq(&other.raw_distance)
     }
 }
 impl<T: AD> PartialOrd for ParryDistanceOutput<T> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.distance.partial_cmp(&other.distance)
+        self.distance_wrt_average.partial_cmp(&other.distance_wrt_average)
     }
 }
 impl<T: AD> DistanceOutputTrait<T> for ParryDistanceOutput<T> {
     #[inline(always)]
     fn distance(&self) -> T {
-        self.distance
+        self.distance_wrt_average
     }
 }
 
+/*
 #[derive(Clone, Debug)]
 pub struct ParryDistanceWrtAverageOutput<T: AD> {
     pub (crate) distance_wrt_average: T,
@@ -405,9 +433,11 @@ impl<T: AD> DistanceOutputTrait<T> for ParryDistanceWrtAverageOutput<T> {
         self.distance_wrt_average
     }
 }
+*/
 
 #[derive(Clone, Debug)]
 pub struct ParryContactOutput<T: AD> {
+    pub (crate) distance_wrt_average: Option<T>,
     pub (crate) contact: Option<Contact<T>>,
     pub (crate) aux_data: ParryOutputAuxData
 }
@@ -424,8 +454,8 @@ impl<T: AD> ParryContactOutput<T> {
 impl<T: AD> PartialEq for ParryContactOutput<T> {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
-        match (&self.contact, &other.contact) {
-            (Some(a), Some(b)) => { a.dist.eq(&b.dist) }
+        match (&self.distance_wrt_average, &other.distance_wrt_average) {
+            (Some(a), Some(b)) => { a.eq(b) }
             (Some(_), None) => { false }
             (None, Some(_)) => { false }
             (None, None) => { true }
@@ -435,8 +465,8 @@ impl<T: AD> PartialEq for ParryContactOutput<T> {
 impl<T: AD> PartialOrd for ParryContactOutput<T> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match (&self.contact, &other.contact) {
-            (Some(a), Some(b)) => { a.dist.partial_cmp(&b.dist) }
+        match (&self.distance_wrt_average, &other.distance_wrt_average) {
+            (Some(a), Some(b)) => { a.partial_cmp(&b) }
             (Some(_), None) => { Some(Ordering::Less) }
             (None, Some(_)) => { Some(Ordering::Greater) }
             (None, None) => { Some(Ordering::Equal) }
@@ -446,13 +476,11 @@ impl<T: AD> PartialOrd for ParryContactOutput<T> {
 impl<T: AD> ContactOutputTrait<T> for ParryContactOutput<T> {
     #[inline(always)]
     fn signed_distance(&self) -> Option<T> {
-        match &self.contact {
-            None => { None }
-            Some(c) => { Some(c.dist) }
-        }
+        self.distance_wrt_average
     }
 }
 
+/*
 #[derive(Clone, Debug)]
 pub struct ParryContactWrtAverageOutput<T: AD> {
     pub (crate) distance_wrt_average: Option<T>,
@@ -501,36 +529,43 @@ impl<T: AD> ContactOutputTrait<T> for ParryContactWrtAverageOutput<T> {
         self.distance_wrt_average
     }
 }
+*/
 
 #[derive(Clone, Debug)]
 pub struct ParryDistanceLowerBoundOutput<T: AD> {
-    pub (crate) distance_lower_bound: T,
+    pub (crate) distance_lower_bound_wrt_average: T,
+    pub (crate) raw_distance_lower_bound: T,
     pub (crate) aux_data: ParryOutputAuxData
 }
 impl<T: AD> ParryDistanceLowerBoundOutput<T> {
     pub fn aux_data(&self) -> &ParryOutputAuxData {
         &self.aux_data
     }
+    #[inline(always)]
+    pub fn raw_distance_lower_bound(&self) -> &T {
+        &self.raw_distance_lower_bound
+    }
 }
 impl<T: AD> PartialEq for ParryDistanceLowerBoundOutput<T> {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
-        self.distance_lower_bound.eq(&other.distance_lower_bound)
+        self.distance_lower_bound_wrt_average.eq(&other.distance_lower_bound_wrt_average)
     }
 }
 impl<T: AD> PartialOrd for ParryDistanceLowerBoundOutput<T> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.distance_lower_bound.partial_cmp(&other.distance_lower_bound)
+        self.distance_lower_bound_wrt_average.partial_cmp(&other.distance_lower_bound_wrt_average)
     }
 }
 impl<T: AD> DistanceLowerBoundOutputTrait<T> for ParryDistanceLowerBoundOutput<T> {
     #[inline(always)]
     fn distance_lower_bound(&self) -> T {
-        self.distance_lower_bound
+        self.distance_lower_bound_wrt_average
     }
 }
 
+/*
 #[derive(Clone, Debug)]
 pub struct ParryDistanceLowerBoundWrtAverageOutput<T: AD> {
     pub (crate) distance_lower_bound_wrt_average: T,
@@ -568,36 +603,44 @@ impl<T: AD> DistanceLowerBoundOutputTrait<T> for ParryDistanceLowerBoundWrtAvera
         self.distance_lower_bound_wrt_average
     }
 }
+*/
 
 #[derive(Clone, Debug)]
 pub struct ParryDistanceUpperBoundOutput<T: AD> {
-    pub (crate) distance_upper_bound: T,
+    pub (crate) distance_upper_bound_wrt_average: T,
+    pub (crate) raw_distance_upper_bound: T,
     pub (crate) aux_data: ParryOutputAuxData
 }
 impl<T: AD> ParryDistanceUpperBoundOutput<T> {
+    #[inline(always)]
     pub fn aux_data(&self) -> &ParryOutputAuxData {
         &self.aux_data
+    }
+    #[inline(always)]
+    pub fn raw_distance_upper_bound(&self) -> &T {
+        &self.raw_distance_upper_bound
     }
 }
 impl<T: AD> PartialEq for ParryDistanceUpperBoundOutput<T> {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
-        self.distance_upper_bound.eq(&other.distance_upper_bound)
+        self.distance_upper_bound_wrt_average.eq(&other.distance_upper_bound_wrt_average)
     }
 }
 impl<T: AD> PartialOrd for ParryDistanceUpperBoundOutput<T> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.distance_upper_bound.partial_cmp(&other.distance_upper_bound)
+        self.distance_upper_bound_wrt_average.partial_cmp(&other.distance_upper_bound_wrt_average)
     }
 }
 impl<T: AD> DistanceUpperBoundOutputTrait<T> for ParryDistanceUpperBoundOutput<T> {
     #[inline(always)]
     fn distance_upper_bound(&self) -> T {
-        self.distance_upper_bound
+        self.distance_upper_bound_wrt_average
     }
 }
 
+/*
 #[derive(Clone, Debug)]
 pub struct ParryDistanceUpperBoundWrtAverageOutput<T: AD> {
     pub (crate) distance_upper_bound_wrt_average: T,
@@ -635,11 +678,14 @@ impl<T: AD> DistanceLowerBoundOutputTrait<T> for ParryDistanceUpperBoundWrtAvera
         self.distance_upper_bound_wrt_average
     }
 }
+*/
 
 #[derive(Clone, Debug)]
 pub struct ParryDistanceBoundsOutput<T: AD> {
-    pub (crate) distance_lower_bound: T,
-    pub (crate) distance_upper_bound: T,
+    pub (crate) distance_lower_bound_wrt_average: T,
+    pub (crate) distance_upper_bound_wrt_average: T,
+    pub (crate) raw_distance_lower_bound: T,
+    pub (crate) raw_distance_upper_bound: T,
     pub (crate) aux_data: ParryOutputAuxData
 }
 impl<T: AD> ParryDistanceBoundsOutput<T> {
@@ -650,8 +696,8 @@ impl<T: AD> ParryDistanceBoundsOutput<T> {
 impl<T: AD> PartialEq for ParryDistanceBoundsOutput<T> {
     #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
-        let self_diff = self.distance_upper_bound - self.distance_lower_bound;
-        let other_diff = other.distance_upper_bound - other.distance_lower_bound;
+        let self_diff = self.distance_upper_bound_wrt_average - self.distance_lower_bound_wrt_average;
+        let other_diff = other.distance_upper_bound_wrt_average - other.distance_lower_bound_wrt_average;
 
         self_diff.eq(&other_diff)
     }
@@ -659,8 +705,8 @@ impl<T: AD> PartialEq for ParryDistanceBoundsOutput<T> {
 impl<T: AD> PartialOrd for ParryDistanceBoundsOutput<T> {
     #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        let self_diff = self.distance_upper_bound - self.distance_lower_bound;
-        let other_diff = other.distance_upper_bound - other.distance_lower_bound;
+        let self_diff = self.distance_upper_bound_wrt_average - self.distance_lower_bound_wrt_average;
+        let other_diff = other.distance_upper_bound_wrt_average - other.distance_lower_bound_wrt_average;
 
         other_diff.partial_cmp(&self_diff)
     }
@@ -668,15 +714,16 @@ impl<T: AD> PartialOrd for ParryDistanceBoundsOutput<T> {
 impl<T: AD> DistanceBoundsOutputTrait<T> for ParryDistanceBoundsOutput<T> {
     #[inline(always)]
     fn distance_lower_bound(&self) -> T {
-        self.distance_lower_bound
+        self.distance_lower_bound_wrt_average
     }
 
     #[inline(always)]
     fn distance_upper_bound(&self) -> T {
-        self.distance_upper_bound
+        self.distance_upper_bound_wrt_average
     }
 }
 
+/*
 #[derive(Clone, Debug)]
 pub struct ParryDistanceBoundsWrtAverageOutput<T: AD> {
     pub (crate) distance_lower_bound_wrt_average: T,
@@ -737,3 +784,4 @@ impl<T: AD> DistanceBoundsOutputTrait<T> for ParryDistanceBoundsWrtAverageOutput
         self.distance_upper_bound_wrt_average
     }
 }
+*/

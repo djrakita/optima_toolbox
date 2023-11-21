@@ -28,19 +28,19 @@ pub trait JointTrait<T: AD, C: O3DPoseCategoryTrait + 'static> {
             OJointType::Revolute => {
                 assert_eq!(joint_values_subslice.len(), 1);
                 let axis = self.axis();
-                let axis = axis.scalar_mul(&joint_values_subslice[0]);
+                let axis = axis.ovec_scalar_mul(&joint_values_subslice[0]);
                 C::P::<T>::from_constructors(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
             }
             OJointType::Continuous => {
                 assert_eq!(joint_values_subslice.len(), 1);
                 let axis = self.axis();
-                let axis = axis.scalar_mul(&joint_values_subslice[0]);
+                let axis = axis.ovec_scalar_mul(&joint_values_subslice[0]);
                 C::P::<T>::from_constructors(&[T::zero(), T::zero(), T::zero()], &ScaledAxis(axis))
             }
             OJointType::Prismatic => {
                 assert_eq!(joint_values_subslice.len(), 1);
                 let axis = self.axis();
-                let axis = axis.scalar_mul(&joint_values_subslice[0]);
+                let axis = axis.ovec_scalar_mul(&joint_values_subslice[0]);
                 C::P::<T>::from_constructors(&axis, &[T::zero(), T::zero(), T::zero()])
             }
             OJointType::Fixed => {

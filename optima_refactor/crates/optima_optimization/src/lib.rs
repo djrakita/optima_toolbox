@@ -2,14 +2,14 @@ pub mod optimization_engine;
 
 use std::any::Any;
 use ad_trait::AD;
-use ad_trait::differentiable_block::DifferentiableBlock;
+use ad_trait::differentiable_block::{DifferentiableBlock, DifferentiableBlockArgPrepTrait};
 use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFunctionTrait};
 
 pub trait DiffBlockUnconstrainedOptimizerTrait {
     type DataType : AD;
     type OutputType : Any + OptimizerOutputTrait<DataType = Self::DataType>;
 
-    fn diff_block_unconstrained_optimize<'a, D1: DifferentiableFunctionTrait, E1: DerivativeMethodTrait>(&self, objective_function: &DifferentiableBlock<D1, E1>, initial_condition: &[Self::DataType]) -> Self::OutputType;
+    fn diff_block_unconstrained_optimize<'a, D1: DifferentiableFunctionTrait, E1: DerivativeMethodTrait, AP: DifferentiableBlockArgPrepTrait<'a, D1, E1>>(&self, objective_function: &DifferentiableBlock<'a, D1, E1, AP>, initial_condition: &[Self::DataType]) -> Self::OutputType;
 }
 
 pub trait OptimizerOutputTrait {

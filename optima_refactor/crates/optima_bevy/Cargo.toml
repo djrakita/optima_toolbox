@@ -16,6 +16,7 @@ optima_bevy_egui = { path = "optima_bevy_egui" }
 optima_geometry = { path = "../optima_geometry" }
 optima_interpolation = { path = "../optima_interpolation" }
 optima_universal_hashmap = { path = "../optima_universal_hashmap" }
+optima_proximity = { path = "../optima_proximity" }
 bevy = { version="0.11.2", features = ["dynamic_linking"] }
 bevy_egui = { version = "0.21" }
 bevy_stl = { version = "0.11.0", features = ["wireframe"] }

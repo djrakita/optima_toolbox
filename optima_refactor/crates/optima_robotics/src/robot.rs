@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use ad_trait::*;
-use ad_trait::differentiable_block::DifferentiableBlock;
-use ad_trait::differentiable_function::DerivativeMethodTrait;
 use serde::{Serialize, Deserialize};
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3, O3DPoseCategoryTrait};
 use crate::utils::get_urdf_path_from_chain_name;
@@ -22,7 +20,6 @@ use optima_misc::arr_storage::MutArrTraitRaw;
 use optima_misc::arr_storage::ImmutArrTraitRaw;
 use optima_sampling::SimpleSampler;
 use crate::robot_shape_scene::ORobotParryShapeScene;
-use crate::robotics_optimization_solvers::{IKArgs, IKObjective};
 
 pub type ORobotDefault = ORobot<f64, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>;
 #[serde_as]
@@ -106,7 +103,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
         p.append_file_location(&OAssetLocation::SavedRobot { robot_name });
         p.load_object_from_json_file::<ORobot<T, C, L>>()
     }
-    pub fn save_robot(&self, name: Option<&str>) {
+    pub fn save_robot(&mut self, name: Option<&str>) {
         if !self.has_been_preprocessed {
             oprint("cannot save a non-preprocessed robot.  returning.", PrintMode::Println, PrintColor::Yellow);
         }
@@ -119,6 +116,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             }
             Some(name) => { name.to_string() }
         };
+        self.robot_name = name.clone();
         let mut p = OStemCellPath::new_asset_path();
         p.append_file_location(&OAssetLocation::SavedRobot { robot_name: &name });
         p.save_object_to_file_as_json(self);
@@ -219,6 +217,11 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
     #[inline(always)]
     pub fn joints(&self) -> &Vec<OJoint<T, C>> {
         &self.joints
+    }
+    pub fn print_joints(&self) {
+        self.joints.iter().for_each(|x| {
+           println!("{:?}", x);
+        });
     }
     pub fn set_joint_as_fixed(&mut self, joint_idx: usize, fixed_values: &[T]) {
         let joint = self.joints.get_element_mut(joint_idx);
@@ -458,14 +461,63 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             SaveRobot::DoNotSave => {  }
         }
     }
+    pub fn parry_shape_scene_compute_average_distances(&mut self, save: SaveRobot, shape_average_dis_num_samples: Option<usize>) {
+        let num_samples = match shape_average_dis_num_samples {
+            None => { 1000 }
+            Some(s) => { s }
+        };
+        let mut parry_shape_scene = self.parry_shape_scene.clone();
+        parry_shape_scene.compute_shape_average_distances(self, num_samples);
+
+        self.parry_shape_scene = parry_shape_scene;
+
+        match save {
+            SaveRobot::Save(name) => {
+                self.save_robot(name);
+            }
+            SaveRobot::DoNotSave => {  }
+        }
+    }
+    pub fn parry_shape_scene_compute_always_and_never_collision_pairs(&mut self, save: SaveRobot, always_and_never_collision_stasis_point_cutoff: Option<usize>) {
+        let stasis_point_cutoff = match always_and_never_collision_stasis_point_cutoff {
+            None => { 15_000 }
+            Some(c) => { c }
+        };
+        let mut parry_shape_scene = self.parry_shape_scene.clone();
+        parry_shape_scene.add_state_sampler_always_and_never_collision_pair_skips(self, stasis_point_cutoff);
+
+        self.parry_shape_scene = parry_shape_scene;
+
+        match save {
+            SaveRobot::Save(name) => {
+                self.save_robot(name);
+            }
+            SaveRobot::DoNotSave => {  }
+        }
+    }
     #[inline(always)]
     pub fn has_been_preprocessed(&self) -> bool {
         self.has_been_preprocessed
     }
     pub fn add_non_collision_state<V: OVec<T>>(&mut self, state: V, save_robot: SaveRobot) {
-        self.non_collision_states.push(state.to_other_generic_category::<T, OVecCategoryVec>());
+        if !self.non_collision_states.contains(&state.ovec_to_other_generic_category::<T, OVecCategoryVec>()) {
+            self.non_collision_states.push(state.ovec_to_other_generic_category::<T, OVecCategoryVec>());
+            // let mut parry_shape_scene = self.parry_shape_scene.clone();
+            // parry_shape_scene.add_non_collision_states_pair_skips(&self, &self.non_collision_states);
+            // self.parry_shape_scene = parry_shape_scene;
+            self.set_non_collision_states_internal(save_robot);
+        }
+    }
+    pub fn reset_non_collision_states(&mut self, save_robot: SaveRobot) {
+        self.non_collision_states = vec![];
+        // self.parry_shape_scene.add_non_collision_states_pair_skips(&self, &vec![]);
+
+        self.set_non_collision_states_internal(save_robot);
+    }
+    fn set_non_collision_states_internal(&mut self, save_robot: SaveRobot) {
         let mut parry_shape_scene = self.parry_shape_scene.clone();
-        parry_shape_scene.add_non_collision_states_pair_skips(&self, &self.non_collision_states);
+        parry_shape_scene.add_non_collision_states_pair_skips(self, &self.non_collision_states);
+
         self.parry_shape_scene = parry_shape_scene;
 
         match save_robot {
@@ -473,6 +525,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             SaveRobot::DoNotSave => {}
         }
     }
+    /*
     pub fn spawn_ik_differentiable_block<E: DerivativeMethodTrait>(&self, derivative_method_data: E::DerivativeMethodData) -> DifferentiableBlock<IKObjective<C, L>, E> {
         let robot1 = self.to_new_ad_type::<f64>();
         let robot2 = self.to_new_ad_type::<E::T>();
@@ -489,6 +542,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
 
         DifferentiableBlock::new(args1, args2, derivative_method_data)
     }
+    */
     /*
     pub fn get_ik_solver<E: DerivativeMethodTrait, OC: DiffBlockObjectiveOptimizerConstructorTrait>(&self, _derivative_method_data: E::DerivativeMethodData) -> Box<dyn IKOptimizer<D=IKObjective<C, L>, E=E, DataType=f64, OutputType = f64>> {
         /*

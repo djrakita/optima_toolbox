@@ -14,7 +14,9 @@ use optima_3d_spatial::optima_3d_vec::O3DVec;
 use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSidePanel, OEguiSlider, OEguiTopBottomPanel, OEguiWidgetTrait};
 use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategoryTrait, OVec};
-use optima_robotics::robot::{FKResult, ORobot};
+use optima_proximity::pair_group_queries::{OPairGroupFilterTrait, OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryDistanceGroupSequenceFilter, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryIntersectGroupSequenceFilter, ParryPairSelector};
+use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
+use optima_robotics::robot::{FKResult, ORobot, SaveRobot};
 use optima_robotics::robot_set::ORobotSet;
 use optima_robotics::robotics_traits::AsRobotTrait;
 use crate::optima_bevy_utils::file::get_asset_path_str_from_ostemcellpath;
@@ -22,7 +24,7 @@ use crate::optima_bevy_utils::transform::TransformUtils;
 use crate::{BevySystemSet, OptimaBevyTrait};
 use crate::optima_bevy_utils::storage::BevyAnyHashmap;
 use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsActions;
-
+use optima_proximity::shape_scene::ShapeSceneTrait;
 
 pub struct RoboticsActions;
 impl RoboticsActions {
@@ -78,7 +80,7 @@ impl RoboticsActions {
         }
     }
     pub fn action_robot_joint_sliders_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static>(robot: &ORobot<T, C, L>,
-                                                                                                              robot_state_engine: &mut RobotStateEngine,
+                                                                                                              robot_state_engine: &mut ResMut<RobotStateEngine>,
                                                                                                               egui_engine: &Res<OEguiEngineWrapper>,
                                                                                                               ui: &mut Ui) {
         let mut reset_clicked = false;
@@ -131,7 +133,7 @@ impl RoboticsActions {
             curr_state[i] = T::constant(value);
         }
 
-        robot_state_engine.add_update_request(0, &OVec::to_other_ad_type::<T>(&curr_state));
+        robot_state_engine.add_update_request(0, &OVec::ovec_to_other_ad_type::<T>(&curr_state));
     }
     pub fn action_robot_link_vis_panel_egui<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static>(robot: &ORobot<T, C, L>,
                                                                                                                robot_state_engine: &RobotStateEngine,
@@ -143,7 +145,7 @@ impl RoboticsActions {
             None => { return; }
             Some(robot_state) => { robot_state }
         };
-        let robot_state = OVec::to_other_ad_type::<T>(robot_state);
+        let robot_state = OVec::ovec_to_other_ad_type::<T>(robot_state);
 
         let fk_res = robot.forward_kinematics(&robot_state, None);
 
@@ -233,7 +235,7 @@ impl RoboticsSystems {
             let robot = &robot.0;
             let request = robot_state_engine.robot_state_update_requests.pop().unwrap();
             let request_state: Vec<T> = request.1.iter().map(|x| T::constant(*x)).collect();
-            robot_state_engine.robot_states.insert(request.0, OVec::to_other_ad_type::<f64>(&request_state));
+            robot_state_engine.robot_states.insert(request.0, OVec::ovec_to_other_ad_type::<f64>(&request_state));
             RoboticsActions::action_set_state_of_robot(robot, &request_state, request.0, &mut query);
         }
     }
@@ -247,7 +249,7 @@ impl RoboticsSystems {
             .show("joint_sliders_side_panel", contexts.ctx_mut(), &egui_engine, &window_query, &(), |ui| {
                 egui::ScrollArea::new([true, true])
                     .show(ui, |ui| {
-                        RoboticsActions::action_robot_joint_sliders_egui(&robot.0, &mut *robot_state_engine, &egui_engine, ui);
+                        RoboticsActions::action_robot_joint_sliders_egui(&robot.0, &mut robot_state_engine, &egui_engine, ui);
                         ui.separator();
                         RoboticsActions::action_robot_link_vis_panel_egui(&robot.0, & *robot_state_engine, &mut lines, &egui_engine, ui);
                     });
@@ -307,6 +309,53 @@ impl RoboticsSystems {
             robot_state_engine.add_update_request(0, &state);
         }
     }
+    pub fn system_robot_self_collision_vis<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(mut robot: ResMut<BevyORobot<T, C, L>>,
+                                                                                                                        mut robot_state_engine: ResMut<RobotStateEngine>,
+                                                                                                                        mut contexts: EguiContexts,
+                                                                                                                        egui_engine: Res<OEguiEngineWrapper>,
+                                                                                                                        window_query: Query<&Window, With<PrimaryWindow>>) {
+        OEguiSidePanel::new(Side::Left, 300.0)
+            .show("side_panel", contexts.ctx_mut(), &egui_engine, &window_query, &(), |ui| {
+                egui::ScrollArea::new([true, true])
+                    .show(ui, |ui| {
+                        RoboticsActions::action_robot_joint_sliders_egui(&robot.0, &mut robot_state_engine, &egui_engine, ui);
+
+                        ui.group(|ui| {
+                            let state = robot_state_engine.get_robot_state(0);
+                            if let Some(state) = state {
+                                let state = OVec::ovec_to_other_ad_type::<T>(state);
+                                let p = robot.0.parry_shape_scene().get_poses(&(&robot.0, &state));
+                                let s = robot.0.parry_shape_scene().get_shapes();
+                                let skips = robot.0.parry_shape_scene().get_pair_skips();
+                                let a = robot.0.parry_shape_scene().get_pair_average_distances();
+
+                                let f = ParryIntersectGroupSequenceFilter::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere]);
+                                let fr = f.pair_group_filter(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a);
+                                let res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), fr.selector(), skips, &(), &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
+                                let f = ParryDistanceGroupSequenceFilter::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere], T::constant(0.6), true, ParryDisMode::ContactDis);
+                                let fr = f.pair_group_filter(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a);
+                                let res2 = ParryDistanceGroupQry::query(s, s, p.as_ref(), p.as_ref(), fr.selector(), skips, a, &ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, true, T::constant(f64::MIN)));
+                                let intersect = res.intersect();
+                                ui.heading(format!("In collision: {:?}", intersect));
+                                ui.label(format!("Min. dis. with respect to average: {:.3}", res2.min_dis_wrt_average()));
+
+                                if ui.button("Mark as non-collision state").clicked() {
+                                    if intersect {
+                                        robot.0.add_non_collision_state(state.clone(), SaveRobot::Save(None));
+                                    }
+                                }
+
+                                ui.separator();
+                                ui.separator();
+
+                                if ui.button("Clear non-collision states").clicked() {
+                                    robot.0.reset_non_collision_states(SaveRobot::Save(None));
+                                }
+                            }
+                        });
+                    });
+            });
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -314,6 +363,7 @@ impl RoboticsSystems {
 pub trait BevyRoboticsTrait<T: AD> {
     fn bevy_display(&self);
     fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(&self, interpolator: &I);
+    fn bevy_self_collision_visualization(&mut self);
 }
 
 impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> BevyRoboticsTrait<T> for ORobot<T, C, L> {
@@ -340,8 +390,21 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             .optima_bevy_robotics_scene_visuals_starter()
             .optima_bevy_egui()
             .insert_resource(BevyRobotInterpolator(interpolator.clone(), PhantomData::default()))
-            // .add_systems(Update, RoboticsSystems::system_robot_main_info_panel_egui::<T, C, L>.before(BevySystemSet::Camera))
             .add_systems(Update, RoboticsSystems::system_robot_motion_interpolator::<T, V, I>.before(BevySystemSet::Camera))
+            .run();
+    }
+
+    fn bevy_self_collision_visualization(&mut self) {
+        assert!(self.has_been_preprocessed(), "robot must be preprocessed first.");
+        App::new()
+            .optima_bevy_base()
+            .optima_bevy_robotics_base(self.clone())
+            .optima_bevy_pan_orbit_camera()
+            .optima_bevy_starter_lights()
+            .optima_bevy_spawn_robot::<T, C, L>()
+            .optima_bevy_robotics_scene_visuals_starter()
+            .optima_bevy_egui()
+            .add_systems(Update, RoboticsSystems::system_robot_self_collision_vis::<T, C, L>.before(BevySystemSet::Camera))
             .run();
     }
 }
@@ -352,6 +415,10 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
 
     fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(&self, interpolator: &I) {
         self.as_robot().bevy_motion_playback(interpolator);
+    }
+
+    fn bevy_self_collision_visualization(&mut self) {
+        panic!("not handled for RobotSet");
     }
 }
 

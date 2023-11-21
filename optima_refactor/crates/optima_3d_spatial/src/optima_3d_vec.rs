@@ -26,36 +26,36 @@ pub trait O3DVec<T: AD> :
 {
     type Category: O3DVecCategoryTrait;
 
-    fn type_identifier() -> O3DVecType;
+    fn o3dvec_type_identifier() -> O3DVecType;
     fn x(&self) -> T;
     fn y(&self) -> T;
     fn z(&self) -> T;
-    fn from_slice(slice: &[T]) -> Self;
-    fn as_slice(&self) -> &[T];
+    fn o3dvec_from_slice(slice: &[T]) -> Self;
+    fn o3dvec_as_slice(&self) -> &[T];
     fn to_arr(&self) -> [T; 3] { [self.x(), self.y(), self.z()] }
-    fn add(&self, other: &Self) -> Self;
-    fn sub(&self, other: &Self) -> Self;
-    fn scalar_mul_o3dvec(&self, scalar: T) -> Self;
+    fn o3dvec_add(&self, other: &Self) -> Self;
+    fn o3dvec_sub(&self, other: &Self) -> Self;
+    fn o3dvec_scalar_mul(&self, scalar: T) -> Self;
     fn norm(&self) -> T;
-    fn dot(&self, other: &Self) -> T;
+    fn o3dvec_dot(&self, other: &Self) -> T;
     fn cross(&self, other: &Self) -> Self;
     fn dis(&self, other: &Self) -> T;
-    fn to_other_generic_category<T2: AD, C: O3DVecCategoryTrait>(&self) -> C::V<T2> {
+    fn o3dvec_to_other_generic_category<T2: AD, C: O3DVecCategoryTrait>(&self) -> C::V<T2> {
         let x = self.x().to_constant();
         let y = self.y().to_constant();
         let z = self.z().to_constant();
-        C::V::from_slice(&[T2::constant(x), T2::constant(y), T2::constant(z)])
+        C::V::o3dvec_from_slice(&[T2::constant(x), T2::constant(y), T2::constant(z)])
     }
-    fn to_other_ad_type<T2: AD>(&self) -> <Self::Category as O3DVecCategoryTrait>::V<T2> {
-        self.to_other_generic_category::<T2, Self::Category>()
+    fn o3dvec_to_other_ad_type<T2: AD>(&self) -> <Self::Category as O3DVecCategoryTrait>::V<T2> {
+        self.o3dvec_to_other_generic_category::<T2, Self::Category>()
     }
     #[inline(always)]
-    fn downcast_or_convert<V: O3DVec<T>>(&self) -> Cow<V> {
+    fn o3dvec_downcast_or_convert<V: O3DVec<T>>(&self) -> Cow<V> {
         let downcast = self.downcast_ref::<V>();
         match downcast {
             Some(d) => { Cow::Borrowed(d) }
             None => {
-                let out = V::from_slice(self.as_slice());
+                let out = V::o3dvec_from_slice(self.o3dvec_as_slice());
                 Cow::Owned(out)
             }
         }
@@ -66,7 +66,7 @@ impl<T: AD> O3DVec<T> for [T; 3] {
     type Category = O3DVecCategoryArr;
 
     #[inline(always)]
-    fn type_identifier() -> O3DVecType { O3DVecType::Arr }
+    fn o3dvec_type_identifier() -> O3DVecType { O3DVecType::Arr }
 
     #[inline(always)]
     fn x(&self) -> T {
@@ -84,12 +84,12 @@ impl<T: AD> O3DVec<T> for [T; 3] {
     }
 
     #[inline(always)]
-    fn from_slice(slice: &[T]) -> Self {
+    fn o3dvec_from_slice(slice: &[T]) -> Self {
         [slice[0], slice[1], slice[2]]
     }
 
     #[inline(always)]
-    fn as_slice(&self) -> &[T] {
+    fn o3dvec_as_slice(&self) -> &[T] {
         self
     }
 
@@ -98,17 +98,17 @@ impl<T: AD> O3DVec<T> for [T; 3] {
     }
 
     #[inline]
-    fn add(&self, other: &Self) -> Self {
+    fn o3dvec_add(&self, other: &Self) -> Self {
         [ self[0] + other[0], self[1] + other[1], self[2] + other[2] ]
     }
 
     #[inline]
-    fn sub(&self, other: &Self) -> Self {
+    fn o3dvec_sub(&self, other: &Self) -> Self {
         [ self[0] - other[0], self[1] - other[1], self[2] - other[2] ]
     }
 
     #[inline]
-    fn scalar_mul_o3dvec(&self, scalar: T) -> Self {
+    fn o3dvec_scalar_mul(&self, scalar: T) -> Self {
         [ scalar * self[0], scalar * self[1], scalar * self[2] ]
     }
 
@@ -118,7 +118,7 @@ impl<T: AD> O3DVec<T> for [T; 3] {
     }
 
     #[inline]
-    fn dot(&self, other: &Self) -> T {
+    fn o3dvec_dot(&self, other: &Self) -> T {
         self[0]*other[0] + self[1]*other[1] + self[2]*other[2]
     }
 
@@ -133,7 +133,7 @@ impl<T: AD> O3DVec<T> for [T; 3] {
 
     #[inline]
     fn dis(&self, other: &Self) -> T {
-        self.sub(other).norm()
+        self.o3dvec_sub(other).norm()
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -146,7 +146,7 @@ impl<T: AD> O3DVec<T> for Vec<T> {
     type Category = O3DVecCategoryVec;
 
     #[inline(always)]
-    fn type_identifier() -> O3DVecType { O3DVecType::Vec }
+    fn o3dvec_type_identifier() -> O3DVecType { O3DVecType::Vec }
 
     #[inline(always)]
     fn x(&self) -> T {
@@ -164,27 +164,27 @@ impl<T: AD> O3DVec<T> for Vec<T> {
     }
 
     #[inline(always)]
-    fn from_slice(slice: &[T]) -> Self {
+    fn o3dvec_from_slice(slice: &[T]) -> Self {
         vec![slice[0], slice[1], slice[2]]
     }
 
     #[inline(always)]
-    fn as_slice(&self) -> &[T] {
+    fn o3dvec_as_slice(&self) -> &[T] {
         self
     }
 
     #[inline]
-    fn add(&self, other: &Self) -> Self {
+    fn o3dvec_add(&self, other: &Self) -> Self {
         vec![ self[0] + other[0], self[1] + other[1], self[2] + other[2] ]
     }
 
     #[inline]
-    fn sub(&self, other: &Self) -> Self {
+    fn o3dvec_sub(&self, other: &Self) -> Self {
         vec![ self[0] - other[0], self[1] - other[1], self[2] - other[2] ]
     }
 
     #[inline]
-    fn scalar_mul_o3dvec(&self, scalar: T) -> Self {
+    fn o3dvec_scalar_mul(&self, scalar: T) -> Self {
         vec![ scalar * self[0], scalar * self[1], scalar * self[2] ]
     }
 
@@ -193,7 +193,7 @@ impl<T: AD> O3DVec<T> for Vec<T> {
         (self[0].powi(2) + self[1].powi(2) + self[2].powi(2)).sqrt()
     }
 
-    fn dot(&self, other: &Self) -> T {
+    fn o3dvec_dot(&self, other: &Self) -> T {
         self[0]*other[0] + self[1]*other[1] + self[2]*other[2]
     }
 
@@ -207,7 +207,7 @@ impl<T: AD> O3DVec<T> for Vec<T> {
 
     #[inline]
     fn dis(&self, other: &Self) -> T {
-        self.sub(other).norm()
+        self.o3dvec_sub(other).norm()
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -219,7 +219,7 @@ impl O3DVecCategoryTrait for O3DVecCategoryVec {
 impl<T: AD> O3DVec<T> for Vector3<T> {
     type Category = O3DVecCategoryVector3;
 
-    fn type_identifier() -> O3DVecType {
+    fn o3dvec_type_identifier() -> O3DVecType {
         O3DVecType::NalgebraVector3
     }
 
@@ -239,27 +239,27 @@ impl<T: AD> O3DVec<T> for Vector3<T> {
     }
 
     #[inline(always)]
-    fn from_slice(slice: &[T]) -> Self {
+    fn o3dvec_from_slice(slice: &[T]) -> Self {
         Vector3::from_column_slice(slice)
     }
 
     #[inline(always)]
-    fn as_slice(&self) -> &[T] {
+    fn o3dvec_as_slice(&self) -> &[T] {
         self.as_slice()
     }
 
     #[inline]
-    fn add(&self, other: &Self) -> Self {
+    fn o3dvec_add(&self, other: &Self) -> Self {
         self + other
     }
 
     #[inline]
-    fn sub(&self, other: &Self) -> Self {
+    fn o3dvec_sub(&self, other: &Self) -> Self {
         self - other
     }
 
     #[inline]
-    fn scalar_mul_o3dvec(&self, scalar: T) -> Self {
+    fn o3dvec_scalar_mul(&self, scalar: T) -> Self {
         scalar.mul_by_nalgebra_matrix_ref(self)
         // scalar * self
         // let mut v = [T::zero(); 3];
@@ -273,7 +273,7 @@ impl<T: AD> O3DVec<T> for Vector3<T> {
     }
 
     #[inline]
-    fn dot(&self, other: &Self) -> T {
+    fn o3dvec_dot(&self, other: &Self) -> T {
         self.dot(other)
     }
 
@@ -297,7 +297,7 @@ impl<T: AD> O3DVec<T> for Point3<T> {
     type Category = O3DVecCategoryPoint3;
 
     #[inline(always)]
-    fn type_identifier() -> O3DVecType { O3DVecType::NalgebraPoint3 }
+    fn o3dvec_type_identifier() -> O3DVecType { O3DVecType::NalgebraPoint3 }
 
     fn x(&self) -> T {
         self.x
@@ -311,23 +311,23 @@ impl<T: AD> O3DVec<T> for Point3<T> {
         self.z
     }
 
-    fn from_slice(slice: &[T]) -> Self {
+    fn o3dvec_from_slice(slice: &[T]) -> Self {
         Point3::from_slice(slice)
     }
 
-    fn as_slice(&self) -> &[T] {
+    fn o3dvec_as_slice(&self) -> &[T] {
         self.coords.as_slice()
     }
 
-    fn add(&self, other: &Self) -> Self {
+    fn o3dvec_add(&self, other: &Self) -> Self {
         (&self.coords + &other.coords).into()
     }
 
-    fn sub(&self, other: &Self) -> Self {
+    fn o3dvec_sub(&self, other: &Self) -> Self {
         (&self.coords - &other.coords).into()
     }
 
-    fn scalar_mul_o3dvec(&self, scalar: T) -> Self {
+    fn o3dvec_scalar_mul(&self, scalar: T) -> Self {
         scalar.mul_by_nalgebra_matrix_ref(&self.coords).into()
     }
 
@@ -335,7 +335,7 @@ impl<T: AD> O3DVec<T> for Point3<T> {
         self.coords.norm()
     }
 
-    fn dot(&self, other: &Self) -> T {
+    fn o3dvec_dot(&self, other: &Self) -> T {
         self.coords.dot(&other.coords)
     }
 
@@ -354,7 +354,7 @@ impl O3DVecCategoryTrait for O3DVecCategoryPoint3 {
 }
 
 pub fn o3d_vec_custom_serialize<S, T: AD, V: O3DVec<T>>(value: &V, serializer: S) -> Result<S::Ok, S::Error> where S: serde::Serializer {
-    let slice = value.as_slice();
+    let slice = value.o3dvec_as_slice();
     let slice_as_f64 = [ slice[0].to_constant(), slice[1].to_constant(), slice[2].to_constant() ];
     let mut tuple = serializer.serialize_tuple(3)?;
     for element in &slice_as_f64 {
@@ -384,7 +384,7 @@ impl<'de, T2: AD, V2: O3DVec<T2>> Visitor<'de> for O3dVecMyVisitor<T2, V2> {
         let xad = T2::constant(x);
         let yad = T2::constant(y);
         let zad = T2::constant(z);
-        Ok(V2::from_slice(&[xad, yad, zad]))
+        Ok(V2::o3dvec_from_slice(&[xad, yad, zad]))
     }
 }
 

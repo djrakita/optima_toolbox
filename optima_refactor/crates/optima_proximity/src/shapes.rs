@@ -275,12 +275,12 @@ impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P, OParryShape<T, P>> for OP
     }
 }
 impl<T: AD, P: O3DPose<T>> OShpQryDistanceTrait<T, P, OParryShape<T, P>> for OParryShape<T, P> {
-    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep);
+    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, Option<T>);
     type Output = ParryDistanceOutput<T>;
 
     fn distance(&self, other: &OParryShape<T, P>, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         match &args.1 {
-            ParryQryShapeType::Standard => { self.base_shape().distance(other.base_shape(), pose_a, pose_b, &(args.0.clone(), args.2.clone()))  }
+            ParryQryShapeType::Standard => { self.base_shape().distance(other.base_shape(), pose_a, pose_b, &(args.0.clone(), args.2.clone(), args.3))  }
             /*
             ParryQryShapeType::AllConvexSubcomponents => {
                 let start = Instant::now();
@@ -303,19 +303,19 @@ impl<T: AD, P: O3DPose<T>> OShpQryDistanceTrait<T, P, OParryShape<T, P>> for OPa
                 let shape_a = self.convex_subcomponents.get(*shape_a_subcomponent_idx).expect("idx error");
                 let shape_b = other.convex_subcomponents.get(*shape_b_subcomponent_idx).expect("idx error");
 
-                shape_a.distance(shape_b, pose_a, pose_b, &(args.0.clone(), args.2.clone()))
+                shape_a.distance(shape_b, pose_a, pose_b, &(args.0.clone(), args.2.clone(), args.3))
             }
         }
     }
 }
 impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P, OParryShape<T, P>> for OParryShape<T, P> {
-    type Args = (T, ParryQryShapeType, ParryShapeRep);
+    type Args = (T, ParryQryShapeType, ParryShapeRep, Option<T>);
     type Output = ParryContactOutput<T>;
 
     fn contact(&self, other: &OParryShape<T, P>, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         return match &args.1 {
             ParryQryShapeType::Standard => {
-                self.base_shape().contact(other.base_shape(), pose_a, pose_b, &(args.0.clone(), args.2.clone()))
+                self.base_shape().contact(other.base_shape(), pose_a, pose_b, &(args.0.clone(), args.2.clone(), args.3))
             }
             /*
             ParryQryShapeType::AllConvexSubcomponents => {
@@ -341,7 +341,7 @@ impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P, OParryShape<T, P>> for OPar
                 let shape_a = self.convex_subcomponents.get(*shape_a_subcomponent_idx).expect("idx error");
                 let shape_b = other.convex_subcomponents.get(*shape_b_subcomponent_idx).expect("idx error");
 
-                shape_a.contact(shape_b, pose_a, pose_b, &(args.0.clone(), args.2.clone()))
+                shape_a.contact(shape_b, pose_a, pose_b, &(args.0.clone(), args.2.clone(), args.3))
             }
         }
     }
@@ -466,26 +466,26 @@ impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P,OParryShpGenericHierarchy<
     }
 }
 impl<T: AD, P: O3DPose<T>> OShpQryDistanceTrait<T, P,OParryShpGenericHierarchy<T, P>> for OParryShpGenericHierarchy<T, P> {
-    type Args = (ParryDisMode, ParryShapeRep);
+    type Args = (ParryDisMode, ParryShapeRep, Option<T>);
     type Output = ParryDistanceOutput<T>;
 
     fn distance(&self, other: &OParryShpGenericHierarchy<T, P>, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         match &args.1 {
-            ParryShapeRep::Full => { self.base_shape.distance(&other.base_shape, pose_a, pose_b, &args.0) }
-            ParryShapeRep::OBB => { self.obb.distance(&other.obb, pose_a, pose_b, &args.0) }
-            ParryShapeRep::BoundingSphere => { self.bounding_sphere.distance(&other.bounding_sphere, pose_a, pose_b, &args.0) }
+            ParryShapeRep::Full => { self.base_shape.distance(&other.base_shape, pose_a, pose_b, &(args.0.clone(), args.2)) }
+            ParryShapeRep::OBB => { self.obb.distance(&other.obb, pose_a, pose_b, &(args.0.clone(), args.2)) }
+            ParryShapeRep::BoundingSphere => { self.bounding_sphere.distance(&other.bounding_sphere, pose_a, pose_b, &(args.0.clone(), args.2)) }
         }
     }
 }
 impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P,OParryShpGenericHierarchy<T, P>> for OParryShpGenericHierarchy<T, P> {
-    type Args = (T, ParryShapeRep);
+    type Args = (T, ParryShapeRep, Option<T>);
     type Output = ParryContactOutput<T>;
 
     fn contact(&self, other: &OParryShpGenericHierarchy<T, P>, pose_a: &P, pose_b: &P, args: &Self::Args) -> ParryContactOutput<T> {
         match &args.1 {
-            ParryShapeRep::Full => { self.base_shape.contact(&other.base_shape, pose_a, pose_b, &args.0) }
-            ParryShapeRep::OBB => { self.obb.contact(&other.obb, pose_a, pose_b, &args.0) }
-            ParryShapeRep::BoundingSphere => { self.bounding_sphere.contact(&other.bounding_sphere, pose_a, pose_b, &args.0) }
+            ParryShapeRep::Full => { self.base_shape.contact(&other.base_shape, pose_a, pose_b, &(args.0, args.2)) }
+            ParryShapeRep::OBB => { self.obb.contact(&other.obb, pose_a, pose_b, &(args.0, args.2)) }
+            ParryShapeRep::BoundingSphere => { self.bounding_sphere.contact(&other.bounding_sphere, pose_a, pose_b, &(args.0, args.2)) }
         }
     }
 }
@@ -552,9 +552,9 @@ impl<T: AD, P: O3DPose<T>> OParryShpTrait<T> for OParryShpGeneric<T, P> {
 
     #[inline]
     fn get_isometry3_cow<'a, P2: O3DPose<T>>(&self, pose: &'a P2) -> Cow<'a, Isometry3<T>> {
-        let offset: Cow<P2> = self.offset.downcast_or_convert::<P2>();
+        let offset: Cow<P2> = self.offset.o3dpose_downcast_or_convert::<P2>();
         let pose = pose.mul(offset.as_ref());
-        let res = pose.downcast_or_convert::<Isometry3<T>>();
+        let res = pose.o3dpose_downcast_or_convert::<Isometry3<T>>();
         Cow::Owned(res.into_owned())
     }
 }
@@ -576,27 +576,40 @@ impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P, OParryShpGeneric<T, P>> f
     }
 }
 impl<T: AD, P: O3DPose<T>> OShpQryDistanceTrait<T, P, OParryShpGeneric<T, P>> for OParryShpGeneric<T, P> {
-    type Args = ParryDisMode;
+    type Args = (ParryDisMode, Option<T>);
     type Output = ParryDistanceOutput<T>;
 
     fn distance(&self, other: &OParryShpGeneric<T, P>, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         let start = Instant::now();
-        match args {
+        match &args.0 {
             ParryDisMode::StandardDis => {
                 let pose_a = self.get_isometry3_cow(pose_a);
                 let pose_b = other.get_isometry3_cow(pose_b);
                 let distance = parry_ad::query::distance(pose_a.as_ref(), &**self.shape(), pose_b.as_ref(), &**other.shape()).expect("error");
 
+                let distance_wrt_average = match &args.1 {
+                    None => { distance }
+                    Some(a) => { distance / *a }
+                };
+
                 ParryDistanceOutput {
-                    distance,
+                    distance_wrt_average,
+                    raw_distance: distance,
                     aux_data: ParryOutputAuxData { num_queries: 1, duration: start.elapsed() }
                 }
             }
             ParryDisMode::ContactDis => {
-                let c = self.contact(other, pose_a, pose_b, &T::constant(f64::INFINITY));
+                let c = self.contact(other, pose_a, pose_b, &(T::constant(f64::INFINITY), args.1));
                 let distance = c.signed_distance().unwrap();
+
+                let distance_wrt_average = match &args.1 {
+                    None => { distance }
+                    Some(a) => { distance / *a }
+                };
+
                 ParryDistanceOutput {
-                    distance,
+                    distance_wrt_average,
+                    raw_distance: distance,
                     aux_data: ParryOutputAuxData { num_queries: 1, duration: start.elapsed() }
                 }
             }
@@ -605,7 +618,7 @@ impl<T: AD, P: O3DPose<T>> OShpQryDistanceTrait<T, P, OParryShpGeneric<T, P>> fo
     }
 }
 impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P, OParryShpGeneric<T, P>> for OParryShpGeneric<T, P> {
-    type Args = T;
+    type Args = (T, Option<T>);
     type Output = ParryContactOutput<T>;
 
     fn contact(&self, other: &OParryShpGeneric<T, P>, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
@@ -613,9 +626,20 @@ impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P, OParryShpGeneric<T, P>> for
         let pose_a = self.get_isometry3_cow(pose_a);
         let pose_b = other.get_isometry3_cow(pose_b);
 
-        let contact = parry_ad::query::contact(pose_a.as_ref(), &**self.shape(), pose_b.as_ref(), &**other.shape(), *args).expect("error");
+        let contact = parry_ad::query::contact(pose_a.as_ref(), &**self.shape(), pose_b.as_ref(), &**other.shape(), args.0).expect("error");
+
+        let distance_wrt_average = match &contact {
+            None => { None }
+            Some(c) => {
+                match args.1 {
+                    None => { Some(c.dist) }
+                    Some(a) => { Some(c.dist / a) }
+                }
+            }
+        };
 
         ParryContactOutput {
+            distance_wrt_average,
             contact,
             aux_data: ParryOutputAuxData { num_queries: 1, duration: start.elapsed() },
         }
@@ -645,7 +669,7 @@ impl<T: AD> Serialize for BoxedShape<T> {
             TypedShape::Cuboid(s) => {
                 let mut tuple = serializer.serialize_tuple(2)?;
                 tuple.serialize_element(&"cuboid".to_string())?;
-                tuple.serialize_element(&OVec::to_other_ad_type::<f64>(&s.half_extents))?;
+                tuple.serialize_element(&OVec::ovec_to_other_ad_type::<f64>(&s.half_extents))?;
                 tuple
             }
             TypedShape::Capsule(_) => { panic!("shape not handled here") }
@@ -738,7 +762,7 @@ impl<'de, T: AD> Visitor<'de> for BoxedShapeVisitor<T> {
         } else if shape_type_str == "cuboid" {
             let half_extents = seq.next_element::<[f64; 3]>().expect("error").expect("error");
             // let _path = seq.next_element::<Option<OStemCellPath>>().expect("error").expect("error");
-            let half_extents = OVec::to_other_ad_type::<T>(&half_extents);
+            let half_extents = OVec::ovec_to_other_ad_type::<T>(&half_extents);
             return Ok(BoxedShape{
                 shape: Box::new(Cuboid::new(Vector3::new(half_extents[0], half_extents[1], half_extents[2]))),
                 path: None,
@@ -838,7 +862,7 @@ pub (crate) fn get_obb_from_shape<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(sh
     let aabb = shape.compute_local_aabb();
     let mins = aabb.mins;
     let maxs = aabb.maxs;
-    let center = mins.add(&maxs).scalar_mul_o3dvec(T::constant(0.5));
+    let center = mins.o3dvec_add(&maxs).o3dvec_scalar_mul(T::constant(0.5));
     let offset = offset.mul(&P::from_constructors(&center, &[T::zero(); 3]));
     let half_x = (maxs[0] - mins[0]) * T::constant(0.5);
     let half_y = (maxs[1] - mins[1]) * T::constant(0.5);
@@ -898,12 +922,12 @@ pub (crate) fn calculate_max_dis_error_between_shape_and_bounding_shape<T: AD, S
             } else {
                 let mut sample = SimpleSampler::uniform_samples(&vec![(T::constant(0.0), T::constant(1.0)); 3], None);
                 let one_norm = sample.lp_norm(&T::one());
-                sample = sample.scalar_div(&one_norm);
+                sample = sample.ovec_scalar_div(&one_norm);
                 sample
             };
-            let point = vertex0.mul(sample[0]).add(&vertex1.mul(sample[1])).add(&vertex2.mul(sample[2]));
+            let point = vertex0.mul(sample[0]).o3dvec_add(&vertex1.mul(sample[1])).o3dvec_add(&vertex2.mul(sample[2]));
             let projection = bounding_shape.project_local_point(&point, false);
-            let dis = projection.point.sub(&point).norm();
+            let dis = projection.point.o3dvec_sub(&point).norm();
             // assert!(dis <= T::constant(0.03) || projection.is_inside, "point: {}, projection: {}, dis: {}", point, projection.point, dis);
             if dis > max_dis { max_dis = dis }
         }
