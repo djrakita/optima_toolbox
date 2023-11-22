@@ -14,7 +14,7 @@ use optima_3d_spatial::optima_3d_vec::O3DVec;
 use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSidePanel, OEguiSlider, OEguiTopBottomPanel, OEguiWidgetTrait};
 use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategoryTrait, OVec};
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryDistanceGroupSequenceFilter, ParryDistanceGroupSequenceFilterArgs, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryIntersectGroupSequenceFilter, ParryIntersectGroupSequenceFilterArgs, ParryPairSelector};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryDistanceGroupSequenceFilter, ParryDistanceGroupSequenceFilterArgs, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryIntersectGroupSequenceFilter, ParryIntersectGroupSequenceFilterArgs, ParryPairSelector, ProximityLossFunctionHinge, ToParryProximityOutputTrait};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_robotics::robot::{FKResult, ORobot, SaveRobot};
 use optima_robotics::robot_set::ORobotSet;
@@ -337,9 +337,14 @@ impl RoboticsSystems {
                                 // let fr = f.pair_group_filter(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a);
                                 let fr = ParryDistanceGroupSequenceFilter::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a, &ParryDistanceGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere], T::constant(0.6), true, ParryDisMode::ContactDis));
                                 let res2 = ParryDistanceGroupQry::query(s, s, p.as_ref(), p.as_ref(), fr.selector(), skips, a, &ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, true, T::constant(f64::MIN)));
+
+                                let proximity_objective_value = res2.compute_proximity_objective_value(T::constant(1.0), T::constant(10.0), ProximityLossFunctionHinge { });
+                                // let q = ParryStandardProximityObjectiveQryArgs::new()
+
                                 let intersect = res.intersect();
                                 ui.heading(format!("In collision: {:?}", intersect));
                                 ui.label(format!("Min. dis. with respect to average: {:.3}", res2.min_dis_wrt_average()));
+                                ui.label(format!("Proximity objective value:         {:.3}", proximity_objective_value));
 
                                 if ui.button("Mark as non-collision state").clicked() {
                                     if intersect {

@@ -54,7 +54,7 @@ impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> ArclengthParameterizedInterp
             }
             let curr_point = interpolator.interpolate(t);
             // let dis = (&curr_point - &prev_point).norm();
-            let dis = curr_point.ovec_sub(&prev_point).lp_norm(&T::constant(2.0));
+            let dis = curr_point.ovec_sub(&prev_point).ovec_p_norm(&T::constant(2.0));
             accumulated_distance += dis;
 
             arclength_markers.push((accumulated_distance, t));

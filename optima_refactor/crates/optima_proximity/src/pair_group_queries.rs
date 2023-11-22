@@ -5,6 +5,7 @@ use ad_trait::AD;
 use ahash::AHashMap;
 use as_any::AsAny;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
+use optima_linalg::OVec;
 use optima_universal_hashmap::AHashMapWrapper;
 use crate::pair_queries::{OPairQryTrait, ParryContactOutput, ParryContactQry, ParryDisMode, ParryDistanceBoundsOutput, ParryDistanceBoundsQry, ParryDistanceLowerBoundOutput, ParryDistanceLowerBoundQry, ParryDistanceOutput, ParryDistanceQry, ParryDistanceUpperBoundOutput, ParryDistanceUpperBoundQry, ParryIntersectOutput, ParryIntersectQry, ParryOutputAuxData, ParryQryShapeType, ParryShapeRep};
 use crate::shape_queries::{ContactOutputTrait, DistanceOutputTrait, IntersectOutputTrait};
@@ -200,8 +201,8 @@ impl<T: AD, P: O3DPose<T>, FQ, Q> OPairGroupQryTrait<T, P> for ParryPreFilteredG
     type Output = Q::Output;
 
     fn query<S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<Self::ShapeTypeA>, shape_group_b: &Vec<Self::ShapeTypeB>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &Self::Args) -> Self::Output {
-        let res = FQ::query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, pair_average_distances, &args.filter_args);
-        Q::query(shape_group_a, shape_group_b, poses_a, poses_b, res.selector(), pair_skips, pair_average_distances, &args.query_args)
+        let res = args.f.query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, pair_average_distances);
+        args.q.query(shape_group_a, shape_group_b, poses_a, poses_b, res.selector(), pair_skips, pair_average_distances)
     }
 }
 
@@ -209,13 +210,13 @@ pub struct ParryPreFilteredGroupQryArgs<T: AD, P: O3DPose<T>, FQ, Q>
     where FQ: OPairGroupQryTrait<T, P, ShapeTypeA=OParryShape<T, P>, ShapeTypeB=OParryShape<T, P>, SelectorType=ParryPairSelector, Output=ParryFilterOutput>,
           Q: OPairGroupQryTrait<T, P, ShapeTypeA=OParryShape<T, P>, ShapeTypeB=OParryShape<T, P>, SelectorType=ParryPairSelector>
 {
-    filter_args: FQ::Args,
-    query_args: Q::Args
+    f: OwnedPairGroupQry<T, P, FQ>,
+    q: OwnedPairGroupQry<T, P, Q>
 }
 impl<T: AD, P: O3DPose<T>, FQ, Q> ParryPreFilteredGroupQryArgs<T, P, FQ, Q> where FQ: OPairGroupQryTrait<T, P, ShapeTypeA=OParryShape<T, P>, ShapeTypeB=OParryShape<T, P>, SelectorType=ParryPairSelector, Output=ParryFilterOutput>,
                                                                                   Q: OPairGroupQryTrait<T, P, ShapeTypeA=OParryShape<T, P>, ShapeTypeB=OParryShape<T, P>, SelectorType=ParryPairSelector> {
-    pub fn new(filter_args: FQ::Args, query_args: Q::Args) -> Self {
-        Self { filter_args, query_args }
+    pub fn new(f: OwnedPairGroupQry<T, P, FQ>, q: OwnedPairGroupQry<T, P, Q>) -> Self {
+        Self { f, q }
     }
 }
 
@@ -350,6 +351,18 @@ impl<T: AD> ParryDistanceGroupOutput<T> {
     }
     pub fn aux_data(&self) -> &ParryOutputAuxData {
         &self.aux_data
+    }
+}
+impl<T: AD> ToParryProximityOutputTrait<T> for ParryDistanceGroupOutput<T> {
+    fn compute_proximity_objective_value<LF: ProximityLossFunctionTrait<T>>(&self, cutoff: T, p_norm: T, loss_function: LF) -> T {
+        let mut values = vec![];
+
+        self.outputs.iter().for_each(|x| {
+            let loss = loss_function.loss(x.data.distance_wrt_average, cutoff);
+            values.push(loss);
+        });
+
+        values.ovec_p_norm(&p_norm)
     }
 }
 
@@ -490,6 +503,23 @@ impl<T: AD> ParryContactGroupOutput<T> {
     }
     pub fn aux_data(&self) -> &ParryOutputAuxData {
         &self.aux_data
+    }
+}
+impl<T: AD> ToParryProximityOutputTrait<T> for ParryContactGroupOutput<T> {
+    fn compute_proximity_objective_value<LF: ProximityLossFunctionTrait<T>>(&self, cutoff: T, p_norm: T, loss_function: LF) -> T {
+        let mut values = vec![];
+
+        self.outputs.iter().for_each(|x| {
+            match x.data.distance_wrt_average {
+                None => {}
+                Some(d) => {
+                    let loss = loss_function.loss(d, cutoff);
+                    values.push(loss);
+                }
+            }
+        });
+
+        values.ovec_p_norm(&p_norm)
     }
 }
 
@@ -1323,6 +1353,25 @@ impl<T: AD> ParryDistanceGroupSequenceFilterArgs<T> {
     }
 }
 
+pub struct EmptyParryFilter;
+impl<T: AD, P: O3DPose<T>> OPairGroupQryTrait<T, P> for EmptyParryFilter {
+    type ShapeTypeA = OParryShape<T, P>;
+    type ShapeTypeB = OParryShape<T, P>;
+    type SelectorType = ParryPairSelector;
+    type Args = ();
+    type Output = ParryFilterOutput;
+
+    #[inline(always)]
+    fn query<S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<Self::ShapeTypeA>, _shape_group_b: &Vec<Self::ShapeTypeB>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _args: &Self::Args) -> Self::Output {
+        let start = Instant::now();
+        ParryFilterOutput {
+            selector: pair_selector.clone(),
+            duration: start.elapsed(),
+            aux_datas: vec![],
+        }
+    }
+}
+
 /*
 pub struct ParryDistanceWrtAverageGroupSequenceFilter<T: AD> {
     shape_rep_seq: Vec<ParryShapeRep>,
@@ -1433,6 +1482,44 @@ impl AsParryFilterOutputTrait for ParryFilterOutput {
     fn as_parry_filter_output(&self) -> &ParryFilterOutput {
         self
     }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pub trait ProximityLossFunctionTrait<T: AD> {
+    fn loss(&self, distance: T, cutoff: T) -> T;
+}
+
+pub struct ProximityLossFunctionHinge { }
+impl<T: AD> ProximityLossFunctionTrait<T> for ProximityLossFunctionHinge {
+    #[inline(always)]
+    fn loss(&self, distance: T, cutoff: T) -> T {
+        return if distance > cutoff { T::zero() } else { -cutoff.recip() * distance + T::one() }
+    }
+}
+
+pub struct ParryProximityOutput<T: AD> {
+    proximity_objective_value: T,
+    duration: Duration,
+    aux_datas: Vec<ParryOutputAuxData>
+}
+impl<T: AD> ParryProximityOutput<T> {
+    #[inline(always)]
+    pub fn proximity_value(&self) -> T {
+        self.proximity_objective_value
+    }
+    #[inline(always)]
+    pub fn duration(&self) -> Duration {
+        self.duration
+    }
+    #[inline(always)]
+    pub fn aux_datas(&self) -> &Vec<ParryOutputAuxData> {
+        &self.aux_datas
+    }
+}
+
+pub trait ToParryProximityOutputTrait<T: AD> {
+    fn compute_proximity_objective_value<LF: ProximityLossFunctionTrait<T>>(&self, cutoff: T, p_norm: T, loss_function: LF) -> T;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -1,9 +1,7 @@
 use std::borrow::Cow;
 use std::marker::PhantomData;
 use ad_trait::AD;
-use ad_trait::differentiable_block::{DifferentiableBlock, DifferentiableBlockArgPrepTrait};
-use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFunctionTrait};
-use num_traits::One;
+use ad_trait::differentiable_function::{DifferentiableFunctionTrait};
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
 use optima_linalg::OLinalgCategoryTrait;
 use crate::robot::ORobot;
@@ -34,7 +32,9 @@ impl<C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> Diffe
     }
 }
 
+/*
 pub type DifferentiableBlockIKObjective<'a, C, L, E, AP> = DifferentiableBlock<'a, IKObjective<C, L>, E, AP>;
+*/
 
 /*
 pub struct DiffBlockWrapper<'a, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, E: DerivativeMethodTrait>(DifferentiableBlock<'a, IKObjective<C, L>, E>);
@@ -44,6 +44,20 @@ impl<'a, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, E
 }
 */
 
+pub struct IKArgs<'a, T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>
+{
+    pub robot: Cow<'a, ORobot<T, C, L>>,
+    pub goals: Vec<IKGoal<T, C::P<T>>>
+}
+
+#[derive(Clone)]
+pub struct IKGoal<T: AD, P: O3DPose<T>> {
+    pub goal_link_idx: usize,
+    pub goal_pose: P,
+    pub weight: T,
+}
+
+/*
 pub trait DifferentiableBlockIKObjectiveTrait {
     fn add_initial_ik_goals(&mut self, link_idxs: Vec<usize>);
     fn update_ik_goal_pose<P: O3DPose<f64>>(&mut self, goal_idx: usize, pose: &P);
@@ -84,18 +98,7 @@ impl<'a, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, E
         });
     }
 }
-
-pub struct IKArgs<'a, T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> {
-    pub robot: Cow<'a, ORobot<T, C, L>>,
-    pub goals: Vec<IKGoal<T, C::P<T>>>
-}
-
-#[derive(Clone)]
-pub struct IKGoal<T: AD, P: O3DPose<T>> {
-    pub goal_link_idx: usize,
-    pub goal_pose: P,
-    pub weight: T,
-}
+*/
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 

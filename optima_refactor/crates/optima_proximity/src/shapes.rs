@@ -921,7 +921,7 @@ pub (crate) fn calculate_max_dis_error_between_shape_and_bounding_shape<T: AD, S
                 vec![T::zero(), T::constant(0.5), T::constant(0.5)]
             } else {
                 let mut sample = SimpleSampler::uniform_samples(&vec![(T::constant(0.0), T::constant(1.0)); 3], None);
-                let one_norm = sample.lp_norm(&T::one());
+                let one_norm = sample.ovec_p_norm(&T::one());
                 sample = sample.ovec_scalar_div(&one_norm);
                 sample
             };

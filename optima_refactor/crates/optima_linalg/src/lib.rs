@@ -68,31 +68,37 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync + AsAny  {
     fn ovec_as_slice(&self) -> &[T];
     fn ovec_as_mut_slice(&mut self) -> &mut [T];
     /// start idx is inclusive, end idx is exclusive
+    /// #[inline(always)]
     fn subslice(&self, start: usize, end: usize) -> &[T] { &self.ovec_as_slice()[start..end]  }
     fn ovec_dot(&self, other: &Self) -> T;
     fn ovec_add(&self, other: &Self) -> Self;
     fn ovec_sub(&self, other: &Self) -> Self;
     fn ovec_scalar_mul(&self, scalar: &T) -> Self;
     fn ovec_scalar_div(&self, scalar: &T) -> Self;
-    fn lp_norm(&self, p: &T) -> T {
+    #[inline(always)]
+    fn ovec_p_norm(&self, p: &T) -> T {
         let mut out = T::zero();
         self.ovec_as_slice().iter().for_each(|x| { out += x.powf(*p); });
         out.powf(p.recip())
     }
+    #[inline(always)]
     fn normalize(&self) -> Self {
-        self.ovec_scalar_div(&self.lp_norm(&T::constant(2.0)))
+        self.ovec_scalar_div(&self.ovec_p_norm(&T::constant(2.0)))
     }
     fn ovec_get_element(&self, i: usize) -> &T;
     fn ovec_get_element_mut(&mut self, i: usize) -> &mut T;
     fn ovec_set_element(&mut self, i: usize, element: T);
     fn len(&self) -> usize;
+    #[inline(always)]
     fn to_constant_vec(&self) -> Vec<f64> {
         self.ovec_as_slice().iter().map(|x| x.to_constant()).collect()
     }
+    #[inline(always)]
     fn ovec_to_other_generic_category<T2: AD, C: OVecCategoryTrait>(&self) -> C::V<T2> {
         let s: Vec<T2> = self.to_constant_vec().iter().map(|x| T2::constant(*x)).collect();
         C::V::ovec_from_slice(&s)
     }
+    #[inline(always)]
     fn ovec_to_other_ad_type<T2: AD>(&self) -> <Self::Category as OVecCategoryTrait>::V<T2> {
         self.ovec_to_other_generic_category::<T2, Self::Category>()
     }
