@@ -14,7 +14,7 @@ use optima_3d_spatial::optima_3d_vec::O3DVec;
 use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSidePanel, OEguiSlider, OEguiTopBottomPanel, OEguiWidgetTrait};
 use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategoryTrait, OVec};
-use optima_proximity::pair_group_queries::{OPairGroupFilterTrait, OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryDistanceGroupSequenceFilter, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryIntersectGroupSequenceFilter, ParryPairSelector};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryDistanceGroupSequenceFilter, ParryDistanceGroupSequenceFilterArgs, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryIntersectGroupSequenceFilter, ParryIntersectGroupSequenceFilterArgs, ParryPairSelector};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_robotics::robot::{FKResult, ORobot, SaveRobot};
 use optima_robotics::robot_set::ORobotSet;
@@ -329,11 +329,13 @@ impl RoboticsSystems {
                                 let skips = robot.0.parry_shape_scene().get_pair_skips();
                                 let a = robot.0.parry_shape_scene().get_pair_average_distances();
 
-                                let f = ParryIntersectGroupSequenceFilter::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere]);
-                                let fr = f.pair_group_filter(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a);
+                                // let f = ParryIntersectGroupSequenceFilter2::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere]);
+                                // let fr = f.pair_group_filter(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a);
+                                let fr = ParryIntersectGroupSequenceFilter::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a, &ParryIntersectGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere]));
                                 let res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), fr.selector(), skips, &(), &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
-                                let f = ParryDistanceGroupSequenceFilter::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere], T::constant(0.6), true, ParryDisMode::ContactDis);
-                                let fr = f.pair_group_filter(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a);
+                                // let f = ParryDistanceGroupSequenceFilter2::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere], T::constant(0.6), true, ParryDisMode::ContactDis);
+                                // let fr = f.pair_group_filter(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a);
+                                let fr = ParryDistanceGroupSequenceFilter::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a, &ParryDistanceGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere], T::constant(0.6), true, ParryDisMode::ContactDis));
                                 let res2 = ParryDistanceGroupQry::query(s, s, p.as_ref(), p.as_ref(), fr.selector(), skips, a, &ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, true, T::constant(f64::MIN)));
                                 let intersect = res.intersect();
                                 ui.heading(format!("In collision: {:?}", intersect));
