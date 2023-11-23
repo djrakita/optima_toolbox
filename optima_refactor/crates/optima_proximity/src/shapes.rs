@@ -22,6 +22,10 @@ use optima_file::path::OStemCellPath;
 use crate::pair_queries::{ParryContactOutput, ParryDisMode, ParryDistanceOutput, ParryIntersectOutput, ParryOutputAuxData, ParryQryShapeType, ParryShapeRep};
 use crate::shape_queries::{ContactOutputTrait, OShpQryContactTrait, OShpQryDistanceTrait, OShpQryIntersectTrait};
 
+pub trait ShapeCategoryTrait {
+    type ShapeType<T: AD, P: O3DPose<T>>;
+}
+
 pub trait OParryShpTrait<T: AD> {
     // fn shape(&self) -> &Box<dyn Shape<T>>;
     fn get_isometry3_cow<'a, P: O3DPose<T>>(&self, pose: &'a P) -> Cow<'a, Isometry3<T>>;
@@ -345,6 +349,11 @@ impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P, OParryShape<T, P>> for OPar
             }
         }
     }
+}
+
+pub struct ShapeCategoryOParryShape;
+impl ShapeCategoryTrait for ShapeCategoryOParryShape {
+    type ShapeType<T: AD, P: O3DPose<T>> = OParryShape<T, P>;
 }
 
 /*

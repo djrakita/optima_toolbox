@@ -32,6 +32,12 @@ impl<C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> Diffe
     }
 }
 
+pub struct IKArgs<'a, T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>
+{
+    pub robot: Cow<'a, ORobot<T, C, L>>,
+    pub goals: Vec<IKGoal<T, C::P<T>>>
+}
+
 /*
 pub type DifferentiableBlockIKObjective<'a, C, L, E, AP> = DifferentiableBlock<'a, IKObjective<C, L>, E, AP>;
 */
@@ -43,12 +49,6 @@ impl<'a, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, E
     fn prep_args(&mut self, _inputs: &[f64]) { }
 }
 */
-
-pub struct IKArgs<'a, T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>
-{
-    pub robot: Cow<'a, ORobot<T, C, L>>,
-    pub goals: Vec<IKGoal<T, C::P<T>>>
-}
 
 #[derive(Clone)]
 pub struct IKGoal<T: AD, P: O3DPose<T>> {
