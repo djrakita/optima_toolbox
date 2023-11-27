@@ -82,6 +82,15 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync + AsAny  {
         out.powf(p.recip())
     }
     #[inline(always)]
+    fn ovec_linf_norm(&self) -> T {
+        let slice = self.ovec_as_slice();
+        let max = slice.iter().max_by(|x, y| x.abs().partial_cmp(&y.abs()).unwrap() );
+        return match max {
+            None => { panic!("cannot take linf norm of empty vec") }
+            Some(max) => { max.abs() }
+        }
+    }
+    #[inline(always)]
     fn normalize(&self) -> Self {
         self.ovec_scalar_div(&self.ovec_p_norm(&T::constant(2.0)))
     }

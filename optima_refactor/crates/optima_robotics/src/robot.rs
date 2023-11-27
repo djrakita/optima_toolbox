@@ -18,6 +18,9 @@ use crate::robotics_functions::compute_chain_info;
 use crate::robotics_traits::{AsRobotTrait, JointTrait};
 use optima_misc::arr_storage::MutArrTraitRaw;
 use optima_misc::arr_storage::ImmutArrTraitRaw;
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, PairGroupQryOutputCategoryTrait, ParryPairSelector};
+use optima_proximity::shape_scene::ShapeSceneTrait;
+use optima_proximity::shapes::ShapeCategoryOParryShape;
 use optima_sampling::SimpleSampler;
 use crate::robot_shape_scene::ORobotParryShapeScene;
 
@@ -411,6 +414,16 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
     #[inline(always)]
     pub fn parry_shape_scene(&self) -> &ORobotParryShapeScene<T, C, L> {
         &self.parry_shape_scene
+    }
+    pub fn parry_shape_scene_self_query<Q, V: OVec<T>>(&self, state: &V, query: &OwnedPairGroupQry<T, C::P<T>, Q>, pair_selector: &ParryPairSelector) -> <Q::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, C::P<T>>
+        where Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector>
+    {
+        let shapes = self.parry_shape_scene.get_shapes();
+        let p = self.parry_shape_scene.get_poses(&(self, state));
+        let pair_skips = self.parry_shape_scene.get_pair_skips();
+        let pair_average_distances = self.parry_shape_scene.get_pair_average_distances();
+
+        query.query(shapes, shapes, p.as_ref(), p.as_ref(), pair_selector, pair_skips, pair_average_distances)
     }
     #[inline(always)]
     pub fn get_dof_bounds(&self) -> Vec<(T, T)> {

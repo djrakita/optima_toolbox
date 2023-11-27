@@ -25,6 +25,9 @@ use crate::shape_queries::{ContactOutputTrait, OShpQryContactTrait, OShpQryDista
 pub trait ShapeCategoryTrait {
     type ShapeType<T: AD, P: O3DPose<T>>;
 }
+impl ShapeCategoryTrait for () {
+    type ShapeType<T: AD, P: O3DPose<T>> = ();
+}
 
 pub trait OParryShpTrait<T: AD> {
     // fn shape(&self) -> &Box<dyn Shape<T>>;

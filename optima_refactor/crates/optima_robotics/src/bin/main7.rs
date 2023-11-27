@@ -7,7 +7,7 @@ use optima_optimization::optimization_engine::SimpleOpEnEngineOptimizer;
 use optima_robotics::robot::ORobotDefault;
 use optima_robotics::robotics_diffblock_spawners::RoboticsDiffBlockSpawners;
 use optima_robotics::robotics_optimization_solvers::{DifferentiableBlockIKObjectiveTrait};
-use optima_robotics::robotics_optimization_utils::RoboticsOptimizationUtils;
+use optima_robotics::robotics_optimization::robotics_optimization_utils::RoboticsOptimizationUtils;
 
 
 type DerivativeMethod = ForwardADMulti<adf_f32x8>;
