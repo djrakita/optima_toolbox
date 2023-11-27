@@ -72,14 +72,18 @@ pub trait JointTrait<T: AD, C: O3DPoseCategoryTrait + 'static> {
             match range {
                 None => { panic!("mimicked joint must have exactly one dof.") }
                 Some(range) => {
+                    let axis = joint.axis();
+                    let mut negative_axis = false;
+                    axis.iter().for_each(|x| if x.is_negative() { negative_axis = true } );
                     let subslice = state.subslice(range.0, range.1);
                     assert_eq!(subslice.len(), 1, "mimicked joint must have exactly one dof.");
-                    let value = match (mimic.offset(), mimic.multiplier()) {
+                    let mut value = match (mimic.offset(), mimic.multiplier()) {
                         (Some(offset), Some(multiplier)) => { (subslice[0] + *offset) * *multiplier }
                         (None, Some(multiplier)) => { subslice[0] * *multiplier }
                         (Some(offset), None) => { subslice[0] + *offset }
                         (None, None) => { subslice[0] }
                     };
+                    if negative_axis { value = -value; }
                     return all_joints.get_element(mimic_joint_idx).get_variable_transform_from_joint_values_subslice(&[value]);
                 }
             }

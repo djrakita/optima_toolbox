@@ -102,6 +102,7 @@ impl RoboticsActions {
                             ui.separator();
                             ui.label(format!("DOF idx {}", dof_idx));
                             ui.label(format!("{}, sub dof {}", joint.name(), i));
+                            ui.label(format!("Joint idx {}", joint.joint_idx()));
                             ui.label(format!("Joint type {:?}, Axis {:?}", joint.joint_type(), joint.axis()));
                             OEguiSlider::new(lower.to_constant(), upper.to_constant(), 0.0)
                                 .show(&label, ui, &egui_engine, &());

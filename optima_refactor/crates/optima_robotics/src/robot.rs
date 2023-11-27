@@ -231,7 +231,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
 
         if joint.mimic().is_some() { panic!("cannot fix joint values on a mimic joint.") }
 
-        assert_eq!(fixed_values.len(), joint.joint_type().num_dofs());
+        assert_eq!(fixed_values.len(), joint.joint_type().num_dofs(), "{}", format!("fixed values length {:?} must equal number of degrees of freedom of joint {:?}", fixed_values.len(), joint.joint_type().num_dofs()));
 
         joint.fixed_values = Some(fixed_values.into());
 
