@@ -912,7 +912,7 @@ impl OJointType {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OMimic<T: AD> {
     pub (crate) joint_idx: usize,
-    joint: String,
+    pub (crate) joint: String,
     #[serde_as(as = "Option<SerdeAD<T>>")]
     multiplier: Option<T>,
     #[serde_as(as = "Option<SerdeAD<T>>")]

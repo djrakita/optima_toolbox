@@ -1,15 +1,47 @@
 pub mod optimization_engine;
-
+pub mod loss_functions;
 use std::any::Any;
 use ad_trait::AD;
 use ad_trait::differentiable_block::{DifferentiableBlock, DifferentiableBlockArgPrepTrait};
 use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFunctionTrait};
 
-pub trait DiffBlockUnconstrainedOptimizerTrait {
+pub trait GenericOptimizerTrait {
     type DataType : AD;
+    type ArgsType;
     type OutputType : Any + OptimizerOutputTrait<DataType = Self::DataType>;
 
-    fn diff_block_unconstrained_optimize<'a, D1: DifferentiableFunctionTrait, E1: DerivativeMethodTrait, AP: DifferentiableBlockArgPrepTrait<'a, D1, E1>>(&self, objective_function: &DifferentiableBlock<'a, D1, E1, AP>, initial_condition: &[Self::DataType]) -> Self::OutputType;
+    fn optimize(args: &Self::ArgsType) -> Self::OutputType;
+}
+
+pub trait DiffBlockUnconstrainedOptimizerTrait {
+    type DataType : AD;
+    type ArgsType;
+    type OutputType : Any + OptimizerOutputTrait<DataType = Self::DataType>;
+
+    fn diff_block_unconstrained_optimize<'a, D, E, AP>(objective_function: &DifferentiableBlock<'a, D, E, AP>, init_condition: &[f64], args: &Self::ArgsType) -> Self::OutputType
+        where D: DifferentiableFunctionTrait,
+              E: DerivativeMethodTrait,
+              AP: DifferentiableBlockArgPrepTrait<'a, D, E>;
+}
+
+pub struct OwnedGenericOptimizer<O: GenericOptimizerTrait> {
+    args: O::ArgsType
+}
+impl<O: GenericOptimizerTrait> OwnedGenericOptimizer<O> where O: GenericOptimizerTrait {
+    pub fn new(args: O::ArgsType) -> Self {
+        Self { args }
+    }
+    pub fn optimize(&self) -> O::OutputType {
+        O::optimize(&self.args)
+    }
+    #[inline(always)]
+    pub fn args_ref(&self) -> &O::ArgsType {
+        &self.args
+    }
+    #[inline(always)]
+    pub fn args_mut(&mut self) -> &mut O::ArgsType {
+        &mut self.args
+    }
 }
 
 pub trait OptimizerOutputTrait {
@@ -30,56 +62,4 @@ impl<O: OptimizerOutputTrait> OptimizerOutputTrait for Box<O> {
     fn f_star(&self) -> Self::DataType {
         self.as_ref().f_star()
     }
-}
-
-pub trait OptimizationLossFunctionTrait<T: AD> {
-    fn loss(&self, val: T) -> T;
-}
-
-pub struct OptimizationLossQuadratic<T: AD> {
-    a: T
-}
-impl<T: AD> OptimizationLossQuadratic<T> {
-    pub fn new(a: T) -> Self {
-        Self { a }
-    }
-}
-impl<T: AD> OptimizationLossFunctionTrait<T> for OptimizationLossQuadratic<T> {
-    fn loss(&self, val: T) -> T {
-        return (self.a * val).powi(2)
-    }
-}
-
-pub struct OptimizationLossGroove<T: AD> {
-    gaussian_direction: T,
-    center: T,
-    gaussian_exponent: T,
-    gaussian_spread: T,
-    polynomial_weight: T,
-    polynomial_exponent: T,
-}
-impl<T: AD> OptimizationLossGroove<T> {
-    pub fn new(gaussian_direction: GrooveLossGaussianDirection, center: T, gaussian_exponent: T, gaussian_spread: T, polynomial_weight: T, polynomial_exponent: T) -> Self {
-        let gaussian_direction = match gaussian_direction {
-            GrooveLossGaussianDirection::BowlUp => { T::one() }
-            GrooveLossGaussianDirection::BowlDown => { T::zero() }
-        };
-        Self { gaussian_direction, center, gaussian_exponent, gaussian_spread, polynomial_weight, polynomial_exponent }
-    }
-}
-impl<T: AD> OptimizationLossFunctionTrait<T> for OptimizationLossGroove<T> {
-    fn loss(&self, val: T) -> T {
-        let two = T::constant(2.0);
-        let val1 = -T::one().powf(self.gaussian_direction);
-        let val2 = -(val - self.center).powf(self.gaussian_exponent);
-        let val3 = two*self.gaussian_spread.powf(two);
-        let val4 = val1*(val2 / val3).exp();
-        let val5 = self.polynomial_weight *(val - self.center).powf(self.polynomial_exponent);
-        return val4 + val5;
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum GrooveLossGaussianDirection {
-    BowlUp, BowlDown
 }

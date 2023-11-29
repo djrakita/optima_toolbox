@@ -97,6 +97,23 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync + AsAny  {
     fn ovec_get_element(&self, i: usize) -> &T;
     fn ovec_get_element_mut(&mut self, i: usize) -> &mut T;
     fn ovec_set_element(&mut self, i: usize, element: T);
+    #[inline(always)]
+    fn ovec_split_into_sub_vecs(&self, len_of_subvec: usize) -> Vec<&[T]> {
+        let l = self.len();
+        assert_eq!(l % len_of_subvec, 0);
+        let mut out = vec![];
+
+        let mut curr_start_idx = 0;
+        let mut curr_end_idx = len_of_subvec;
+        while curr_end_idx <= l {
+            out.push(self.subslice(curr_start_idx, curr_end_idx));
+
+            curr_start_idx += len_of_subvec;
+            curr_end_idx += len_of_subvec;
+        }
+
+        out
+    }
     fn len(&self) -> usize;
     #[inline(always)]
     fn to_constant_vec(&self) -> Vec<f64> {

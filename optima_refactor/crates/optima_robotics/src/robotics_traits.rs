@@ -70,11 +70,11 @@ pub trait JointTrait<T: AD, C: O3DPoseCategoryTrait + 'static> {
             let mimic_joint = &all_joints[mimic_joint_idx];
             let range = mimic_joint.dof_idxs_range();
             match range {
-                None => { panic!("mimicked joint must have exactly one dof.") }
+                None => { C::P::<T>::identity() }
                 Some(range) => {
                     let axis = joint.axis();
                     let mut negative_axis = false;
-                    axis.iter().for_each(|x| if x.is_negative() { negative_axis = true } );
+                    axis.iter().for_each(|x| if x.is_negative() { negative_axis = true; } );
                     let subslice = state.subslice(range.0, range.1);
                     assert_eq!(subslice.len(), 1, "mimicked joint must have exactly one dof.");
                     let mut value = match (mimic.offset(), mimic.multiplier()) {

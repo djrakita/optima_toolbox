@@ -339,13 +339,16 @@ impl RoboticsSystems {
                                 let fr = ParryDistanceGroupSequenceFilter::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a, &ParryDistanceGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere], T::constant(0.6), true, ParryDisMode::ContactDis));
                                 let res2 = ParryDistanceGroupQry::query(s, s, p.as_ref(), p.as_ref(), fr.selector(), skips, a, &ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, true, T::constant(f64::MIN)));
 
-                                let proximity_objective_value = res2.compute_proximity_objective_value(T::constant(1.0), T::constant(10.0), ProximityLossFunctionHinge { });
+                                let proximity_objective_value = res2.compute_proximity_objective_value(T::constant(0.6), T::constant(20.0), ProximityLossFunctionHinge { });
                                 // let q = ParryStandardProximityObjectiveQryArgs::new()
 
                                 let intersect = res.intersect();
                                 ui.heading(format!("In collision: {:?}", intersect));
                                 ui.label(format!("Min. dis. with respect to average: {:.3}", res2.min_dis_wrt_average()));
                                 ui.label(format!("Proximity objective value:         {:.3}", proximity_objective_value));
+
+                                ui.separator();
+                                ui.separator();
 
                                 if ui.button("Mark as non-collision state").clicked() {
                                     if intersect {

@@ -134,7 +134,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobotSe
         self.robot_wrappers.iter().enumerate().for_each(|(robot_idx, robot_wrapper)| {
             robot_wrapper.robot.links().iter().enumerate().for_each(|(link_idx_in_robot, link)| {
                 let link_name = format!("robot_{}_{}", robot_idx, link.name());
-                robot_and_link_idx_to_new_link_name_mapping.insert((robot_idx as usize, link_idx_in_robot as usize), link_name.clone());
+                robot_and_link_idx_to_new_link_name_mapping.insert((robot_idx, link_idx_in_robot), link_name.clone());
                 let mut new_link = link.clone();
                 new_link.name = link_name.clone();
                 new_link.sub_robot_idx = robot_idx;
@@ -172,6 +172,14 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> ORobotSe
                     new_joint.name = joint_name;
                     new_joint.parent_link = parent_link_name.clone();
                     new_joint.child_link = child_link_name.clone();
+
+                    match &mut new_joint.mimic {
+                        None => {}
+                        Some(mimic) => {
+                            let joint_name = format!("robot_{}_{}", robot_idx, mimic.joint);
+                            mimic.joint = joint_name;
+                        }
+                    }
 
                     joints.push(new_joint);
                 });

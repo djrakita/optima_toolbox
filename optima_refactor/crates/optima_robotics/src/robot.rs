@@ -33,7 +33,7 @@ pub struct ORobot<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTr
     #[serde(deserialize_with = "Vec::<OLink<T, C, L>>::deserialize")]
     links: Vec<OLink<T, C, L>>,
     #[serde(deserialize_with = "Vec::<OJoint<T, C>>::deserialize")]
-    joints: Vec<OJoint<T, C>>,
+    pub (crate) joints: Vec<OJoint<T, C>>,
     link_name_to_link_idx_map: HashMap<String, usize>,
     joint_name_to_joint_idx_map: HashMap<String, usize>,
     base_link_idx: usize,
@@ -207,7 +207,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
     }
     #[inline(always)]
     pub fn get_joint_idx_from_joint_name(&self, joint_name: &str) -> usize {
-        *self.joint_name_to_joint_idx_map.get(joint_name).expect("error")
+        *self.joint_name_to_joint_idx_map.get(joint_name).expect(&format!("tried to find joint {}, could not find it", joint_name))
     }
     #[inline(always)]
     pub fn num_dofs(&self) -> usize {
@@ -527,17 +527,6 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
 
         self.set_non_collision_states_internal(save_robot);
     }
-    fn set_non_collision_states_internal(&mut self, save_robot: SaveRobot) {
-        let mut parry_shape_scene = self.parry_shape_scene.clone();
-        parry_shape_scene.add_non_collision_states_pair_skips(self, &self.non_collision_states);
-
-        self.parry_shape_scene = parry_shape_scene;
-
-        match save_robot {
-            SaveRobot::Save(s) => { self.save_robot(s) }
-            SaveRobot::DoNotSave => {}
-        }
-    }
     /*
     pub fn spawn_ik_differentiable_block<E: DerivativeMethodTrait>(&self, derivative_method_data: E::DerivativeMethodData) -> DifferentiableBlock<IKObjective<C, L>, E> {
         let robot1 = self.to_new_ad_type::<f64>();
@@ -611,6 +600,17 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
         }
     }
     */
+    fn set_non_collision_states_internal(&mut self, save_robot: SaveRobot) {
+        let mut parry_shape_scene = self.parry_shape_scene.clone();
+        parry_shape_scene.add_non_collision_states_pair_skips(self, &self.non_collision_states);
+
+        self.parry_shape_scene = parry_shape_scene;
+
+        match save_robot {
+            SaveRobot::Save(s) => { self.save_robot(s) }
+            SaveRobot::DoNotSave => {}
+        }
+    }
     fn setup(&mut self) {
         self.set_link_and_joint_idxs();
         self.assign_joint_connection_indices();
