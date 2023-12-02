@@ -935,8 +935,8 @@ impl<C: O3DPoseCategory, L: OLinalgCategory> ORobot<f64, C, L> {
         ik_goal_link_idxs.iter().for_each(|x| { ik_goals.push(IKGoal::new(*x, fk_res.get_link_pose(*x).as_ref().expect("error").clone(), 1.0)); });
 
         let linf_dis_cutoff = 0.07;
-        let f2 = DifferentiableFunctionIKObjective::new(Cow::Owned(self.to_new_ad_type::<E::T>()), ik_goals.to_new_generic_types::<E::T, C>(), init_state.to_vec().ovec_to_other_ad_type::<E::T>(), filter_query.to_new_ad_type::<E::T>(), distance_query.to_new_ad_type::<E::T>(), E::T::constant(dis_filter_cutoff), linf_dis_cutoff, last_proximity_filter_state.clone(), filter_output.clone(), E::T::constant(1.0), E::T::constant(1.0), E::T::constant(1.0), E::T::constant(1.0), E::T::constant(1.0));
-        let f1 = DifferentiableFunctionIKObjective::new(Cow::Borrowed(self), ik_goals, init_state.to_vec(), filter_query, distance_query, dis_filter_cutoff, linf_dis_cutoff, last_proximity_filter_state.clone(), filter_output.clone(), 1.0, 1.0, 0.0, 1.0, 1.0);
+        let f2 = DifferentiableFunctionIKObjective::new(Cow::Owned(self.to_new_ad_type::<E::T>()), ik_goals.to_new_generic_types::<E::T, C>(), init_state.to_vec().ovec_to_other_ad_type::<E::T>(), filter_query.to_new_ad_type::<E::T>(), distance_query.to_new_ad_type::<E::T>(), E::T::constant(dis_filter_cutoff), linf_dis_cutoff, last_proximity_filter_state.clone(), filter_output.clone(), E::T::constant(10.0), E::T::constant(1.0), E::T::constant(1.0), E::T::constant(0.5), E::T::constant(0.2));
+        let f1 = DifferentiableFunctionIKObjective::new(Cow::Borrowed(self), ik_goals, init_state.to_vec(), filter_query, distance_query, dis_filter_cutoff, linf_dis_cutoff, last_proximity_filter_state.clone(), filter_output.clone(), 10.0, 1.0, 1.0, 0.5, 0.2);
 
         DifferentiableBlockIKObjective::new(derivative_method, f1, f2)
     }

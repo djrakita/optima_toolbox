@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::marker::PhantomData;
 use std::rc::Rc;
+use std::sync::RwLock;
 use ad_trait::AD;
 use ad_trait::differentiable_block::DifferentiableBlock2;
 use ad_trait::differentiable_function::{DerivativeMethodTrait2, DifferentiableFunctionClass, DifferentiableFunctionTrait2};
@@ -47,8 +48,8 @@ pub struct DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q>
           FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,
           Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryDistance> {
     robot: Cow<'a, ORobot<T, C, L>>,
-    ik_goals: Vec<IKGoal<T, C::P<T>>>,
-    prev_states: IKPrevStates<T>,
+    ik_goals: RwLock<Vec<IKGoal<T, C::P<T>>>>,
+    prev_states: RwLock<IKPrevStates<T>>,
     filter_query: OwnedPairGroupQry<'a, T, FQ>,
     distance_query: OwnedPairGroupQry<'a, T, Q>,
     dis_filter_cutoff: T,
@@ -68,7 +69,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> w
                                                                                      Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryDistance> {
     pub fn new(robot: Cow<'a, ORobot<T, C, L>>, ik_goals: Vec<IKGoal<T, C::P<T>>>, init_state: Vec<T>, filter_query: OwnedPairGroupQry<'a, T, FQ>, distance_query: OwnedPairGroupQry<'a, T, Q>, dis_filter_cutoff: T, linf_dis_cutoff: f64, last_proximity_filter_state: Rc<RefCell<Option<Vec<f64>>>>, filter_output: Rc<RefCell<Option<ParryFilterOutput>>>, ee_matching_weight: T, collision_avoidance_weight: T, min_vel_weight: T, min_acc_weight: T, min_jerk_weight: T) -> Self {
         let prev_states = IKPrevStates::new(init_state.clone());
-        Self { robot, ik_goals, prev_states, filter_query, distance_query, dis_filter_cutoff, linf_dis_cutoff, last_proximity_filter_state, filter_output, ee_matching_weight, collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight }
+        Self { robot, ik_goals: RwLock::new(ik_goals), prev_states: RwLock::new(prev_states), filter_query, distance_query, dis_filter_cutoff, linf_dis_cutoff, last_proximity_filter_state, filter_output, ee_matching_weight, collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight }
     }
 }
 impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> where T: AD,
@@ -85,7 +86,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableF
         let mut out_val = T::zero();
 
         let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.1), T::constant(1.0), T::constant(2.0));
-        out_val += self.ee_matching_weight * loss.loss(robot_ik_goals_objective::<T, C>(&fk_res, &self.ik_goals));
+        out_val += self.ee_matching_weight * loss.loss(robot_ik_goals_objective::<T, C>(&fk_res, &self.ik_goals.read().unwrap()));
 
 
         if self.collision_avoidance_weight >= T::zero() {
@@ -98,7 +99,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableF
         }
 
         let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.2), T::constant(2.0), T::constant(2.0));
-        let (v, a, j) = robot_per_instant_velocity_acceleration_and_jerk_objectives(inputs, &self.prev_states, T::constant(12.0));
+        let (v, a, j) = robot_per_instant_velocity_acceleration_and_jerk_objectives(inputs, &self.prev_states.read().unwrap(), T::constant(12.0));
 
         out_val += self.min_vel_weight * loss.loss(v);
         out_val += self.min_acc_weight * loss.loss(a);
@@ -116,8 +117,8 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableF
 
 pub type DifferentiableBlockIKObjective<'a, C, L, FQ, Q, E> = DifferentiableBlock2<'a, DifferentiableFunctionClassIKObjective<C, L, FQ, Q>, E>;
 pub trait DifferentiableBlockIKObjectiveTrait<'a, C: O3DPoseCategory> {
-    fn update_ik_pose(&'a mut self, idx: usize, pose: C::P<f64>, update_mode: IKGoalUpdateMode);
-    fn update_prev_states(&'a mut self, state: Vec<f64>);
+    fn update_ik_pose(&self, idx: usize, pose: C::P<f64>, update_mode: IKGoalUpdateMode);
+    fn update_prev_states(&self, state: Vec<f64>);
 }
 impl<'a, C, L, FQ, Q, E> DifferentiableBlockIKObjectiveTrait<'a, C> for DifferentiableBlock2<'a, DifferentiableFunctionClassIKObjective<C, L, FQ, Q>, E>
     where C: O3DPoseCategory + 'static,
@@ -127,7 +128,7 @@ impl<'a, C, L, FQ, Q, E> DifferentiableBlockIKObjectiveTrait<'a, C> for Differen
           E: DerivativeMethodTrait2
 {
     #[inline]
-    fn update_ik_pose(&'a mut self, idx: usize, pose: C::P<f64>, update_mode: IKGoalUpdateMode) {
+    fn update_ik_pose(&self, idx: usize, pose: C::P<f64>, update_mode: IKGoalUpdateMode) {
         self.update_function(|x, y| {
             x.ik_goals.update_ik_goal(idx, pose.clone(), update_mode.clone());
             y.ik_goals.update_ik_goal(idx, pose.o3dpose_to_other_generic_category::<E::T, C>(), update_mode.clone());
@@ -135,10 +136,12 @@ impl<'a, C, L, FQ, Q, E> DifferentiableBlockIKObjectiveTrait<'a, C> for Differen
     }
 
     #[inline]
-    fn update_prev_states(&'a mut self, state: Vec<f64>) {
+    fn update_prev_states(&self, state: Vec<f64>) {
         self.update_function(|x, y| {
             x.prev_states.update(state.clone());
             y.prev_states.update(state.ovec_to_other_ad_type::<E::T>());
+            // x.prev_states.update(state.clone());
+            // y.prev_states.update(state.ovec_to_other_ad_type::<E::T>());
         });
     }
 }
@@ -206,6 +209,16 @@ impl<T: AD, P: O3DPose<T>> IKGoalVecTrait<T, P> for Vec<IKGoal<T, P>> {
         self[idx].update_goal_pose(pose, update_mode);
     }
 }
+pub trait IKGoalRwLockVecTrait<T: AD, P: O3DPose<T>> {
+    fn update_ik_goal(&self, idx: usize, pose: P, update_mode: IKGoalUpdateMode);
+}
+impl<T: AD, P: O3DPose<T>> IKGoalRwLockVecTrait<T, P> for RwLock<Vec<IKGoal<T, P>>> {
+    #[inline(always)]
+    fn update_ik_goal(&self, idx: usize, pose: P, update_mode: IKGoalUpdateMode) {
+        let mut binding = self.write().expect("error");
+        binding.update_ik_goal(idx, pose, update_mode);
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct IKPrevStates<T: AD> {
@@ -234,5 +247,14 @@ impl<T: AD> IKPrevStates<T> {
         self.prev_state_2 = self.prev_state_1.to_owned();
         self.prev_state_1 = self.prev_state_0.to_owned();
         self.prev_state_0 = new_state;
+    }
+}
+pub trait IKPrevStatesRwLockTrait {
+    fn update<T1: AD, V: OVec<T1>>(&self, new_state: V);
+}
+impl<T: AD> IKPrevStatesRwLockTrait for RwLock<IKPrevStates<T>> {
+    fn update<T1: AD, V: OVec<T1>>(&self, new_state: V) {
+        let mut binding = self.write().unwrap();
+        binding.update(new_state);
     }
 }
