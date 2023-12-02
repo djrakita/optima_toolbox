@@ -1,10 +1,14 @@
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
+use std::rc::Rc;
 use ad_trait::*;
+use ad_trait::differentiable_block::DifferentiableBlock2;
+use ad_trait::differentiable_function::{DerivativeMethodTrait2};
 use serde::{Serialize, Deserialize};
-use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3, O3DPoseCategoryTrait};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3, O3DPoseCategory};
 use crate::utils::get_urdf_path_from_chain_name;
 use serde_with::*;
 use optima_3d_mesh::{SaveToSTL, ToTriMesh};
@@ -12,22 +16,23 @@ use optima_console::output::{oprint, PrintColor, PrintMode};
 use optima_console::tab;
 use optima_file::path::{OAssetLocation, OPath, OPathMatchingPattern, OPathMatchingStopCondition, OStemCellPath};
 use optima_file::traits::{FromJsonString, ToJsonString};
-use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategoryTrait, OVec, OVecCategoryVec};
+use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategory, OVec, OVecCategoryVec};
 use crate::robotics_components::*;
 use crate::robotics_functions::compute_chain_info;
 use crate::robotics_traits::{AsRobotTrait, JointTrait};
 use optima_misc::arr_storage::MutArrTraitRaw;
 use optima_misc::arr_storage::ImmutArrTraitRaw;
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, PairGroupQryOutputCategoryTrait, ParryPairSelector};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, PairGroupQryOutputCategoryParryDistance, PairGroupQryOutputCategoryParryFilter, PairGroupQryOutputCategoryTrait, ParryFilterOutput, ParryPairSelector};
 use optima_proximity::shape_scene::ShapeSceneTrait;
 use optima_proximity::shapes::ShapeCategoryOParryShape;
 use optima_sampling::SimpleSampler;
 use crate::robot_shape_scene::ORobotParryShapeScene;
+use crate::robotics_optimization2::robotics_optimization_ik::{DifferentiableBlockIKObjective, DifferentiableFunctionClassIKObjective, DifferentiableFunctionIKObjective, IKGoal, IKGoalVecTrait};
 
 pub type ORobotDefault = ORobot<f64, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>;
 #[serde_as]
 #[derive(Clone, Serialize, Deserialize)]
-pub struct ORobot<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
+pub struct ORobot<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory> {
     pub (crate) robot_name: String,
     robot_type: RobotType,
     #[serde(deserialize_with = "Vec::<OLink<T, C, L>>::deserialize")]
@@ -49,7 +54,7 @@ pub struct ORobot<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTr
     has_been_preprocessed: bool,
     phantom_data: PhantomData<(T, C)>
 }
-impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> ORobot<T, C, L> {
+impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T, C, L> {
     pub fn from_urdf(robot_name: &str) -> Self {
         let urdf_path = get_urdf_path_from_chain_name(robot_name);
         let urdf = urdf_path.load_urdf();
@@ -182,7 +187,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
             phantom_data: Default::default(),
         }
     }
-    pub fn to_new_generic_types<T2: AD, C2: O3DPoseCategoryTrait, L2: OLinalgCategoryTrait>(&self) -> ORobot<T2, C2, L2> {
+    pub fn to_new_generic_types<T2: AD, C2: O3DPoseCategory, L2: OLinalgCategory>(&self) -> ORobot<T2, C2, L2> {
         let json_str = self.to_json_string();
         ORobot::<T2, C2, L2>::from_json_string(&json_str)
     }
@@ -395,9 +400,12 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
         }
     }
     */
-    pub (crate) fn get_shape_poses<V: OVec<T>>(&self, state: &V) -> Cow<Vec<C::P<T>>> {
+    pub fn get_shape_poses<V: OVec<T>>(&self, state: &V) -> Cow<Vec<C::P<T>>> {
         let fk_res = self.forward_kinematics(state, None);
 
+        self.get_shape_poses_from_fk_res(&fk_res)
+    }
+    pub fn get_shape_poses_from_fk_res(&self, fk_res: &FKResult<T, C::P<T>>) -> Cow<Vec<C::P<T>>> {
         let mut out = vec![];
 
         fk_res.link_poses.iter().enumerate().for_each(|(i, x)| {
@@ -415,11 +423,21 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
     pub fn parry_shape_scene(&self) -> &ORobotParryShapeScene<T, C, L> {
         &self.parry_shape_scene
     }
-    pub fn parry_shape_scene_self_query<Q, V: OVec<T>>(&self, state: &V, query: &OwnedPairGroupQry<T, C::P<T>, Q>, pair_selector: &ParryPairSelector) -> <Q::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, C::P<T>>
+    pub fn parry_shape_scene_self_query<Q, V: OVec<T>>(&self, state: &V, query: &OwnedPairGroupQry<T, Q>, pair_selector: &ParryPairSelector) -> <Q::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, C::P<T>>
         where Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector>
     {
         let shapes = self.parry_shape_scene.get_shapes();
-        let p = self.parry_shape_scene.get_poses(&(self, state));
+        let p = self.get_shape_poses(state);
+        let pair_skips = self.parry_shape_scene.get_pair_skips();
+        let pair_average_distances = self.parry_shape_scene.get_pair_average_distances();
+
+        query.query(shapes, shapes, p.as_ref(), p.as_ref(), pair_selector, pair_skips, pair_average_distances)
+    }
+    pub fn parry_shape_scene_self_query_from_fk_res<Q>(&self, fk_res: &FKResult<T, C::P<T>>, query: &OwnedPairGroupQry<T, Q>, pair_selector: &ParryPairSelector) -> <Q::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, C::P<T>>
+        where Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector>
+    {
+        let shapes = self.parry_shape_scene.get_shapes();
+        let p = self.get_shape_poses_from_fk_res(fk_res);
         let pair_skips = self.parry_shape_scene.get_pair_skips();
         let pair_average_distances = self.parry_shape_scene.get_pair_average_distances();
 
@@ -627,7 +645,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
         self.set_robot_parry_shape_scene();
     }
 }
-impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static> ORobot<T, C, L> {
+impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ORobot<T, C, L> {
     fn set_link_and_joint_idxs(&mut self) {
         self.links.iter_mut().enumerate().for_each(|(i, x)| {
             x.link_idx = i;
@@ -902,13 +920,34 @@ impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static> ORobot<T
         self.parry_shape_scene = parry_shape_scene;
     }
 }
-impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> AsRobotTrait<T, C, L> for ORobot<T, C, L> {
+impl<C: O3DPoseCategory, L: OLinalgCategory> ORobot<f64, C, L> {
+    pub fn get_ik_differentiable_block<'a, E, FQ, Q>(&'a self, derivative_method: E, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, dis_filter_cutoff: f64) -> DifferentiableBlock2<'a, DifferentiableFunctionClassIKObjective<C, L, FQ, Q>, E>
+        where E: DerivativeMethodTrait2,
+              FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,
+              Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryDistance> {
+
+        let last_proximity_filter_state: Rc<RefCell<Option<Vec<f64>>>> = Rc::new(RefCell::new(None));
+        let filter_output: Rc<RefCell<Option<ParryFilterOutput>>> = Rc::new(RefCell::new(None));
+
+        let fk_res = self.forward_kinematics(&init_state.to_vec(), None);
+
+        let mut ik_goals: Vec<IKGoal<f64, C::P<f64>>> = vec![];
+        ik_goal_link_idxs.iter().for_each(|x| { ik_goals.push(IKGoal::new(*x, fk_res.get_link_pose(*x).as_ref().expect("error").clone(), 1.0)); });
+
+        let linf_dis_cutoff = 0.07;
+        let f2 = DifferentiableFunctionIKObjective::new(Cow::Owned(self.to_new_ad_type::<E::T>()), ik_goals.to_new_generic_types::<E::T, C>(), init_state.to_vec().ovec_to_other_ad_type::<E::T>(), filter_query.to_new_ad_type::<E::T>(), distance_query.to_new_ad_type::<E::T>(), E::T::constant(dis_filter_cutoff), linf_dis_cutoff, last_proximity_filter_state.clone(), filter_output.clone(), E::T::constant(1.0), E::T::constant(1.0), E::T::constant(1.0), E::T::constant(1.0), E::T::constant(1.0));
+        let f1 = DifferentiableFunctionIKObjective::new(Cow::Borrowed(self), ik_goals, init_state.to_vec(), filter_query, distance_query, dis_filter_cutoff, linf_dis_cutoff, last_proximity_filter_state.clone(), filter_output.clone(), 1.0, 1.0, 0.0, 1.0, 1.0);
+
+        DifferentiableBlockIKObjective::new(derivative_method, f1, f2)
+    }
+}
+impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> AsRobotTrait<T, C, L> for ORobot<T, C, L> {
     #[inline(always)]
     fn as_robot(&self) -> &ORobot<T, C, L> {
         self
     }
 }
-impl<T: AD, C: O3DPoseCategoryTrait, L: OLinalgCategoryTrait + 'static> Debug for ORobot<T, C, L> {
+impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> Debug for ORobot<T, C, L> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut s = "".to_string();
 

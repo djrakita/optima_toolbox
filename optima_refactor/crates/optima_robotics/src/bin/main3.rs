@@ -1,14 +1,14 @@
 use ad_trait::AD;
 use ad_trait::forward_ad::adfn::adfn;
 use nalgebra::Isometry3;
-use optima_3d_spatial::optima_3d_pose::O3DPoseCategoryTrait;
-use optima_linalg::OLinalgCategoryTrait;
+use optima_3d_spatial::optima_3d_pose::O3DPoseCategory;
+use optima_linalg::OLinalgCategory;
 use optima_robotics::robot::ORobot;
 use optima_robotics::robot_set::ORobotSetDefault;
 use optima_robotics::robotics_components::{OJointLimit, OJointType};
 use optima_robotics::robotics_traits::AsRobotTrait;
 
-fn test<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait, AsChain: AsRobotTrait<T, C, L>>(as_chain: &AsChain) {
+fn test<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory, AsChain: AsRobotTrait<T, C, L>>(as_chain: &AsChain) {
     println!("{:?}", as_chain.as_robot());
 }
 

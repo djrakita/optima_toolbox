@@ -3,9 +3,9 @@ use std::marker::PhantomData;
 use ad_trait::AD;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
 use optima_console::output::{get_default_progress_bar, oprint, PrintColor, PrintMode};
-use optima_linalg::{OLinalgCategoryTrait, OVec};
+use optima_linalg::{OLinalgCategory, OVec};
 use optima_proximity::pair_group_queries::{get_all_parry_pairs_idxs, OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryPairIdxs, ParryPairSelector};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_proximity::shape_queries::{DistanceOutputTrait, IntersectOutputTrait};
@@ -16,7 +16,7 @@ use crate::robot::{ORobot};
 
 #[serde_as]
 #[derive(Clone, Serialize, Deserialize)]
-pub struct ORobotParryShapeScene<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
+pub struct ORobotParryShapeScene<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory> {
     #[serde(deserialize_with="Vec::<OParryShape::<T, C::P<T>>>::deserialize")]
     pub (crate) shapes: Vec<OParryShape<T, C::P<T>>>,
     pub (crate) shape_idx_to_link_idx: Vec<usize>,
@@ -29,7 +29,7 @@ pub struct ORobotParryShapeScene<T: AD, C: O3DPoseCategoryTrait + 'static, L: OL
     pub (crate) id_to_string: AHashMapWrapper<u64, String>,
     pub (crate) phantom_data: PhantomData<(C, L)>
 }
-impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> ORobotParryShapeScene<T, C, L> {
+impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotParryShapeScene<T, C, L> {
     pub fn new(robot: &ORobot<T, C, L>) -> Self {
         let mut shapes = vec![];
         let mut shape_idx_to_link_idx = vec![];
@@ -608,7 +608,7 @@ impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static
         self.pair_skips = pair_skips;
     }
 }
-impl<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static> ShapeSceneTrait<T, C::P<T>> for ORobotParryShapeScene<T, C, L> {
+impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ShapeSceneTrait<T, C::P<T>> for ORobotParryShapeScene<T, C, L> {
     type ShapeType = OParryShape<T, C::P<T>>;
     type GetPosesInput<'a, V: OVec<T>> = (&'a ORobot<T, C, L>, &'a V);
     type PairSkipsType = AHashMapWrapper<(u64, u64), ()>;

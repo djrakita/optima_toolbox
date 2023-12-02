@@ -1,0 +1,13 @@
+[package]
+name = "optima_optimization2"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
+optima_linalg = { path = "../optima_linalg" }
+optimization_engine = { version = "0.7.7" }
+nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
+ndarray = { version="0.15.6", features = ["serde"] }

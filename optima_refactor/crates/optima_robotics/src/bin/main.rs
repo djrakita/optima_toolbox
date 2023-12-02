@@ -3,7 +3,7 @@ use ad_trait::forward_ad::adf::{adf_f32x16, adf_f32x2, adf_f32x4, adf_f32x8, adf
 use ad_trait::forward_ad::adfn::adfn;
 use nalgebra::Isometry3;
 use optimization_engine::panoc::PANOCCache;
-use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryImplicitDualQuaternion, O3DPoseCategoryIsometry3, O3DPoseCategoryTrait};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryImplicitDualQuaternion, O3DPoseCategoryIsometry3, O3DPoseCategory};
 use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategoryNDarray};
 use optima_optimization::derivative_based_optimization::DerivBasedOptSolver;
 use optima_optimization::derivative_based_optimization::optimization_engine::{OpEnSimple, OpEnSimpleArgs};
@@ -14,7 +14,7 @@ type DerivativeMethod = ForwardADMulti<adf_f32x8>;
 type DerivativeT = <DerivativeMethod as DerivativeMethodTrait>::T;
 type LinalgCategory = OLinalgCategoryNalgebra;
 type PoseCategory = O3DPoseCategoryImplicitDualQuaternion;
-type PoseType = <PoseCategory as O3DPoseCategoryTrait>::P<f64>;
+type PoseType = <PoseCategory as O3DPoseCategory>::P<f64>;
 const NUM_DOFS : usize = 6;
 
 fn main() {

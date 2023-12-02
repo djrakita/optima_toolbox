@@ -1,12 +1,12 @@
 use ad_trait::AD;
-use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryTrait};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
 use optima_3d_spatial::optima_3d_rotation::ScaledAxis;
-use optima_linalg::{OLinalgCategoryTrait, OVec};
+use optima_linalg::{OLinalgCategory, OVec};
 use crate::robot::ORobot;
 use crate::robotics_components::{ODynamics, OJointLimit, OJointType, OMimic, OPose, OSafetyController};
 use optima_misc::arr_storage::ImmutArrTraitRaw;
 
-pub trait JointTrait<T: AD, C: O3DPoseCategoryTrait + 'static> {
+pub trait JointTrait<T: AD, C: O3DPoseCategory + 'static> {
     fn name(&self) -> &str;
     fn joint_idx(&self) -> usize;
     fn parent_link_idx(&self) -> usize;
@@ -109,7 +109,7 @@ pub trait JointTrait<T: AD, C: O3DPoseCategoryTrait + 'static> {
     }
 }
 
-pub trait AsRobotTrait<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait> {
+pub trait AsRobotTrait<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory> {
     fn as_robot(&self) -> &ORobot<T, C, L>;
 }
 

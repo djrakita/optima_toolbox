@@ -38,7 +38,6 @@ impl<T: AD> OptimizationLossGroove<T> {
         Self { gaussian_direction, center, gaussian_exponent, gaussian_spread, polynomial_weight, polynomial_exponent }
     }
 }
-
 impl<T: AD> OptimizationLossFunctionTrait<T> for OptimizationLossGroove<T> {
     fn loss(&self, val: T) -> T {
         let two = T::constant(2.0);

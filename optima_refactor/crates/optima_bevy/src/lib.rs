@@ -7,9 +7,9 @@ use bevy_mod_picking::DefaultPickingPlugins;
 use bevy_prototype_debug_lines::DebugLinesPlugin;
 use bevy_stl::StlPlugin;
 use bevy_transform_gizmo::TransformGizmoPlugin;
-use optima_3d_spatial::optima_3d_pose::{O3DPoseCategoryTrait};
+use optima_3d_spatial::optima_3d_pose::{O3DPoseCategory};
 use optima_bevy_egui::{OEguiEngineWrapper};
-use optima_linalg::OLinalgCategoryTrait;
+use optima_linalg::OLinalgCategory;
 use optima_robotics::robotics_traits::AsRobotTrait;
 use optima_universal_hashmap::AnyHashmap;
 use crate::optima_bevy_utils::camera::CameraSystems;
@@ -23,10 +23,10 @@ pub mod optima_bevy_utils;
 
 pub trait OptimaBevyTrait {
     fn optima_bevy_base(&mut self) -> &mut Self;
-    fn optima_bevy_robotics_base<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, A: AsRobotTrait<T, C, L>>(&mut self, as_chain: A) -> &mut Self;
+    fn optima_bevy_robotics_base<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, A: AsRobotTrait<T, C, L>>(&mut self, as_chain: A) -> &mut Self;
     fn optima_bevy_pan_orbit_camera(&mut self) -> &mut Self;
     fn optima_bevy_starter_lights(&mut self) -> &mut Self;
-    fn optima_bevy_spawn_robot<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(&mut self) -> &mut Self;
+    fn optima_bevy_spawn_robot<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static>(&mut self) -> &mut Self;
     fn optima_bevy_robotics_scene_visuals_starter(&mut self) -> &mut Self;
     fn optima_bevy_egui(&mut self) -> &mut Self;
 }
@@ -64,7 +64,7 @@ impl OptimaBevyTrait for App {
 
         self
     }
-    fn optima_bevy_robotics_base<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static, A: AsRobotTrait<T, C, L>>(&mut self, as_chain: A) -> &mut Self {
+    fn optima_bevy_robotics_base<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, A: AsRobotTrait<T, C, L>>(&mut self, as_chain: A) -> &mut Self {
         self
             .insert_resource(BevyORobot(as_chain.as_robot().clone()))
             .insert_resource(RobotStateEngine::new())
@@ -85,7 +85,7 @@ impl OptimaBevyTrait for App {
 
         self
     }
-    fn optima_bevy_spawn_robot<T: AD, C: O3DPoseCategoryTrait + 'static, L: OLinalgCategoryTrait + 'static>(&mut self) -> &mut Self {
+    fn optima_bevy_spawn_robot<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static>(&mut self) -> &mut Self {
         self.add_systems(Startup, RoboticsSystems::system_spawn_robot_links_as_stl_meshes::<T, C, L>);
 
         self

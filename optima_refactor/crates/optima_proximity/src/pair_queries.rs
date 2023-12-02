@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 use ad_trait::AD;
 use as_any::AsAny;
 use parry_ad::query::Contact;
+use serde::{Deserialize, Serialize};
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use crate::shape_queries::{ContactOutputTrait, DistanceBoundsOutputTrait, DistanceLowerBoundOutputTrait, DistanceOutputTrait, DistanceUpperBoundOutputTrait, IntersectOutputTrait, OShpQryContactTrait, OShpQryDistanceTrait, OShpQryIntersectTrait};
 use crate::shapes::{OParryShape};
@@ -330,7 +331,7 @@ impl ParryOutputAuxData {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ParryDisMode {
     StandardDis, ContactDis
 }
@@ -340,7 +341,7 @@ pub enum ParryQryShapeType {
     Standard, ConvexSubcomponentsWithIdxs { shape_a_subcomponent_idx: usize, shape_b_subcomponent_idx: usize }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ParryShapeRep {
     Full, OBB, BoundingSphere
 }

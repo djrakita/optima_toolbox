@@ -18,7 +18,7 @@ pub enum OLinalgType {
     Nalgebra, NDarray
 }
 
-pub trait OLinalgCategoryTrait: Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync {
+pub trait OLinalgCategory: Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync {
     type VecType<T: AD>: OVec<T>;
     type MatType<T: AD>: OMat<T, VecMulInType=Self::VecType<T>, VecMulOutType=Self::VecType<T>, MatMulInType=Self::MatType<T>, MatMulOutType=Self::MatType<T>>;
 
@@ -27,7 +27,7 @@ pub trait OLinalgCategoryTrait: Clone + Debug + Serialize + for<'a> Deserialize<
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OLinalgCategoryNalgebra;
-impl OLinalgCategoryTrait for OLinalgCategoryNalgebra {
+impl OLinalgCategory for OLinalgCategoryNalgebra {
     type VecType<T: AD> = DVector<T>;
     type MatType<T: AD> = DMatrix<T>;
 
@@ -39,7 +39,7 @@ impl OLinalgCategoryTrait for OLinalgCategoryNalgebra {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OLinalgCategoryNDarray;
-impl OLinalgCategoryTrait for OLinalgCategoryNDarray {
+impl OLinalgCategory for OLinalgCategoryNDarray {
     type VecType<T: AD> = ArrayBase<OwnedRepr<T>, Ix1>;
     type MatType<T: AD> = ArrayBase<OwnedRepr<T>, Dim<[Ix; 2]>>;
 
@@ -78,13 +78,15 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync + AsAny  {
     #[inline(always)]
     fn ovec_p_norm(&self, p: &T) -> T {
         let mut out = T::zero();
-        self.ovec_as_slice().iter().for_each(|x| { out += x.powf(*p); });
+        let slice = self.ovec_as_slice();
+        if slice.len() == 0 { return out; }
+        slice.iter().for_each(|x| { out += x.powf(*p); });
         out.powf(p.recip())
     }
     #[inline(always)]
     fn ovec_linf_norm(&self) -> T {
         let slice = self.ovec_as_slice();
-        let max = slice.iter().max_by(|x, y| x.abs().partial_cmp(&y.abs()).unwrap() );
+        let max = slice.iter().max_by(|x, y| x.abs().partial_cmp(&y.abs()).expect(&format!("error: {}, {}", x, y)) );
         return match max {
             None => { panic!("cannot take linf norm of empty vec") }
             Some(max) => { max.abs() }
