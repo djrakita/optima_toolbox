@@ -8,6 +8,8 @@ edition = "2021"
 [dependencies]
 ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
 optima_linalg = { path = "../optima_linalg" }
-optimization_engine = { version = "0.7.7" }
+optimization_engine = { version = "0.8.1", features=["wasm"] }
+argmin = "0.8.1"
+argmin-math = "0.3.0"
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 ndarray = { version="0.15.6", features = ["serde"] }

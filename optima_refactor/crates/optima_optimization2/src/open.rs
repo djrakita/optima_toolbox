@@ -4,6 +4,7 @@ use ad_trait::differentiable_function::{DerivativeMethodTrait2, DifferentiableFu
 use optimization_engine::core::SolverStatus;
 use optimization_engine::panoc::{PANOCCache, PANOCOptimizer};
 use optimization_engine::{constraints, Optimizer, Problem, SolverError};
+use optima_linalg::OVec;
 use crate::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
 
 pub struct SimpleOpEnOptimizer {
@@ -15,7 +16,7 @@ impl SimpleOpEnOptimizer {
     pub fn new(lower_bounds: Vec<f64>, upper_bounds: Vec<f64>, tolerance: f64) -> Self {
         assert_eq!(lower_bounds.len(), upper_bounds.len());
         let problem_size = lower_bounds.len();
-        Self { lower_bounds, upper_bounds, panoc_cache: Mutex::new(PANOCCache::new(problem_size, tolerance, 3)) }
+        Self { lower_bounds, upper_bounds, panoc_cache: Mutex::new(PANOCCache::new(problem_size, tolerance, 5)) }
     }
 }
 impl DiffBlockOptimizerTrait for SimpleOpEnOptimizer {
@@ -41,13 +42,15 @@ fn simple_open_optimize<'a, DC, E>(objective_function: &DifferentiableBlock2<'a,
         Ok(())
     };
 
-    let binding = constraints::Rectangle::new(Some(lower_bounds), Some(upper_bounds));
+    // let binding = constraints::Rectangle::new(Some(lower_bounds), Some(upper_bounds));
+    let binding = constraints::NoConstraints::new();
     let problem = Problem::new(&binding, df, f);
     let mut binding = cache.lock();
     let cache = binding.as_mut().unwrap();
     let mut panoc = PANOCOptimizer::new(problem, cache);
 
-    let mut x = init_condition.to_vec();
+    let mut x = init_condition.to_vec().ovec_add(&vec![0.0001; init_condition.len()]);
+    // let mut x = init_condition.to_vec();
     let solver_status = panoc.solve(x.as_mut_slice()).expect("error");
 
     Box::new(SimpleOpEnEngineOptimizerOutput {

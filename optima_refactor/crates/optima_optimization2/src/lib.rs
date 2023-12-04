@@ -1,4 +1,5 @@
 pub mod open;
+pub mod argmin;
 
 use std::any::Any;
 use ad_trait::AD;

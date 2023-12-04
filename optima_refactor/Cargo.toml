@@ -50,6 +50,8 @@ optima_interpolation = { path = "crates/optima_interpolation" }
 optima_proximity = { path = "crates/optima_proximity" }
 optima_universal_hashmap = { path = "crates/optima_universal_hashmap" }
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
+argmin = "0.8.1"
+argmin-math = "0.3.0"
 
 [features]
 default = [

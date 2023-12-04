@@ -81,15 +81,17 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableF
         let inputs_as_vec = inputs.to_vec();
         let fk_res = self.robot.forward_kinematics(&inputs_as_vec, None);
 
+        /*
         robot_self_proximity_refilter_check(&self.robot, &self.filter_query, inputs, &fk_res, &self.last_proximity_filter_state, &self.filter_output, self.linf_dis_cutoff);
+        */
 
         let mut out_val = T::zero();
 
-        let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.1), T::constant(1.0), T::constant(2.0));
+        let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.2), T::constant(1.0), T::constant(2.0));
         out_val += self.ee_matching_weight * loss.loss(robot_ik_goals_objective::<T, C>(&fk_res, &self.ik_goals.read().unwrap()));
 
-
-        if self.collision_avoidance_weight >= T::zero() {
+        /*
+        if self.collision_avoidance_weight > T::zero() {
             let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(6.0), T::constant(0.4), T::constant(2.0), T::constant(4.0));
             let tmp = robot_self_proximity_objective(&self.robot, &fk_res, &self.distance_query, &self.filter_output.borrow().as_ref().unwrap(), self.dis_filter_cutoff, T::constant(15.0), ProximityLossFunctionHinge {});
             // println!("{:?}", tmp);
@@ -97,6 +99,8 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableF
             // println!("...{:?}", tmp);
             out_val += tmp;
         }
+        */
+
 
         let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.2), T::constant(2.0), T::constant(2.0));
         let (v, a, j) = robot_per_instant_velocity_acceleration_and_jerk_objectives(inputs, &self.prev_states.read().unwrap(), T::constant(12.0));
