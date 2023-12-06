@@ -13,8 +13,8 @@ use optima_linalg::{OLinalgCategory, OVec, OVecCategoryVec};
 use optima_optimization::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
 use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, PairGroupQryOutputCategoryParryDistance, PairGroupQryOutputCategoryParryFilter, ParryFilterOutput, ParryPairSelector, ProximityLossFunctionHinge};
 use optima_proximity::shapes::ShapeCategoryOParryShape;
-use crate::robot::ORobot;
-use crate::robotics_optimization2::robotics_optimization_functions::{robot_ik_goals_objective, robot_self_proximity_objective, robot_self_proximity_refilter_check, robot_per_instant_velocity_acceleration_and_jerk_objectives};
+use crate::robot::{FKResult, ORobot};
+use crate::robotics_optimization2::robotics_optimization_functions::{robot_ik_goals_objective, robot_per_instant_velocity_acceleration_and_jerk_objectives, robot_self_proximity_objective, robot_self_proximity_refilter_check};
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
 use ad_trait::SerdeAD;
 use serde_with::*;
@@ -71,6 +71,50 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> w
         let prev_states = IKPrevStates::new(init_state.clone());
         Self { robot, ik_goals: RwLock::new(ik_goals), prev_states: RwLock::new(prev_states), filter_query, distance_query, dis_filter_cutoff, linf_dis_cutoff, last_proximity_filter_state, filter_output, ee_matching_weight, collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight }
     }
+    pub fn call_and_return_fk_res(&self, inputs: &[T]) -> (Vec<T>, FKResult<T, C::P<T>>) {
+        let inputs_as_vec = inputs.to_vec();
+        let fk_res = self.robot.forward_kinematics(&inputs_as_vec, None);
+
+        if self.collision_avoidance_weight > T::zero() {
+            robot_self_proximity_refilter_check(&self.robot, &self.filter_query, inputs, &fk_res, &self.last_proximity_filter_state, &self.filter_output, self.linf_dis_cutoff);
+        }
+
+        let mut out_val = T::zero();
+
+        if self.ee_matching_weight > T::zero() {
+            let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.2), T::constant(1.0), T::constant(2.0));
+            out_val += self.ee_matching_weight * loss.loss(robot_ik_goals_objective::<T, C>(&fk_res, &self.ik_goals.read().unwrap()));
+        }
+
+        if self.collision_avoidance_weight > T::zero() {
+            let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(6.0), T::constant(0.4), T::constant(2.0), T::constant(4.0));
+            let tmp = robot_self_proximity_objective(&self.robot, &fk_res, &self.distance_query, &self.filter_output.borrow().as_ref().unwrap(), self.dis_filter_cutoff, T::constant(15.0), ProximityLossFunctionHinge::new());
+            // println!("{:?}", tmp);
+            let tmp = self.collision_avoidance_weight * loss.loss(tmp);
+            // println!("...{:?}", tmp);
+            out_val += tmp;
+        }
+
+        if self.min_vel_weight + self.min_acc_weight + self.min_jerk_weight > T::zero() {
+            let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.2), T::constant(2.0), T::constant(2.0));
+            let (v, a, j) = robot_per_instant_velocity_acceleration_and_jerk_objectives(inputs, &self.prev_states.read().unwrap(), T::constant(12.0));
+
+            out_val += self.min_vel_weight * loss.loss(v);
+            out_val += self.min_acc_weight * loss.loss(a);
+            out_val += self.min_jerk_weight * loss.loss(j);
+        }
+
+        (vec![out_val], fk_res)
+    }
+    pub fn robot(&self) -> &Cow<'a, ORobot<T, C, L>> {
+        &self.robot
+    }
+    pub fn ik_goals(&self) -> &RwLock<Vec<IKGoal<T, C::P<T>>>> {
+        &self.ik_goals
+    }
+    pub fn prev_states(&self) -> &RwLock<IKPrevStates<T>> {
+        &self.prev_states
+    }
 }
 impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> where T: AD,
                                                                                                                              C: O3DPoseCategory + 'static,
@@ -78,38 +122,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableF
                                                                                                                              FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,
                                                                                                                              Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryDistance> {
     fn call(&self, inputs: &[T]) -> Vec<T> {
-        let inputs_as_vec = inputs.to_vec();
-        let fk_res = self.robot.forward_kinematics(&inputs_as_vec, None);
-
-        /*
-        robot_self_proximity_refilter_check(&self.robot, &self.filter_query, inputs, &fk_res, &self.last_proximity_filter_state, &self.filter_output, self.linf_dis_cutoff);
-        */
-
-        let mut out_val = T::zero();
-
-        let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.2), T::constant(1.0), T::constant(2.0));
-        out_val += self.ee_matching_weight * loss.loss(robot_ik_goals_objective::<T, C>(&fk_res, &self.ik_goals.read().unwrap()));
-
-        /*
-        if self.collision_avoidance_weight > T::zero() {
-            let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(6.0), T::constant(0.4), T::constant(2.0), T::constant(4.0));
-            let tmp = robot_self_proximity_objective(&self.robot, &fk_res, &self.distance_query, &self.filter_output.borrow().as_ref().unwrap(), self.dis_filter_cutoff, T::constant(15.0), ProximityLossFunctionHinge {});
-            // println!("{:?}", tmp);
-            let tmp = self.collision_avoidance_weight * loss.loss(tmp);
-            // println!("...{:?}", tmp);
-            out_val += tmp;
-        }
-        */
-
-
-        let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.2), T::constant(2.0), T::constant(2.0));
-        let (v, a, j) = robot_per_instant_velocity_acceleration_and_jerk_objectives(inputs, &self.prev_states.read().unwrap(), T::constant(12.0));
-
-        out_val += self.min_vel_weight * loss.loss(v);
-        out_val += self.min_acc_weight * loss.loss(a);
-        out_val += self.min_jerk_weight * loss.loss(j);
-
-        vec![out_val]
+        self.call_and_return_fk_res(inputs).0
     }
 
     fn num_inputs(&self) -> usize {

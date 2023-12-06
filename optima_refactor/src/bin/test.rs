@@ -1,18 +1,12 @@
 
 use ad_trait::differentiable_function::{FiniteDifferencing2, ForwardAD2, ForwardADMulti2, ReverseAD2};
-use ad_trait::forward_ad::adf::{adf_f32x16, adf_f32x8, adf_f64x8};
 use ad_trait::forward_ad::adfn::adfn;
-use argmin::core::{Executor, State, TerminationReason};
-use argmin::solver::gradientdescent::SteepestDescent;
-use argmin::solver::linesearch::{BacktrackingLineSearch, MoreThuenteLineSearch};
-use argmin::solver::quasinewton::{BFGS, LBFGS};
 use nalgebra::Isometry3;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_bevy::optima_bevy_utils::robotics::BevyRoboticsTrait;
 use optima_interpolation::InterpolatorTrait;
 use optima_interpolation::splines::{InterpolatingSpline, InterpolatingSplineType};
 use optima_optimization2::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
-use optima_optimization2::argmin::ArgminDiffBlockWrapper;
 use optima_optimization2::open::SimpleOpEnOptimizer;
 use optima_proximity::pair_group_queries::{OwnedParryDistanceGroupQry, OwnedParryDistanceGroupSequenceFilter, ParryDistanceGroupArgs, ParryDistanceGroupSequenceFilterArgs};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
@@ -27,7 +21,7 @@ fn main() {
     let q = OwnedParryDistanceGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, true, f64::MIN));
 
     let init_state = [0.57;9];
-    let db1 = r.get_ik_differentiable_block(ForwardADMulti2::<adfn<32>>::new(), fq, q, &init_state, vec![19], distance_threshold);
+    let db1 = r.get_ik_differentiable_block(ForwardADMulti2::<adfn<9>>::new(), fq, q, &init_state, vec![19], distance_threshold, 10.0, 0.0, 0.5, 0.3, 0.2);
     let o = SimpleOpEnOptimizer::new(r.get_dof_lower_bounds(), r.get_dof_upper_bounds(), 0.0001);
 
     let mut solution = init_state.to_vec();

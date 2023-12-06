@@ -1,7 +1,6 @@
 use ad_trait::differentiable_block::DifferentiableBlock2;
 use ad_trait::differentiable_function::{DerivativeMethodTrait2, DifferentiableFunctionClass};
 use argmin::core::*;
-use nalgebra::DMatrix;
 
 pub struct ArgminDiffBlockWrapper<'a, DC: DifferentiableFunctionClass, E: DerivativeMethodTrait2> {
     diff_block: DifferentiableBlock2<'a, DC, E>

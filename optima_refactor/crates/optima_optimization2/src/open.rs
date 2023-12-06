@@ -42,8 +42,8 @@ fn simple_open_optimize<'a, DC, E>(objective_function: &DifferentiableBlock2<'a,
         Ok(())
     };
 
-    // let binding = constraints::Rectangle::new(Some(lower_bounds), Some(upper_bounds));
-    let binding = constraints::NoConstraints::new();
+    let binding = constraints::Rectangle::new(Some(lower_bounds), Some(upper_bounds));
+    // let binding = constraints::NoConstraints::new();
     let problem = Problem::new(&binding, df, f);
     let mut binding = cache.lock();
     let cache = binding.as_mut().unwrap();

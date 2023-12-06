@@ -4,7 +4,6 @@ use optima_misc::arr_storage::ImmutArrTraitRaw;
 use crate::robotics_components::ChainInfo;
 use crate::robotics_traits::JointTrait;
 
-
 pub fn compute_chain_info<T: AD, C: O3DPoseCategory + 'static, L, J: JointTrait<T, C>>(chainable_link_objects: &Vec<L>, chainable_joint_objects: &Vec<J>) -> ChainInfo {
     let num_links = chainable_link_objects.len();
     let num_joints = chainable_joint_objects.len();
