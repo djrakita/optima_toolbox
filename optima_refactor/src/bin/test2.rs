@@ -18,11 +18,11 @@ fn main() {
 
     let init = vec![0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3,  0.0, 3.14, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,];
     let db = robot.get_look_at_differentiable_block(ForwardADMulti2::<adfn<16>>::new(), OwnedEmptyParryFilter::new(()), OwnedEmptyParryPairGroupDistanceQry::new(()), &init, vec![20], 32, LookAtAxis::Z, LookAtTarget::RobotLink(20), 0.07, 0.0, 0.5, 0.0, 1.0, 0.3, 0.2, 0.5);
-    let o = SimpleOpEnOptimizer::new(robot.get_dof_lower_bounds(), robot.get_dof_upper_bounds(), 0.001);
+    let o = SimpleOpEnOptimizer::new(robot.get_dof_lower_bounds(), robot.get_dof_upper_bounds(), 0.01);
 
     let mut states = vec![];
     let mut curr_solution = init.clone();
-    for i in 0..2000 {
+    for i in 0..3000 {
         let res = o.optimize_unconstrained(curr_solution.as_slice(), &db);
         states.push(res.x_star().to_vec());
         curr_solution = res.x_star().to_vec();

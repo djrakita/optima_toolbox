@@ -8,7 +8,7 @@ use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategory, OVec};
 use serde_with::*;
 use optima_file::traits::{FromJsonString, ToJsonString};
 use crate::robot::{ORobot, RobotType};
-use crate::robot_shape_scene::ORobotParryShapeScene;
+use crate::robot_shape_scene::{ORobotParryShapeScene};
 use crate::robotics_components::*;
 use crate::robotics_functions::compute_chain_info;
 use crate::robotics_traits::{AsRobotTrait, JointTrait};

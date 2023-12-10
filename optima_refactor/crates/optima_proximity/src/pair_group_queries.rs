@@ -1,4 +1,5 @@
 use std::any::Any;
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use ad_trait::AD;
@@ -123,6 +124,11 @@ impl<T: AD, P: O3DPose<T>, Q: OPairGroupQryTrait<T, P, ShapeTypeA=OParryShape<T,
 
 pub trait PairSkipsTrait {
     fn skip(&self, shape_a_id: u64, shape_b_id: u64) -> bool;
+    #[inline(always)]
+    fn skip_reasons(&self, shape_a_id: u64, shape_b_id: u64) -> Option<Cow<Vec<SkipReason>>> {
+        let skip = self.skip(shape_a_id, shape_b_id);
+        return if skip { Some(Cow::Owned(vec![])) } else { None }
+    }
 }
 impl PairSkipsTrait for () {
     fn skip(&self, _shape_a_id: u64, _shape_b_id: u64) -> bool {
@@ -158,6 +164,56 @@ impl PairSkipsTrait for AHashMapWrapper<(u64, u64), ()> {
         }
     }
 }
+impl PairSkipsTrait for AHashMapWrapper<(u64, u64), Vec<SkipReason>> {
+    #[inline(always)]
+    fn skip(&self, shape_a_id: u64, shape_b_id: u64) -> bool {
+        self.hashmap.contains_key(&(shape_a_id, shape_b_id))
+    }
+    #[inline(always)]
+    fn skip_reasons(&self, shape_a_id: u64, shape_b_id: u64) -> Option<Cow<Vec<SkipReason>>> {
+        let reasons = self.hashmap.get(&(shape_a_id, shape_b_id));
+        return match reasons {
+            None => { None }
+            Some(reasons) => { Some(Cow::Borrowed(reasons)) }
+        }
+    }
+}
+pub trait AHashMapWrapperSkipsWithReasonsTrait {
+    fn clear_skip_reason_type(&mut self, reason: SkipReason);
+    fn add_skip_reason(&mut self, shape_a_id: u64, shape_b_id: u64, reason: SkipReason);
+}
+impl AHashMapWrapperSkipsWithReasonsTrait for AHashMapWrapper<(u64, u64), Vec<SkipReason>> {
+    fn clear_skip_reason_type(&mut self, reason: SkipReason) {
+        self.hashmap.iter_mut().for_each(|x| {
+            let idx = x.1.iter().position(|y| *y == reason);
+            match idx {
+                None => {}
+                Some(idx) => { x.1.remove(idx); }
+            }
+        });
+
+        self.hashmap = self.hashmap.iter().filter(|x| !x.1.is_empty() ).map(|(x,y)|(*x, y.clone())).collect();
+    }
+
+    fn add_skip_reason(&mut self, shape_a_id: u64, shape_b_id: u64, reason: SkipReason) {
+        let res_mut = self.hashmap.get_mut(&(shape_a_id, shape_b_id));
+        match res_mut {
+            None => {
+                self.hashmap.insert((shape_a_id, shape_b_id), vec![reason]);
+            }
+            Some(res_mut) => {
+                if !res_mut.contains(&reason) {
+                    res_mut.push(reason);
+                }
+            }
+        }
+    }
+}
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum SkipReason {
+    AlwaysInCollision, NeverInCollision, FromNonCollisionExample
+}
+
 
 pub trait PairAverageDistanceTrait<T: AD> {
     fn average_distance(&self, shape_a_id: u64, shape_b_id: u64) -> T;
@@ -469,8 +525,6 @@ impl OPairGroupQryTrait for EmptyParryPairGroupDistanceQry {
     }
 }
 pub type OwnedEmptyParryPairGroupDistanceQry<'a, T> = OwnedPairGroupQry<'a, T, EmptyParryPairGroupDistanceQry>;
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 /*
 pub struct ParryDistanceWrtAverageGroupQry;

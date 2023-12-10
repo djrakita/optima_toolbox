@@ -27,7 +27,7 @@ use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry
 use optima_proximity::shape_scene::ShapeSceneTrait;
 use optima_proximity::shapes::ShapeCategoryOParryShape;
 use optima_sampling::SimpleSampler;
-use crate::robot_shape_scene::ORobotParryShapeScene;
+use crate::robot_shape_scene::{ORobotParryShapeScene};
 use crate::robotics_optimization2::robotics_optimization_functions::{LookAtAxis, LookAtTarget};
 use crate::robotics_optimization2::robotics_optimization_ik::{DifferentiableBlockIKObjective, DifferentiableFunctionClassIKObjective, DifferentiableFunctionIKObjective, IKGoal, IKGoalVecTrait};
 use crate::robotics_optimization2::robotics_optimization_look_at::{DifferentiableFunctionClassLookAt, DifferentiableFunctionLookAt};
@@ -488,8 +488,8 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
         let bounds = self.get_dof_bounds();
         SimpleSampler::uniform_samples(&bounds, None)
     }
-    pub fn preprocess(&mut self, save: SaveRobot, always_and_never_collision_stasis_point_cutoff: Option<usize>, shape_average_dis_num_samples: Option<usize>) {
-        self.preprocess_robot_parry_shape_scene(always_and_never_collision_stasis_point_cutoff, shape_average_dis_num_samples);
+    pub fn preprocess(&mut self, save: SaveRobot) {
+        self.preprocess_robot_parry_shape_scene();
         self.has_been_preprocessed = true;
 
         match save {
@@ -505,7 +505,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
             Some(s) => { s }
         };
         let mut parry_shape_scene = self.parry_shape_scene.clone();
-        parry_shape_scene.compute_shape_average_distances(self, num_samples);
+        parry_shape_scene.preprocess_shape_average_distances(self, num_samples);
 
         self.parry_shape_scene = parry_shape_scene;
 
@@ -516,13 +516,22 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
             SaveRobot::DoNotSave => {  }
         }
     }
-    pub fn parry_shape_scene_compute_always_and_never_collision_pairs(&mut self, save: SaveRobot, always_and_never_collision_stasis_point_cutoff: Option<usize>) {
-        let stasis_point_cutoff = match always_and_never_collision_stasis_point_cutoff {
-            None => { 15_000 }
-            Some(c) => { c }
-        };
+    pub fn parry_shape_scene_compute_always_collision_pairs(&mut self, save: SaveRobot) {
         let mut parry_shape_scene = self.parry_shape_scene.clone();
-        parry_shape_scene.add_state_sampler_always_and_never_collision_pair_skips(self, stasis_point_cutoff);
+        parry_shape_scene.preprocess_always_in_collision_states_pair_skips(self, 5000);
+
+        self.parry_shape_scene = parry_shape_scene;
+
+        match save {
+            SaveRobot::Save(name) => {
+                self.save_robot(name);
+            }
+            SaveRobot::DoNotSave => {  }
+        }
+    }
+    pub fn parry_shape_scene_compute_never_collision_pairs(&mut self, save: SaveRobot) {
+        let mut parry_shape_scene = self.parry_shape_scene.clone();
+        parry_shape_scene.preprocess_never_in_collision_states_pair_skips(self, 5000);
 
         self.parry_shape_scene = parry_shape_scene;
 
@@ -540,9 +549,6 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
     pub fn add_non_collision_state<V: OVec<T>>(&mut self, state: V, save_robot: SaveRobot) {
         if !self.non_collision_states.contains(&state.ovec_to_other_generic_category::<T, OVecCategoryVec>()) {
             self.non_collision_states.push(state.ovec_to_other_generic_category::<T, OVecCategoryVec>());
-            // let mut parry_shape_scene = self.parry_shape_scene.clone();
-            // parry_shape_scene.add_non_collision_states_pair_skips(&self, &self.non_collision_states);
-            // self.parry_shape_scene = parry_shape_scene;
             self.set_non_collision_states_internal(save_robot);
         }
     }
@@ -627,7 +633,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
     */
     fn set_non_collision_states_internal(&mut self, save_robot: SaveRobot) {
         let mut parry_shape_scene = self.parry_shape_scene.clone();
-        parry_shape_scene.add_non_collision_states_pair_skips(self, &self.non_collision_states);
+        parry_shape_scene.preprocess_non_collision_states_pair_skips(self, &self.non_collision_states);
 
         self.parry_shape_scene = parry_shape_scene;
 
@@ -908,21 +914,14 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ORobot<T, C, L> {
     fn set_robot_parry_shape_scene(&mut self) {
         self.parry_shape_scene = ORobotParryShapeScene::new(self);
     }
-    fn preprocess_robot_parry_shape_scene(&mut self, always_and_never_collision_stasis_point_cutoff: Option<usize>, shape_average_dis_num_samples: Option<usize>) {
+    fn preprocess_robot_parry_shape_scene(&mut self) {
         let mut parry_shape_scene = ORobotParryShapeScene::new(self);
 
-        parry_shape_scene.add_subcomponent_pair_skips();
-        parry_shape_scene.add_non_collision_states_pair_skips::<Vec<T>>(self, &vec![]);
-        let stasis_point_cutoff = match always_and_never_collision_stasis_point_cutoff {
-            None => { 15_000 }
-            Some(c) => { c }
-        };
-        parry_shape_scene.add_state_sampler_always_and_never_collision_pair_skips(self, stasis_point_cutoff);
-        let num_samples = match shape_average_dis_num_samples {
-            None => { 1000 }
-            Some(s) => { s }
-        };
-        parry_shape_scene.compute_shape_average_distances(self, num_samples);
+        // parry_shape_scene.add_non_collision_states_pair_skips::<Vec<T>>(self, &self.non_collision_states);
+        parry_shape_scene.preprocess_non_collision_states_pair_skips(self, &self.non_collision_states);
+        parry_shape_scene.preprocess_always_in_collision_states_pair_skips(self, 5000);
+        parry_shape_scene.preprocess_never_in_collision_states_pair_skips(self, 5000);
+        parry_shape_scene.preprocess_shape_average_distances(self, 1000);
 
         self.parry_shape_scene = parry_shape_scene;
     }

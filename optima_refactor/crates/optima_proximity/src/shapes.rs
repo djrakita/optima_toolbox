@@ -152,7 +152,7 @@ impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
                 convex_subcomponents: vec![base_shape.clone()],
             }
         } else {
-            let convex_subcomponents = calculate_convex_subcomponent_shapes(base_shape.base_shape.shape(), 6);
+            let convex_subcomponents = calculate_convex_subcomponent_shapes(base_shape.base_shape.shape(), 8);
             Self {
                 base_shape,
                 convex_subcomponents
@@ -509,17 +509,21 @@ pub struct OParryShpGeneric<T: AD, P: O3DPose<T>> {
     #[serde(deserialize_with="BoxedShape::<T>::deserialize")]
     pub (crate) shape: BoxedShape<T>,
     #[serde_as(as = "SerdeO3DPose<T, P>")]
-    pub (crate) offset: P
+    pub (crate) offset: P,
+    #[serde_as(as = "SerdeAD<T>")]
+    pub (crate) max_dis_from_origin_to_point_on_shape: T
 }
 impl<T: AD, P: O3DPose<T>> OParryShpGeneric<T, P> {
     pub fn new<S: Shape<T>>(shape: S, offset: P, path: Option<OStemCellPath>) -> Self {
         Self::new_from_box(Box::new(shape), offset, path)
     }
     pub (crate) fn new_from_box<S: Shape<T>>(shape: Box<S>, offset: P, path: Option<OStemCellPath>) -> Self {
+        let max_dis_from_origin_to_point_on_shape = calculate_max_dis_from_origin_to_point_on_shape(&shape);
         Self {
             id: SimpleSampler::uniform_sample_u64((u64::MIN, u64::MAX), None),
             shape: BoxedShape {shape, path},
-            offset
+            offset,
+            max_dis_from_origin_to_point_on_shape,
         }
     }
     #[inline(always)]
@@ -545,6 +549,10 @@ impl<T: AD, P: O3DPose<T>> OParryShpGeneric<T, P> {
 
         out
     }
+    #[inline(always)]
+    pub fn max_dis_from_origin_to_point_on_shape(&self) -> T {
+        self.max_dis_from_origin_to_point_on_shape
+    }
 }
 impl<T: AD, P: O3DPose<T>> Clone for OParryShpGeneric<T, P> {
     fn clone(&self) -> Self {
@@ -552,6 +560,7 @@ impl<T: AD, P: O3DPose<T>> Clone for OParryShpGeneric<T, P> {
             id: self.id.clone(),
             shape: self.shape.clone(),
             offset: self.offset.clone(),
+            max_dis_from_origin_to_point_on_shape: self.max_dis_from_origin_to_point_on_shape.clone(),
         }
     }
 }
@@ -978,5 +987,28 @@ pub (crate) fn calculate_convex_subcomponent_shapes<T: AD, S: Shape<T> + ?Sized,
     });
 
     out
+}
+pub (crate) fn calculate_max_dis_from_origin_to_point_on_shape<T: AD, S: Shape<T> + ?Sized>(shape: &Box<S>) -> T {
+    let ts = shape.as_typed_shape();
+
+    let subdiv = 50;
+    let (points, _) = match &ts {
+        TypedShape::Ball(shape) => { shape.to_trimesh(subdiv, subdiv) }
+        TypedShape::Cuboid(shape) => { shape.to_trimesh() }
+        TypedShape::Capsule(shape) => { shape.to_trimesh(subdiv, subdiv) }
+        TypedShape::TriMesh(shape) => { (shape.vertices().clone(), shape.indices().clone()) }
+        TypedShape::ConvexPolyhedron(shape) => { shape.to_trimesh() }
+        TypedShape::Cylinder(shape) => { shape.to_trimesh(subdiv) }
+        TypedShape::Cone(shape) => { shape.to_trimesh(subdiv) }
+        _ => { panic!("shape type unsupported"); }
+    };
+
+    let mut max = T::constant(f64::MIN);
+    points.iter().for_each(|x| {
+        let norm = x.norm();
+        if norm > max { max = norm; }
+    });
+
+    max
 }
 

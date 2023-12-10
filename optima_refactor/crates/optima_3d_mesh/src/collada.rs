@@ -105,7 +105,7 @@ fn get_trimesh_from_collada_node(node: &Node, curr_transforms: &Vec<Transform>, 
 
                             trimesh.extend_from_points_and_indices(&curr_points, &curr_indices);
                         }
-                        Primitive::Lines(_) => { unimplemented!("I just saw a primitive of type Lines when parsing a collada file.  Maybe it's time to figure this out.") }
+                        Primitive::Lines(_) => {  }
                         Primitive::LineStrips(_) => { unimplemented!("I just saw a primitive of type LineStrips when parsing a collada file.  Maybe it's time to figure this out.") }
                         Primitive::Polygons(_) => { unimplemented!("I just saw a primitive of type Polygons when parsing a collada file.  Maybe it's time to figure this out.") }
                         Primitive::PolyList(_) => { unimplemented!("I just saw a primitive of type PolyList when parsing a collada file.  Maybe it's time to figure this out.") }
