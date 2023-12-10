@@ -357,17 +357,20 @@ impl OEguiRadiobuttonResponse {
 pub struct OEguiSelector {
     egui_selector_mode: OEguiSelectorMode,
     selection_choices_as_ron_strings: Vec<String>,
+    initial_selections: Vec<String>,
     selection_display_strings: Option<Vec<String>>,
     allow_multiple_selections: bool,
 }
 impl OEguiSelector {
     pub fn new<S: ToRonString>(egui_selection_mode: OEguiSelectorMode,
                                selection_choices: Vec<S>,
+                               initial_selections: Vec<S>,
                                selection_display_strings: Option<Vec<String>>,
                                allow_multiple_selections: bool) -> Self {
         Self {
             egui_selector_mode: egui_selection_mode,
             selection_choices_as_ron_strings: selection_choices.iter().map(|x| x.to_ron_string()).collect(),
+            initial_selections: initial_selections.iter().map(|x| x.to_ron_string()).collect(),
             selection_display_strings,
             allow_multiple_selections,
         }
@@ -380,7 +383,7 @@ impl OEguiWidgetTrait for OEguiSelector {
         let mut mutex_guard = egui_engine.get_mutex_guard();
         let stored_response = mutex_guard.selector_responses.get_mut(id_str);
         match stored_response {
-            None => { mutex_guard.selector_responses.insert(id_str.to_string(), OEguiSelectorResponse { current_selections_as_ron_strings: vec![] }); }
+            None => { mutex_guard.selector_responses.insert(id_str.to_string(), OEguiSelectorResponse { current_selections_as_ron_strings: self.initial_selections.clone() }); }
             Some(stored_response) => {
                 let current_selections_as_ron_strings = &mut stored_response.current_selections_as_ron_strings;
 

@@ -11,7 +11,7 @@ use bevy_prototype_debug_lines::DebugLines;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_3d_spatial::optima_3d_vec::O3DVec;
-use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSidePanel, OEguiSlider, OEguiTopBottomPanel, OEguiWidgetTrait};
+use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSelectorResponse, OEguiSidePanel, OEguiSlider, OEguiTopBottomPanel, OEguiWidgetTrait};
 use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategory, OVec};
 use optima_proximity::pair_group_queries::{OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryDistanceGroupSequenceFilter, ParryDistanceGroupSequenceFilterArgs, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryIntersectGroupSequenceFilter, ParryIntersectGroupSequenceFilterArgs, ParryPairSelector, ProximityLossFunctionHinge, ToParryProximityOutputTrait};
@@ -314,6 +314,7 @@ impl RoboticsSystems {
                                                                                                               mut robot_state_engine: ResMut<RobotStateEngine>,
                                                                                                               mut contexts: EguiContexts,
                                                                                                               egui_engine: Res<OEguiEngineWrapper>,
+                                                                                                              keys: Res<Input<KeyCode>>,
                                                                                                               window_query: Query<&Window, With<PrimaryWindow>>) {
         OEguiSidePanel::new(Side::Left, 300.0)
             .show("side_panel", contexts.ctx_mut(), &egui_engine, &window_query, &(), |ui| {
@@ -330,39 +331,52 @@ impl RoboticsSystems {
                                 let skips = robot.0.parry_shape_scene().get_pair_skips();
                                 let a = robot.0.parry_shape_scene().get_pair_average_distances();
 
-                                // let f = ParryIntersectGroupSequenceFilter2::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere]);
-                                // let fr = f.pair_group_filter(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a);
-                                let fr = ParryIntersectGroupSequenceFilter::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a, &ParryIntersectGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere]));
-                                let res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), fr.selector(), skips, &(), &ParryIntersectGroupArgs::new(ParryShapeRep::Full, false));
-                                // let f = ParryDistanceGroupSequenceFilter2::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere], T::constant(0.6), true, ParryDisMode::ContactDis);
-                                // let fr = f.pair_group_filter(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a);
-                                let fr = ParryDistanceGroupSequenceFilter::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a, &ParryDistanceGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere], T::constant(0.6), true, ParryDisMode::ContactDis));
-                                let res2 = ParryDistanceGroupQry::query(s, s, p.as_ref(), p.as_ref(), fr.selector(), skips, a, &ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, true, T::constant(f64::MIN)));
+                                let binding = egui_engine.get_mutex_guard();
+                                let parry_pair_selector_response = binding.get_selector_response("selector1");
+                                let parry_shape_rep_response = binding.get_selector_response("selector2");
 
-                                let proximity_objective_value = res2.compute_proximity_objective_value(T::constant(0.6), T::constant(20.0), ProximityLossFunctionHinge { });
-                                // let q = ParryStandardProximityObjectiveQryArgs::new()
+                                if let (Some(parry_pair_selector_response), Some(parry_shape_rep_response)) = (parry_pair_selector_response, parry_shape_rep_response) {
+                                    let p1 = parry_pair_selector_response.current_selections::<ParryPairSelector>();
+                                    let p2 = parry_shape_rep_response.current_selections::<ParryShapeRep>();
 
-                                let intersect = res.intersect();
-                                ui.heading(format!("In collision: {:?}", intersect));
-                                ui.label(format!("Min. dis. with respect to average: {:.3}", res2.min_dis_wrt_average()));
-                                ui.label(format!("Proximity objective value:         {:.3}", proximity_objective_value));
+                                    // let fr = ParryIntersectGroupSequenceFilter::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a, &ParryIntersectGroupSequenceFilterArgs::new(vec![], vec![]));
+                                    let res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), &p1[0], skips, &(), &ParryIntersectGroupArgs::new(p2[0].clone(), false, false));
 
-                                ui.separator();
-                                ui.separator();
+                                    // let fr = ParryDistanceGroupSequenceFilter::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a, &ParryDistanceGroupSequenceFilterArgs::new(vec![], vec![], T::constant(0.6), true, ParryDisMode::ContactDis));
+                                    let res2 = ParryDistanceGroupQry::query(s, s, p.as_ref(), p.as_ref(), &p1[0], skips, a, &ParryDistanceGroupArgs::new(p2[0].clone(), ParryDisMode::ContactDis, true, false, T::constant(f64::MIN)));
 
-                                if ui.button("Mark as non-collision state").clicked() {
-                                    if intersect {
-                                        robot.0.add_non_collision_state(state.clone(), SaveRobot::Save(None));
+                                    let proximity_objective_value = res2.compute_proximity_objective_value(T::constant(0.6), T::constant(20.0), ProximityLossFunctionHinge { });
+
+                                    let intersect = res.intersect();
+                                    ui.heading(format!("In collision: {:?}", intersect));
+                                    ui.label(format!("Min. dis. with respect to average: {:.3}", res2.min_dis_wrt_average()));
+                                    ui.label(format!("Proximity objective value:         {:.3}", proximity_objective_value));
+
+                                    ui.separator();
+                                    ui.separator();
+
+                                    if ui.button("Mark as non-collision state").clicked() {
+                                        if intersect {
+                                            robot.0.add_non_collision_state(state.clone(), SaveRobot::Save(None));
+                                        }
+                                    }
+
+                                    ui.separator();
+                                    ui.separator();
+
+                                    if ui.button("Clear non-collision states").clicked() {
+                                        robot.0.reset_non_collision_states(SaveRobot::Save(None));
                                     }
                                 }
-
-                                ui.separator();
-                                ui.separator();
-
-                                if ui.button("Clear non-collision states").clicked() {
-                                    robot.0.reset_non_collision_states(SaveRobot::Save(None));
-                                }
                             }
+
+                            ui.group(|ui| {
+                                OEguiSelector::new(OEguiSelectorMode::Checkboxes, vec![ParryPairSelector::HalfPairs, ParryPairSelector::HalfPairsSubcomponents], vec![ParryPairSelector::HalfPairsSubcomponents], None, false)
+                                    .show("selector1", ui, &egui_engine, &*keys);
+                                ui.separator();
+                                OEguiSelector::new(OEguiSelectorMode::Checkboxes, vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB, ParryShapeRep::Full], vec![ParryShapeRep::Full], None, false)
+                                    .show("selector2", ui, &egui_engine, &*keys);
+                            });
                         });
                     });
             });

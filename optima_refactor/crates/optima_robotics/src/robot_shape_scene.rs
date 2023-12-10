@@ -6,7 +6,7 @@ use serde_with::serde_as;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
 use optima_console::output::{get_default_progress_bar};
 use optima_linalg::{OLinalgCategory, OVec};
-use optima_proximity::pair_group_queries::{AHashMapWrapperSkipsWithReasonsTrait, OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryPairSelector, SkipReason};
+use optima_proximity::pair_group_queries::{AHashMapWrapperSkipsWithReasonsTrait, OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryPairIdxs, ParryPairSelector, SkipReason};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_proximity::shape_queries::{DistanceOutputTrait, IntersectOutputTrait};
 use optima_proximity::shape_scene::ShapeSceneTrait;
@@ -701,7 +701,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
 
             for shape_rep in &shape_reps {
                 for selector in &selectors {
-                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), &ParryIntersectGroupArgs::new(shape_rep.clone(), false));
+                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), &ParryIntersectGroupArgs::new(shape_rep.clone(), false, false));
                     out.outputs().iter().for_each(|x| {
                        if x.data().intersect() {
                            let (id_a, id_b) = x.pair_ids();
@@ -737,7 +737,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                     let poses = self.get_poses(&(robot, &sample));
                     let poses = poses.as_ref();
 
-                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), &ParryIntersectGroupArgs::new(shape_rep.clone(), false));
+                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), &ParryIntersectGroupArgs::new(shape_rep.clone(), false, false));
                     out.outputs().iter().for_each(|x| {
                         let ids = x.pair_ids();
                         if x.data().intersect() && first_loop {
@@ -784,7 +784,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                     let poses = self.get_poses(&(robot, &sample));
                     let poses = poses.as_ref();
 
-                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), &ParryIntersectGroupArgs::new(shape_rep.clone(), false));
+                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), &ParryIntersectGroupArgs::new(shape_rep.clone(), false, false));
                     out.outputs().iter().for_each(|x| {
                         let ids = x.pair_ids();
                         if !x.data().intersect() && first_loop {
@@ -810,7 +810,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
     pub fn preprocess_shape_average_distances(&mut self, robot: &ORobot<T, C, L>, num_samples: usize) {
         self.pair_average_distances.hashmap.clear();
 
-        let shape_reps = vec![ ParryShapeRep::BoundingSphere, ParryShapeRep::OBB, ParryShapeRep::Full ];
+        let shape_reps = vec![ ParryShapeRep::Full ];
         let selectors = vec![ParryPairSelector::HalfPairs, ParryPairSelector::HalfPairsSubcomponents];
 
         let shapes = &self.shapes;
@@ -825,19 +825,46 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                     progress_bar.message(&format!("shape rep {:?}, selector {:?}: average distance sample {} of {}", shape_rep, selector, i, num_samples));
                     progress_bar.set(i as u64);
 
-                    let res = ParryDistanceGroupQry::query(shapes, shapes, poses, poses, selector, &(), &(), &ParryDistanceGroupArgs::new(shape_rep.clone(), ParryDisMode::ContactDis, false, T::constant(f64::MIN)));
+                    let res = ParryDistanceGroupQry::query(shapes, shapes, poses, poses, selector, &(), &(), &ParryDistanceGroupArgs::new(shape_rep.clone(), ParryDisMode::ContactDis, false, false, T::constant(f64::MIN)));
                     res.outputs().iter().for_each(|output| {
                         let ids = output.pair_ids();
-                        let a = self.pair_average_distances.hashmap.get_mut(&(ids.0, ids.1));
-                        match a {
-                            None => { self.pair_average_distances.hashmap.insert((ids.0, ids.1), output.data().distance()); }
-                            Some(a) => { *a += output.data().distance(); }
+
+                        let pair_shape_idxs = output.pair_idxs();
+                        let id_pairs = match &pair_shape_idxs {
+                            ParryPairIdxs::Shapes(x, y) => {
+                                let bounding_sphere_a = shapes[*x].base_shape().bounding_sphere();
+                                let bounding_sphere_b = shapes[*y].base_shape().bounding_sphere();
+
+                                let obb_a = shapes[*x].base_shape().obb();
+                                let obb_b = shapes[*y].base_shape().obb();
+
+                                [(bounding_sphere_a.id(), bounding_sphere_b.id()), (obb_a.id(), obb_b.id())]
+                            }
+                            ParryPairIdxs::ShapeSubcomponents(x, y) => {
+                                let bounding_sphere_a = shapes[x.0].convex_subcomponents()[x.1].bounding_sphere();
+                                let bounding_sphere_b = shapes[y.0].convex_subcomponents()[y.1].bounding_sphere();
+
+                                let obb_a = shapes[x.0].convex_subcomponents()[x.1].obb();
+                                let obb_b = shapes[y.0].convex_subcomponents()[y.1].obb();
+
+                                [(bounding_sphere_a.id(), bounding_sphere_b.id()), (obb_a.id(), obb_b.id())]
+                            }
+                        };
+
+                        let all_ids = [ ids, id_pairs[0], id_pairs[1] ];
+                        for ids in all_ids {
+                            let a = self.pair_average_distances.hashmap.get_mut(&(ids.0, ids.1));
+                            match a {
+                                None => { self.pair_average_distances.hashmap.insert((ids.0, ids.1), output.data().distance()); }
+                                Some(a) => { *a += output.data().distance(); }
+                            }
+                            let a = self.pair_average_distances.hashmap.get_mut(&(ids.1, ids.0));
+                            match a {
+                                None => { self.pair_average_distances.hashmap.insert((ids.1, ids.0), output.data().distance()); }
+                                Some(a) => { *a += output.data().distance(); }
+                            }
                         }
-                        let a = self.pair_average_distances.hashmap.get_mut(&(ids.1, ids.0));
-                        match a {
-                            None => { self.pair_average_distances.hashmap.insert((ids.1, ids.0), output.data().distance()); }
-                            Some(a) => { *a += output.data().distance(); }
-                        }
+
                     });
                 }
                 progress_bar.finish();
@@ -847,7 +874,10 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
 
         self.pair_average_distances.hashmap.values_mut().for_each(|x| *x /= T::constant(num_samples as f64));
 
-        self.pair_average_distances.hashmap.values_mut().for_each(|x| { *x = x.clamp(T::constant(0.1), T::constant(1.0)); });
+        self.pair_average_distances.hashmap.values_mut().for_each(|x| {
+            if *x < T::constant(0.1) { *x = T::constant(0.1); }
+            if *x > T::constant(1.0) { *x = T::constant(1.0); }
+        });
     }
     #[inline(always)]
     pub fn get_pair_average_distances(&self) -> &AHashMapWrapper<(u64, u64), T> {
