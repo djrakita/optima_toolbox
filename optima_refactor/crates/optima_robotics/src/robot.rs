@@ -122,7 +122,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
             None => {
                 match &self.robot_type {
                     RobotType::Robot => { self.robot_name.clone() }
-                    RobotType::RobotSet => { panic!("robot set must be provided a save name.") }
+                    RobotType::RobotSet => { self.robot_name.clone() }
                 }
             }
             Some(name) => { name.to_string() }
