@@ -2,9 +2,11 @@ use std::cmp::Ordering;
 use std::time::{Duration, Instant};
 use ad_trait::AD;
 use as_any::AsAny;
+use parry_ad::na::Vector3;
 use parry_ad::query::Contact;
 use serde::{Deserialize, Serialize};
 use optima_3d_spatial::optima_3d_pose::O3DPose;
+use crate::pair_group_queries::ParryPairIdxs;
 use crate::shape_queries::{ContactOutputTrait, DistanceBoundsOutputTrait, DistanceLowerBoundOutputTrait, DistanceOutputTrait, DistanceUpperBoundOutputTrait, IntersectOutputTrait, OShpQryContactTrait, OShpQryDistanceTrait, OShpQryIntersectTrait};
 use crate::shapes::{OParryShape};
 
@@ -216,6 +218,37 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceBoundsQry {
         parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, args.3)
     }
 }
+
+pub struct ParryProximaDistanceUpperBoundQry;
+impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceUpperBoundQry {
+    type ShapeTypeA = OParryShape<T, P>;
+    type ShapeTypeB = OParryShape<T, P>;
+    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, [P; 2], [Vector3<T>; 2]);
+    type Output = ();
+
+    fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
+        let shapes = match &args.1 {
+            ParryQryShapeType::Standard => {
+                match &args.2 {
+                    ParryShapeRep::Full => { (&shape_a.base_shape.base_shape, &shape_b.base_shape.base_shape) }
+                    ParryShapeRep::OBB => { (&shape_a.base_shape.obb, &shape_b.base_shape.obb) }
+                    ParryShapeRep::BoundingSphere => { (&shape_a.base_shape.bounding_sphere, &shape_b.base_shape.bounding_sphere) }
+                }
+            }
+            ParryQryShapeType::ConvexSubcomponentsWithIdxs { shape_a_subcomponent_idx, shape_b_subcomponent_idx } => {
+                match &args.2 {
+                    ParryShapeRep::Full => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].base_shape, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].base_shape) }
+                    ParryShapeRep::OBB => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].base_shape, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].base_shape) }
+                    ParryShapeRep::BoundingSphere => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].base_shape, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].base_shape) }
+                }
+            }
+        };
+
+        todo!()
+    }
+}
+
+
 
 /*
 pub struct ParryDistanceBoundsWrtAverageQry;
@@ -786,3 +819,35 @@ impl<T: AD> DistanceBoundsOutputTrait<T> for ParryDistanceBoundsWrtAverageOutput
     }
 }
 */
+
+pub struct ParryProximaDistanceUpperBoundOutput<T: AD> {
+    pub (crate) distance_upper_bound_wrt_average: T,
+    pub (crate) raw_distance_upper_bound: T,
+    pub (crate) shape_ids: (u64, u64),
+    pub (crate) shape_idxs: ParryPairIdxs,
+    pub (crate) aux_data: ParryOutputAuxData
+}
+impl<T: AD> ParryProximaDistanceUpperBoundOutput<T> {
+    #[inline(always)]
+    pub fn aux_data(&self) -> &ParryOutputAuxData {
+        &self.aux_data
+    }
+}
+impl<T: AD> PartialEq for ParryProximaDistanceUpperBoundOutput<T> {
+    #[inline(always)]
+    fn eq(&self, other: &Self) -> bool {
+        self.distance_upper_bound_wrt_average.eq(&other.distance_upper_bound_wrt_average)
+    }
+}
+impl<T: AD> PartialOrd for ParryProximaDistanceUpperBoundOutput<T> {
+    #[inline(always)]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.distance_upper_bound_wrt_average.partial_cmp(&other.distance_upper_bound_wrt_average)
+    }
+}
+impl<T: AD> DistanceUpperBoundOutputTrait<T> for ParryProximaDistanceUpperBoundOutput<T> {
+    #[inline(always)]
+    fn distance_upper_bound(&self) -> T {
+        self.distance_upper_bound_wrt_average
+    }
+}

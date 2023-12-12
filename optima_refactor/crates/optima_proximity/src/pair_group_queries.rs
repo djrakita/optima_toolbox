@@ -41,12 +41,10 @@ pub type OwnedEmptyOPairGroupQry<'a, T> = OwnedPairGroupQry<'a, T, ()>;
 
 pub trait PairGroupQryArgsCategory {
     type Args<'a, T: AD> : Any + Serialize + DeserializeOwned;
-    type ArgsConverterType<'a, T: AD> : ADConvertableTrait<ConvertableType<T> = Self::Args<'a, T>>;
     type QueryType : OPairGroupQryTrait;
 }
 impl PairGroupQryArgsCategory for () {
     type Args<'a, T: AD> = ();
-    type ArgsConverterType<'a, T: AD> = ();
     type QueryType = ();
 }
 
@@ -405,7 +403,6 @@ impl ParryIntersectGroupArgs {
 pub struct PairGroupQryArgsCategoryParryIntersect;
 impl PairGroupQryArgsCategory for PairGroupQryArgsCategoryParryIntersect {
     type Args<'a, T: AD> = ParryIntersectGroupArgs;
-    type ArgsConverterType<'a, T: AD> = PairGroupQryArgsCategoryParryIntersectConverter;
     type QueryType = ParryIntersectGroupQry;
 }
 pub struct PairGroupQryArgsCategoryParryIntersectConverter;
@@ -510,7 +507,6 @@ impl<T: AD> ParryDistanceGroupArgs<T> {
 pub struct PairGroupQryArgsCategoryParryDistance;
 impl PairGroupQryArgsCategory for PairGroupQryArgsCategoryParryDistance {
     type Args<'a, T: AD> = ParryDistanceGroupArgs<T>;
-    type ArgsConverterType<'a, T: AD> = PairGroupQryArgsCategoryParryDistanceConverter;
     type QueryType = ParryDistanceGroupQry;
 }
 pub struct PairGroupQryArgsCategoryParryDistanceConverter;
@@ -728,7 +724,6 @@ impl<T: AD> ParryContactGroupArgs<T> {
 pub struct PairGroupQryArgsCategoryParryContact;
 impl PairGroupQryArgsCategory for PairGroupQryArgsCategoryParryContact {
     type Args<'a, T: AD> = ParryContactGroupArgs<T>;
-    type ArgsConverterType<'a, T: AD> = PairGroupQryArgsCategoryParryContactConverter;
     type QueryType = ParryContactGroupQry;
 }
 
@@ -1110,7 +1105,6 @@ impl<T: AD> ParryDistanceGroupFilterArgs<T> {
 pub struct PairGroupQryArgsCategoryParryDistanceFilter;
 impl PairGroupQryArgsCategory for PairGroupQryArgsCategoryParryDistanceFilter {
     type Args<'a, T: AD> = ParryDistanceGroupFilterArgs<T>;
-    type ArgsConverterType<'a, T: AD> = PairGroupQryArgsCategoryParryDistanceFilterConverter;
     type QueryType = ParryDistanceGroupFilter;
 }
 
@@ -1244,7 +1238,6 @@ impl ParryIntersectGroupFilterArgs {
 pub struct PairGroupQryArgsCategoryParryIntersectFilter;
 impl PairGroupQryArgsCategory for PairGroupQryArgsCategoryParryIntersectFilter {
     type Args<'a, T: AD> = ParryIntersectGroupFilterArgs;
-    type ArgsConverterType<'a, T: AD> = PairGroupQryArgsCategoryParryIntersectFilterConverter;
     type QueryType = ParryIntersectGroupFilter;
 }
 
@@ -1585,7 +1578,6 @@ impl ParryIntersectGroupSequenceFilterArgs {
 pub struct PairGroupQryArgsCategoryParryIntersectSequenceFilter;
 impl PairGroupQryArgsCategory for PairGroupQryArgsCategoryParryIntersectSequenceFilter {
     type Args<'a, T: AD> = ParryIntersectGroupSequenceFilterArgs;
-    type ArgsConverterType<'a, T: AD> = PairGroupQryArgsCategoryParryIntersectSequenceFilterConverter;
     type QueryType = ParryIntersectGroupSequenceFilter;
 }
 
@@ -1720,7 +1712,6 @@ impl<T: AD> ParryDistanceGroupSequenceFilterArgs<T> {
 pub struct PairGroupQryArgsCategoryParryDistanceSequenceFilter;
 impl PairGroupQryArgsCategory for PairGroupQryArgsCategoryParryDistanceSequenceFilter {
     type Args<'a, T: AD> = ParryDistanceGroupSequenceFilterArgs<T>;
-    type ArgsConverterType<'a, T: AD> = PairGroupQryArgsCategoryParryDistanceSequenceFilterConverter;
     type QueryType = ParryDistanceGroupSequenceFilter;
 }
 
