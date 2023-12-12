@@ -127,6 +127,8 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
             }
             Some(name) => { name.to_string() }
         };
+        if name == "robot_set_default" { panic!("cannot save robot with name robot_set_default"); }
+
         self.robot_name = name.clone();
         let mut p = OStemCellPath::new_asset_path();
         p.append_file_location(&OAssetLocation::SavedRobot { robot_name: &name });
@@ -427,7 +429,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
         &self.parry_shape_scene
     }
     pub fn parry_shape_scene_self_query<Q, V: OVec<T>>(&self, state: &V, query: &OwnedPairGroupQry<T, Q>, pair_selector: &ParryPairSelector) -> <Q::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, C::P<T>>
-        where Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector>
+        where Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector>,
     {
         let shapes = self.parry_shape_scene.get_shapes();
         let p = self.get_shape_poses(state);

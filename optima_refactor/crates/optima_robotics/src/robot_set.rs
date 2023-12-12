@@ -186,7 +186,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory> ORobotSet<T, C, L>
             });
         });
 
-        let mut out = ORobot::from_manual_internal("robot_set_as_robot", links, joints, RobotType::RobotSet);
+        let mut out = ORobot::from_manual_internal("robot_set_default", links, joints, RobotType::RobotSet);
 
         self.robot_wrappers.iter().for_each(|x| {
             out.sub_robots.push(x.robot.clone());
