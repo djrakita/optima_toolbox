@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_universal_hashmap::AHashMapWrapper;
-use crate::pair_group_queries::{OPairGroupQryTrait, PairAverageDistanceTrait, PairGroupQryArgsCategory, PairGroupQryOutputCategoryParryDistance, PairGroupQryOutputCategoryTrait, PairSkipsTrait, ParryDistanceGroupOutput, ParryPairSelector};
+use crate::pair_group_queries::{OPairGroupQryTrait, PairAverageDistanceTrait, PairGroupQryArgsCategory, PairGroupQryOutputCategoryParryDistance, PairGroupQryOutputCategoryTrait, PairSkipsTrait, ParryPairSelector};
 use crate::pair_queries::{ParryDisMode, ParryShapeRep};
 use crate::shapes::{ShapeCategoryOParryShape, ShapeCategoryTrait};
 use serde_with::serde_as;
@@ -32,7 +32,7 @@ impl OPairGroupQryTrait for ParryProximaDistanceQry {
     type ArgsCategory = PairGroupQryArgsCategoryParryProximaDistance;
     type OutputCategory = PairGroupQryOutputCategoryParryDistance;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, _pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
 
 
 

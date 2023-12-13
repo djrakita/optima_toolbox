@@ -148,7 +148,7 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
         self.rotation = UnitQuaternion::from_scaled_axis(Vector3::from_column_slice(&orientation.scaled_axis_of_rotation()));
     }
 
-    #[inline]
+    #[inline(always)]
     fn mul(&self, other: &Self) -> Self {
         let orientation = &self.rotation * &other.rotation;
         let location = &self.rotation * &other.translation + &self.translation;
@@ -159,7 +159,7 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn inverse(&self) -> Self {
         let orientation = self.rotation.inverse();
         let location = &orientation * -&self.translation;
@@ -170,18 +170,18 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
         }
     }
 
-    #[inline]
+    #[inline(always)]
     fn displacement(&self, other: &Self) -> Self {
         self.inverse().mul(other)
     }
 
-    #[inline]
+    #[inline(always)]
     fn dis(&self, other: &Self) -> T {
         let l = self.displacement(other).ln();
         l.norm()
     }
 
-    #[inline]
+    #[inline(always)]
     fn interpolate(&self, to: &Self, t: T) -> Self {
         let orientation = self.rotation.slerp(&to.rotation, t);
         let location = (T::one() - t).mul_by_nalgebra_matrix_ref(&self.translation) + t.mul_by_nalgebra_matrix_ref(&to.translation);
@@ -206,6 +206,7 @@ impl<T: AD> O3DPose<T> for Isometry3<T> {
         O3DPoseType::NalgebraIsometry3
     }
 
+    #[inline(always)]
     fn identity() -> Self {
         Self::from_constructors(&[T::zero(), T::zero(), T::zero()], &[T::zero(), T::zero(), T::zero()])
     }
@@ -219,12 +220,12 @@ impl<T: AD> O3DPose<T> for Isometry3<T> {
         Self::from_translation_and_rotation(translation, &rotation)
     }
 
-    #[inline]
+    #[inline(always)]
     fn translation(&self) -> &<Self::RotationType as O3DRotation<T>>::Native3DVecType {
         &self.translation.vector
     }
 
-    #[inline]
+    #[inline(always)]
     fn rotation(&self) -> &Self::RotationType {
         &self.rotation
     }
@@ -245,26 +246,28 @@ impl<T: AD> O3DPose<T> for Isometry3<T> {
         self.rotation = UnitQuaternion::from_scaled_axis(Vector3::from_column_slice(&orientation.scaled_axis_of_rotation()));
     }
 
-    #[inline]
+    #[inline(always)]
     fn mul(&self, other: &Self) -> Self {
         self * other
     }
 
-    #[inline]
+    #[inline(always)]
     fn inverse(&self) -> Self {
         self.inverse()
     }
 
-    #[inline]
+    #[inline(always)]
     fn displacement(&self, other: &Self) -> Self {
         self.inverse() * other
     }
 
+    #[inline(always)]
     fn dis(&self, other: &Self) -> T {
         let disp = self.displacement(other);
         generic_pose_ln(&disp.translation.vector, &disp.rotation).norm()
     }
 
+    #[inline(always)]
     fn interpolate(&self, to: &Self, t: T) -> Self {
         self.lerp_slerp(to, t)
     }
