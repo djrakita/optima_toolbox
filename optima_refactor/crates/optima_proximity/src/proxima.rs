@@ -5,25 +5,11 @@ use serde::{Deserialize, Serialize};
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_universal_hashmap::AHashMapWrapper;
-use crate::pair_group_queries::{OPairGroupQryTrait, PairAverageDistanceTrait, PairGroupQryArgsCategory, PairGroupQryOutputCategoryParryDistance, PairGroupQryOutputCategoryTrait, PairSkipsTrait, ParryPairSelector};
+use crate::pair_group_queries::{OPairGroupQryTrait, PairAverageDistanceTrait, PairGroupQryArgsCategory, PairGroupQryOutputCategoryParryDistance, PairGroupQryOutputCategoryTrait, PairSkipsTrait, ParryPairSelector, ProximityLossFunctionTrait};
 use crate::pair_queries::{ParryDisMode, ParryShapeRep};
 use crate::shapes::{ShapeCategoryOParryShape, ShapeCategoryTrait};
 use serde_with::serde_as;
 use ad_trait::SerdeAD;
-
-#[derive(Serialize, Deserialize)]
-pub struct ProximaGenericContainer<T: AD, P: O3DPose<T>> {
-    #[serde(deserialize_with = "AHashMapWrapper::<(u64, u64), ProximaGenericBlock::<T, P>>::deserialize")]
-    blocks: AHashMapWrapper<(u64, u64), ProximaGenericBlock<T, P>>
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ProximaGenericBlock<T: AD, P: O3DPose<T>> {
-    #[serde(deserialize_with = "RwLock::<P>::deserialize")]
-    disp_at_j: RwLock<P>,
-    #[serde(deserialize_with = "RwLock::<[<P::RotationType as O3DRotation<T>>::Native3DVecType; 2]>::deserialize")]
-    closest_points_at_j: RwLock<[<P::RotationType as O3DRotation<T>>::Native3DVecType; 2]>
-}
 
 pub struct ParryProximaDistanceQry;
 impl OPairGroupQryTrait for ParryProximaDistanceQry {
@@ -58,4 +44,18 @@ pub struct PairGroupQryArgsParryProximaDistance<T: AD> {
     for_filter: bool,
     #[serde_as(as = "SerdeAD<T>")]
     termination_distance_threshold: T
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ProximaGenericContainer<T: AD, P: O3DPose<T>> {
+    #[serde(deserialize_with = "AHashMapWrapper::<(u64, u64), ProximaGenericBlock::<T, P>>::deserialize")]
+    blocks: AHashMapWrapper<(u64, u64), ProximaGenericBlock<T, P>>
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct ProximaGenericBlock<T: AD, P: O3DPose<T>> {
+    #[serde(deserialize_with = "RwLock::<P>::deserialize")]
+    disp_between_a_and_b_at_j: RwLock<P>,
+    #[serde(deserialize_with = "RwLock::<[<P::RotationType as O3DRotation<T>>::Native3DVecType; 2]>::deserialize")]
+    closest_points_at_j: RwLock<[<P::RotationType as O3DRotation<T>>::Native3DVecType; 2]>
 }

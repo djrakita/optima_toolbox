@@ -519,7 +519,6 @@ impl ADConvertableTrait for PairGroupQryArgsCategoryParryDistanceConverter {
     }
 }
 
-
 pub struct ParryDistanceGroupOutput<T: AD> {
     min_dis_wrt_average: T,
     min_raw_dis: T,
@@ -540,8 +539,10 @@ impl<T: AD> ParryDistanceGroupOutput<T> {
         &self.aux_data
     }
 }
-impl<T: AD> ToParryProximityOutputTrait<T> for ParryDistanceGroupOutput<T> {
-    fn compute_proximity_objective_value<LF: ProximityLossFunctionTrait<T>>(&self, cutoff: T, p_norm: T, loss_function: LF) -> T {
+
+/*
+impl<T: AD> ToParryProximityOutputTrait for ParryDistanceGroupOutput<T> {
+    fn compute_proximity_objective_value<T1: AD, LF: ProximityLossFunctionTrait>(&self, cutoff: T, p_norm: T, loss_function: LF) -> T {
         let mut values = vec![];
 
         self.outputs.iter().for_each(|x| {
@@ -553,6 +554,7 @@ impl<T: AD> ToParryProximityOutputTrait<T> for ParryDistanceGroupOutput<T> {
         out
     }
 }
+*/
 
 pub struct PairGroupQryOutputCategoryParryDistance;
 impl PairGroupQryOutputCategoryTrait for PairGroupQryOutputCategoryParryDistance {
@@ -758,6 +760,8 @@ impl<T: AD> ParryContactGroupOutput<T> {
         &self.aux_data
     }
 }
+
+/*
 impl<T: AD> ToParryProximityOutputTrait<T> for ParryContactGroupOutput<T> {
     fn compute_proximity_objective_value<LF: ProximityLossFunctionTrait<T>>(&self, cutoff: T, p_norm: T, loss_function: LF) -> T {
         let mut values = vec![];
@@ -775,6 +779,7 @@ impl<T: AD> ToParryProximityOutputTrait<T> for ParryContactGroupOutput<T> {
         values.ovec_p_norm(&p_norm)
     }
 }
+*/
 
 pub struct PairGroupQryOutputCategoryParryContact;
 impl PairGroupQryOutputCategoryTrait for PairGroupQryOutputCategoryParryContact {
@@ -1117,7 +1122,6 @@ impl ADConvertableTrait for PairGroupQryArgsCategoryParryDistanceFilterConverter
         Self::ConvertableType::<T2>::from_json_string(&json_str)
     }
 }
-
 
 /*
 pub struct ParryDistanceWrtAverageGroupFilter<T: AD> {
@@ -1864,19 +1868,20 @@ impl PairGroupQryOutputCategoryTrait for PairGroupQryOutputCategoryParryFilter {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub trait ProximityLossFunctionTrait<T: AD> {
-    fn loss(&self, distance: T, cutoff: T) -> T;
+pub trait ProximityLossFunctionTrait : Serialize + DeserializeOwned {
+    fn loss<T: AD>(&self, distance: T, cutoff: T) -> T;
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct ProximityLossFunctionHinge;
 impl ProximityLossFunctionHinge {
     pub fn new() -> Self {
         Self {}
     }
 }
-impl<T: AD> ProximityLossFunctionTrait<T> for ProximityLossFunctionHinge {
+impl ProximityLossFunctionTrait for ProximityLossFunctionHinge {
     #[inline(always)]
-    fn loss(&self, distance: T, cutoff: T) -> T {
+    fn loss<T: AD>(&self, distance: T, cutoff: T) -> T {
         return if distance > cutoff {
             T::zero()
         } else {
@@ -1906,7 +1911,7 @@ impl<T: AD> ParryProximityOutput<T> {
 }
 
 pub trait ToParryProximityOutputTrait<T: AD> {
-    fn compute_proximity_objective_value<LF: ProximityLossFunctionTrait<T>>(&self, cutoff: T, p_norm: T, loss_function: LF) -> T;
+    fn compute_proximity_objective_value<LF: ProximityLossFunctionTrait>(&self, cutoff: T, p_norm: T, loss_function: LF) -> T;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

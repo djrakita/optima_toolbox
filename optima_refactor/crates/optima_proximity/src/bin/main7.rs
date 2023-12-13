@@ -2,9 +2,9 @@ use parry_ad::na::{Isometry3, Vector3};
 use parry_ad::shape::Cuboid;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_3d_spatial::optima_3d_vec::{O3DVec, O3DVecCategoryVector3};
-use optima_proximity::pair_queries::{OPairQryTrait, ParryContactQry, ParryDisMode, ParryDistanceLowerBoundQry, ParryProximaDistanceLowerBoundArgs, ParryProximaDistanceLowerBoundQry, ParryProximaDistanceUpperBoundArgs, ParryProximaDistanceUpperBoundQry, ParryQryShapeType, ParryShapeRep};
+use optima_proximity::pair_queries::{OPairQryTrait, ParryContactQry, ParryDisMode, ParryDistanceLowerBoundQry, ParryProximaDistanceBoundsArgs, ParryProximaDistanceBoundsOutput, ParryProximaDistanceBoundsQry, ParryProximaDistanceLowerBoundArgs, ParryProximaDistanceLowerBoundQry, ParryProximaDistanceUpperBoundArgs, ParryProximaDistanceUpperBoundQry, ParryQryShapeType, ParryShapeRep};
 use optima_proximity::proxima::ParryProximaDistanceQry;
-use optima_proximity::shape_queries::{ContactOutputTrait, DistanceLowerBoundOutputTrait, DistanceUpperBoundOutputTrait};
+use optima_proximity::shape_queries::{ContactOutputTrait, DistanceBoundsOutputTrait, DistanceLowerBoundOutputTrait, DistanceUpperBoundOutputTrait};
 use optima_proximity::shapes::OParryShape;
 
 fn main() {
@@ -27,31 +27,22 @@ fn main() {
     let pose_a2 = Isometry3::from_constructors(&[0.,0.,0.], &[0.2,0.,0.1]);
     let pose_b2 = Isometry3::from_constructors(&[5.,0.1,0.1], &[1.,2.02,3.1]);
 
-    let c = ParryProximaDistanceUpperBoundQry::query(&shape_a, &shape_b, &pose_a2, &pose_b2, &ParryProximaDistanceUpperBoundArgs {
-        parry_qry_shape_type: ParryQryShapeType::Standard,
-        parry_shape_rep: ParryShapeRep::Full,
-        pose_a_j: &pose_a,
-        pose_b_j: &pose_b,
-        closest_point_a_j: &point1,
-        closest_point_b_j: &point2,
-        average_distance: None,
-    });
-    println!("{:?}", c.distance_upper_bound());
-    println!("{:?}", c.aux_data());
-
-    for _ in 0..1 {
-        let c = ParryProximaDistanceLowerBoundQry::query(&shape_a, &shape_b, &pose_a2, &pose_b2, &ParryProximaDistanceLowerBoundArgs {
+    for _ in 0..1000 {
+        let p = ParryProximaDistanceBoundsQry::query(&shape_a, &shape_b, &pose_a2, &pose_b2, &ParryProximaDistanceBoundsArgs {
             parry_qry_shape_type: ParryQryShapeType::Standard,
             parry_shape_rep: ParryShapeRep::Full,
+            pose_a_j: &pose_a,
+            pose_b_j: &pose_b,
+            closest_point_a_j: &point1,
+            closest_point_b_j: &point2,
             raw_distance_j: raw_dis,
             displacement_between_a_and_b_j: &pose_a.displacement(&pose_b),
+            cutoff_distance: 5.5,
             average_distance: None,
         });
-        println!("{:?}", c.distance_lower_bound());
-        println!("{:?}", c.aux_data());
 
-        let c = ParryContactQry::query(&shape_a, &shape_b, &pose_a2, &pose_b2, &(10.0, ParryQryShapeType::Standard, ParryShapeRep::Full, None));
-        let raw_dis = c.signed_distance().unwrap();
-        println!("{:?}", raw_dis);
+        let p = p.0.unwrap();
+        println!("{:?}, {:?}", p.distance_lower_bound(), p.distance_upper_bound());
+        println!("{:?}", p.aux_data());
     }
 }
