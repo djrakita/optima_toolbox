@@ -1047,6 +1047,7 @@ impl<T: AD> DistanceUpperBoundOutputTrait<T> for ParryProximaDistanceUpperBoundO
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct ParryProximaDistanceBoundsOutput<T: AD, P: O3DPose<T>> {
     pub (crate) distance_lower_bound_wrt_average: T,
     pub (crate) distance_upper_bound_wrt_average: T,

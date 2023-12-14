@@ -40,7 +40,7 @@ impl<C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, FQ, Q> Differen
         };
 
         if args.collision_avoidance_weight > T1::zero() {
-            let proximity_value = distance_output.compute_proximity_objective_value(T1::constant(0.6), T1::constant(10.0), ProximityLossFunctionHinge {});
+            let proximity_value = distance_output.get_proximity_objective_value(T1::constant(0.6), T1::constant(10.0), ProximityLossFunctionHinge {});
             let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T1::zero(), T1::constant(6.0), T1::constant(0.4), T1::constant(2.0), T1::constant(4.0));
             out += args.collision_avoidance_weight*loss.loss(proximity_value);
         }

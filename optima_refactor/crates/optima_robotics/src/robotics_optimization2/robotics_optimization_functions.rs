@@ -35,10 +35,10 @@ pub fn robot_self_proximity_objective<'a, T, C, L, Q, LF>(robot: &ORobot<T, C, L
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
           Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryDistance>,
-          LF: ProximityLossFunctionTrait<T>
+          LF: ProximityLossFunctionTrait
 {
     let res = robot.parry_shape_scene_self_query_from_fk_res(fk_res, distance_query, filter_output.selector());
-    res.compute_proximity_objective_value(cutoff, p_norm, loss_function)
+    res.get_proximity_objective_value(cutoff, p_norm, loss_function)
 }
 
 pub fn robot_ik_goals_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, ik_goals: &Vec<IKGoal<T, C::P<T>>>) -> T
