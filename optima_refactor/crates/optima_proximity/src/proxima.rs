@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_universal_hashmap::AHashMapWrapper;
-use crate::pair_group_queries::{get_parry_ids_from_shape_pair, OPairGroupQryTrait, OwnedPairGroupQry, PairAverageDistanceTrait, PairGroupQryArgsCategory, PairGroupQryOutputCategoryTrait, PairSkipsTrait, parry_generic_pair_group_query, ParryContactGroupArgs, ParryContactGroupQry, ParryPairIdxs, ParryPairSelector, ProximityLossFunction, ToParryProximityOutputTrait};
+use crate::pair_group_queries::{get_parry_ids_from_shape_pair, OPairGroupQryTrait, OwnedPairGroupQry, PairAverageDistanceTrait, PairGroupQryArgsCategory, PairGroupQryOutputCategoryTrait, PairSkipsTrait, parry_generic_pair_group_query, ParryContactGroupArgs, ParryContactGroupQry, ParryPairIdxs, ParryPairSelector, ProximityLossFunction, ToParryProximityOutputCategory, ToParryProximityOutputTrait};
 use crate::pair_queries::{OPairQryTrait, ParryOutputAuxData, ParryProximaDistanceBoundsArgs, ParryProximaDistanceBoundsOutput, ParryProximaDistanceBoundsOutputOption, ParryProximaDistanceBoundsQry, ParryQryShapeType, ParryShapeRep};
 use crate::shapes::{OParryShape, ShapeCategoryOParryShape, ShapeCategoryTrait};
 use serde_with::serde_as;
@@ -240,6 +240,24 @@ impl<T: AD> ToParryProximityOutputTrait<T> for ParryProximaGroupOutput<T> {
         self.output_proximity_value
     }
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pub struct ParryProximaAsProximityQry;
+impl OPairGroupQryTrait for ParryProximaAsProximityQry {
+    type ShapeCategory = ShapeCategoryOParryShape;
+    type SelectorType = ParryPairSelector;
+    type ArgsCategory = PairGroupQryArgsCategoryParryProxima;
+    type OutputCategory = ToParryProximityOutputCategory;
+
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+        ParryProximaQry::query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, pair_average_distances, args)
+    }
+}
+
+pub type OwnedParryProximaAsProximityQry<'a, T> = OwnedPairGroupQry<'a, T, ParryProximaAsProximityQry>;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[serde_as]
 #[derive(Serialize, Deserialize)]

@@ -475,6 +475,23 @@ pub type OwnedEmptyParryPairGroupDistanceQry<'a, T> = OwnedPairGroupQry<'a, T, E
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// DISTANCE AS PROXIMITY //
+
+pub struct ParryDistanceAsProximityGroupQry;
+impl OPairGroupQryTrait for ParryDistanceAsProximityGroupQry {
+    type ShapeCategory = ShapeCategoryOParryShape;
+    type SelectorType = ParryPairSelector;
+    type ArgsCategory = PairGroupQryArgsCategoryParryDistance;
+    type OutputCategory = ToParryProximityOutputCategory;
+
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+        ParryDistanceGroupQry::query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, pair_average_distances, args)
+    }
+}
+pub type OwnedParryDistanceAsProximityGroupQry<'a, T> = OwnedPairGroupQry<'a, T, ParryDistanceAsProximityGroupQry>;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
 // CONTACT //
 
 pub struct ParryContactGroupQry;
@@ -1284,7 +1301,11 @@ impl<T: AD> ParryProximityOutput<T> {
 pub trait ToParryProximityOutputTrait<T: AD> {
     fn get_proximity_objective_value(&self, cutoff: T, p_norm: T, loss_function: ProximityLossFunction) -> T;
 }
-
+impl<T: AD> ToParryProximityOutputTrait<T> for () {
+    fn get_proximity_objective_value(&self, _cutoff: T, _p_norm: T, _loss_function: ProximityLossFunction) -> T {
+        T::zero()
+    }
+}
 
 #[derive(Clone, Debug, Copy)]
 pub enum ProximityLossFunction {
@@ -1310,6 +1331,20 @@ impl PairGroupQryOutputCategoryTrait for ToParryProximityOutputCategory {
     type Output<T: AD, P: O3DPose<T>> = Box<dyn ToParryProximityOutputTrait<T>>;
 }
 
+pub struct EmptyToParryProximity;
+impl OPairGroupQryTrait for EmptyToParryProximity {
+    type ShapeCategory = ShapeCategoryOParryShape;
+    type SelectorType = ParryPairSelector;
+    type ArgsCategory = ();
+    type OutputCategory = ToParryProximityOutputCategory;
+
+    #[inline(always)]
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, _pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+        Box::new(())
+    }
+}
+
+pub type OwnedEmptyToProximity<'a, T> = OwnedPairGroupQry<'a, T, EmptyToParryProximity>;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
