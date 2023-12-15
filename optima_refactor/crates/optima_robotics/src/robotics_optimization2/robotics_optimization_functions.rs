@@ -6,7 +6,7 @@ use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_3d_spatial::optima_3d_vec::{O3DVec, O3DVecCategoryArr, O3DVecCategoryTrait};
 use optima_geometry::{pt_dis_to_line};
 use optima_linalg::{OLinalgCategory, OVec};
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, PairGroupQryOutputCategoryParryDistance, PairGroupQryOutputCategoryParryFilter, ParryFilterOutput, ParryPairSelector, ProximityLossFunctionTrait, ToParryProximityOutputTrait};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, PairGroupQryOutputCategoryParryFilter, ParryFilterOutput, ParryPairSelector, ProximityLossFunction, ToParryProximityOutputCategory};
 use optima_proximity::shapes::ShapeCategoryOParryShape;
 use crate::robot::{FKResult, ORobot};
 use crate::robotics_optimization2::robotics_optimization_ik::{IKGoal, IKPrevStates};
@@ -30,12 +30,11 @@ pub fn robot_self_proximity_refilter_check<'a, T, C, L, FQ>(robot: &ORobot<T, C,
     }
 }
 
-pub fn robot_self_proximity_objective<'a, T, C, L, Q, LF>(robot: &ORobot<T, C, L>, fk_res: &FKResult<T, C::P<T>>, distance_query: &OwnedPairGroupQry<'a, T, Q>, filter_output: &ParryFilterOutput, cutoff: T, p_norm: T, loss_function: LF) -> T
+pub fn robot_self_proximity_objective<'a, T, C, L, Q>(robot: &ORobot<T, C, L>, fk_res: &FKResult<T, C::P<T>>, distance_query: &OwnedPairGroupQry<'a, T, Q>, filter_output: &ParryFilterOutput, cutoff: T, p_norm: T, loss_function: ProximityLossFunction) -> T
     where T: AD,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
-          Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryDistance>,
-          LF: ProximityLossFunctionTrait
+          Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory>
 {
     let res = robot.parry_shape_scene_self_query_from_fk_res(fk_res, distance_query, filter_output.selector());
     res.get_proximity_objective_value(cutoff, p_norm, loss_function)

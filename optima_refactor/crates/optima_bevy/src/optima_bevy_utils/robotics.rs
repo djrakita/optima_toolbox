@@ -14,7 +14,7 @@ use optima_3d_spatial::optima_3d_vec::O3DVec;
 use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSidePanel, OEguiSlider, OEguiTopBottomPanel, OEguiWidgetTrait};
 use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategory, OVec};
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryPairSelector, ProximityLossFunctionHinge, ToParryProximityOutputTrait};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryPairSelector, ProximityLossFunction, ToParryProximityOutputTrait};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_robotics::robot::{FKResult, ORobot, SaveRobot};
 use optima_robotics::robot_set::ORobotSet;
@@ -345,7 +345,7 @@ impl RoboticsSystems {
                                     // let fr = ParryDistanceGroupSequenceFilter::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a, &ParryDistanceGroupSequenceFilterArgs::new(vec![], vec![], T::constant(0.6), true, ParryDisMode::ContactDis));
                                     let res2 = ParryDistanceGroupQry::query(s, s, p.as_ref(), p.as_ref(), &p1[0], skips, a, &ParryDistanceGroupArgs::new(p2[0].clone(), ParryDisMode::ContactDis, true, false, T::constant(f64::MIN)));
 
-                                    let proximity_objective_value = res2.get_proximity_objective_value(T::constant(0.6), T::constant(20.0), ProximityLossFunctionHinge { });
+                                    let proximity_objective_value = res2.get_proximity_objective_value(T::constant(0.6), T::constant(20.0), ProximityLossFunction::Hinge);
 
                                     let intersect = res.intersect();
                                     ui.heading(format!("In collision: {:?}", intersect));

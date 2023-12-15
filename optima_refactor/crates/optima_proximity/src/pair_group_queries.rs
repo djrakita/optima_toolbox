@@ -55,6 +55,10 @@ impl PairGroupQryOutputCategoryTrait for () {
     type Output<T: AD, P: O3DPose<T>> = ();
 }
 
+impl<C: PairGroupQryOutputCategoryTrait> PairGroupQryOutputCategoryTrait for Box<C> {
+    type Output<T: AD, P: O3DPose<T>> = C::Output<T, P>;
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct OwnedPairGroupQry<'a, T: AD, Q: OPairGroupQryTrait> {
     #[serde(deserialize_with = "<Q::ArgsCategory as PairGroupQryArgsCategory>::Args::<'a, T>::deserialize")]
@@ -238,7 +242,6 @@ pub enum ParryShapeIdx {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
 // INTERSECT //
 
 pub struct ParryIntersectGroupQry;
@@ -269,11 +272,11 @@ impl OPairGroupQryTrait for ParryIntersectGroupQry {
 
         outputs.sort_by(|x, y| x.data.partial_cmp(&y.data).unwrap());
 
-        ParryIntersectGroupOutput {
+        Box::new(ParryIntersectGroupOutput {
             intersect: if outputs.len() == 0 { false } else { outputs[0].data.intersect() },
             outputs,
             aux_data: ParryOutputAuxData { num_queries, duration: start.elapsed() },
-        }
+        })
     }
 }
 pub type OwnedParryIntersectGroupQry<'a, T> = OwnedPairGroupQry<'a, T, ParryIntersectGroupQry>;
@@ -325,7 +328,7 @@ impl ParryIntersectGroupOutput {
 
 pub struct PairGroupQryOutputCategoryParryIntersect;
 impl PairGroupQryOutputCategoryTrait for PairGroupQryOutputCategoryParryIntersect {
-    type Output<T: AD, P: O3DPose<T>> = ParryIntersectGroupOutput;
+    type Output<T: AD, P: O3DPose<T>> = Box<ParryIntersectGroupOutput>;
 }
 
 pub struct EmptyParryPairGroupIntersectQry;
@@ -336,11 +339,11 @@ impl OPairGroupQryTrait for EmptyParryPairGroupIntersectQry {
     type OutputCategory = PairGroupQryOutputCategoryParryIntersect;
 
     fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, _pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
-        ParryIntersectGroupOutput {
+        Box::new(ParryIntersectGroupOutput {
             intersect: false,
             outputs: vec![],
             aux_data: ParryOutputAuxData { num_queries: 0, duration: Default::default() },
-        }
+        })
     }
 }
 pub type OwnedEmptyParryPairGroupIntersectQry<'a, T> = OwnedPairGroupQry<'a, T, EmptyParryPairGroupIntersectQry>;
@@ -372,12 +375,12 @@ impl OPairGroupQryTrait for ParryDistanceGroupQry {
 
         outputs.sort_by(|x, y| x.data.partial_cmp(&y.data).unwrap());
 
-        ParryDistanceGroupOutput {
+        Box::new(ParryDistanceGroupOutput {
             min_dis_wrt_average: if outputs.len() == 0 { T::constant(100_000_000.0) } else { outputs[0].data.distance_wrt_average },
             min_raw_dis: if outputs.len() == 0 { T::constant(100_000_000.0) } else { outputs[0].data.raw_distance },
             outputs,
             aux_data: ParryOutputAuxData { num_queries, duration: start.elapsed() },
-        }
+        })
     }
 }
 pub type OwnedParryDistanceGroupQry<'a, T> = OwnedPairGroupQry<'a, T, ParryDistanceGroupQry>;
@@ -434,7 +437,7 @@ impl<T: AD> ParryDistanceGroupOutput<T> {
     }
 }
 impl<T: AD> ToParryProximityOutputTrait<T> for ParryDistanceGroupOutput<T> {
-    fn get_proximity_objective_value<LF: ProximityLossFunctionTrait>(&self, cutoff: T, p_norm: T, loss_function: LF) -> T {
+    fn get_proximity_objective_value(&self, cutoff: T, p_norm: T, loss_function: ProximityLossFunction) -> T {
         let mut values = vec![];
 
         self.outputs.iter().for_each(|x| {
@@ -449,7 +452,7 @@ impl<T: AD> ToParryProximityOutputTrait<T> for ParryDistanceGroupOutput<T> {
 
 pub struct PairGroupQryOutputCategoryParryDistance;
 impl PairGroupQryOutputCategoryTrait for PairGroupQryOutputCategoryParryDistance {
-    type Output<T: AD, P: O3DPose<T>> = ParryDistanceGroupOutput<T>;
+    type Output<T: AD, P: O3DPose<T>> = Box<ParryDistanceGroupOutput<T>>;
 }
 
 pub struct EmptyParryPairGroupDistanceQry;
@@ -460,12 +463,12 @@ impl OPairGroupQryTrait for EmptyParryPairGroupDistanceQry {
     type OutputCategory = PairGroupQryOutputCategoryParryDistance;
 
     fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, _pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
-        ParryDistanceGroupOutput {
+        Box::new(ParryDistanceGroupOutput {
             min_dis_wrt_average: T::constant(f64::MAX),
             min_raw_dis: T::constant(f64::MAX),
             outputs: vec![],
             aux_data: ParryOutputAuxData { num_queries: 0, duration: Default::default() },
-        }
+        })
     }
 }
 pub type OwnedEmptyParryPairGroupDistanceQry<'a, T> = OwnedPairGroupQry<'a, T, EmptyParryPairGroupDistanceQry>;
@@ -501,12 +504,12 @@ impl OPairGroupQryTrait for ParryContactGroupQry {
 
         outputs.sort_by(|x, y| x.data.partial_cmp(&y.data).unwrap());
 
-        ParryContactGroupOutput {
+        Box::new(ParryContactGroupOutput {
             min_signed_dis_wrt_average: if outputs.len() == 0 { None } else { outputs[0].data.signed_distance() },
             min_raw_signed_dis: if outputs.len() == 0 { None } else { outputs[0].data.signed_distance() },
             outputs,
             aux_data: ParryOutputAuxData { num_queries, duration: start.elapsed() },
-        }
+        })
     }
 }
 pub type OwnedParryContactGroupQry<'a, T> = OwnedPairGroupQry<'a, T, ParryContactGroupQry>;
@@ -587,7 +590,7 @@ impl<T: AD> ToParryProximityOutputTrait<T> for ParryContactGroupOutput<T> {
 
 pub struct PairGroupQryOutputCategoryParryContact;
 impl PairGroupQryOutputCategoryTrait for PairGroupQryOutputCategoryParryContact {
-    type Output<T: AD, P: O3DPose<T>> = ParryContactGroupOutput<T>;
+    type Output<T: AD, P: O3DPose<T>> = Box<ParryContactGroupOutput<T>>;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -857,7 +860,7 @@ impl OPairGroupQryTrait for ParryDistanceGroupFilter {
 
     fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
         let qry = OwnedPairGroupQry::<T, ParryDistanceGroupQry>::new(ParryDistanceGroupArgs::new(args.parry_shape_rep.clone(), args.parry_dis_mode.clone(), args.use_average_distance, true, T::constant(f64::MIN)));
-        let f = | output: &ParryDistanceGroupOutput<T> | -> Vec<ParryPairIdxs> {
+        let f = | output: &Box<ParryDistanceGroupOutput<T>> | -> Vec<ParryPairIdxs> {
             let mut a = vec![];
             output.outputs.iter().for_each(|x| {
                 if x.data.raw_distance < args.distance_threshold {
@@ -916,7 +919,7 @@ impl OPairGroupQryTrait for ParryIntersectGroupFilter {
 
     fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
         let qry = OwnedPairGroupQry::<T, ParryIntersectGroupQry>::new(ParryIntersectGroupArgs::new(args.parry_shape_rep.clone(), false, true));
-        let f = | output: &ParryIntersectGroupOutput | -> Vec<ParryPairIdxs> {
+        let f = | output: &Box<ParryIntersectGroupOutput> | -> Vec<ParryPairIdxs> {
             let mut a = vec![];
             output.outputs.iter().for_each(|x| {
                 if x.data.intersect {
@@ -1234,6 +1237,7 @@ pub type OwnedEmptyParryFilter<'a, T> = OwnedPairGroupQry<'a, T, EmptyParryFilte
 
 // PROXIMITY LOSS FUNCTIONS //
 
+/*
 pub trait ProximityLossFunctionTrait : Serialize + DeserializeOwned {
     fn loss<T: AD>(&self, distance: T, cutoff: T) -> T;
 }
@@ -1255,6 +1259,7 @@ impl ProximityLossFunctionTrait for ProximityLossFunctionHinge {
         }
     }
 }
+*/
 
 pub struct ParryProximityOutput<T: AD> {
     proximity_objective_value: T,
@@ -1277,8 +1282,34 @@ impl<T: AD> ParryProximityOutput<T> {
 }
 
 pub trait ToParryProximityOutputTrait<T: AD> {
-    fn get_proximity_objective_value<LF: ProximityLossFunctionTrait>(&self, cutoff: T, p_norm: T, loss_function: LF) -> T;
+    fn get_proximity_objective_value(&self, cutoff: T, p_norm: T, loss_function: ProximityLossFunction) -> T;
 }
+
+
+#[derive(Clone, Debug, Copy)]
+pub enum ProximityLossFunction {
+    Hinge
+}
+impl ProximityLossFunction {
+    #[inline(always)]
+    pub fn loss<T: AD>(&self, distance: T, cutoff: T) -> T {
+        return match self {
+            ProximityLossFunction::Hinge => {
+                if distance > cutoff {
+                    T::zero()
+                } else {
+                    -cutoff.recip() * distance + T::one()
+                }
+            }
+        }
+    }
+}
+
+pub struct ToParryProximityOutputCategory;
+impl PairGroupQryOutputCategoryTrait for ToParryProximityOutputCategory {
+    type Output<T: AD, P: O3DPose<T>> = Box<dyn ToParryProximityOutputTrait<T>>;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 

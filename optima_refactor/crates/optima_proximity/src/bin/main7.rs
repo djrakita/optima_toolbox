@@ -3,7 +3,7 @@ use parry_ad::shape::Cuboid;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_3d_spatial::optima_3d_vec::{O3DVec, O3DVecCategoryVector3};
 use optima_proximity::pair_queries::{OPairQryTrait, ParryContactQry, ParryDisMode, ParryDistanceLowerBoundQry, ParryProximaDistanceBoundsArgs, ParryProximaDistanceBoundsOutput, ParryProximaDistanceBoundsQry, ParryProximaDistanceLowerBoundArgs, ParryProximaDistanceLowerBoundQry, ParryProximaDistanceUpperBoundArgs, ParryProximaDistanceUpperBoundQry, ParryQryShapeType, ParryShapeRep};
-use optima_proximity::proxima::ParryProximaDistanceQry;
+use optima_proximity::proxima::ParryProximaQry;
 use optima_proximity::shape_queries::{ContactOutputTrait, DistanceBoundsOutputTrait, DistanceLowerBoundOutputTrait, DistanceUpperBoundOutputTrait};
 use optima_proximity::shapes::OParryShape;
 
