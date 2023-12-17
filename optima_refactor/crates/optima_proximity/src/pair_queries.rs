@@ -364,6 +364,8 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceBoundsQry
             average_distance: args.average_distance.clone(),
         });
 
+        // println!("{:?}, {:?}, {:?}, {:?}, {:?}", lower_bound_res.distance_lower_bound_wrt_average, upper_bound_res.distance_upper_bound_wrt_average, lower_bound_res.raw_distance_lower_bound, upper_bound_res.raw_distance_upper_bound, lower_bound_res.displacement_between_a_and_b_k);
+
         ParryProximaDistanceBoundsOutputOption(
             Some(ParryProximaDistanceBoundsOutput {
                     distance_lower_bound_wrt_average: lower_bound_res.distance_lower_bound_wrt_average,

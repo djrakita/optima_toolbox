@@ -9,7 +9,7 @@ use optima_linalg::{OLinalgCategory, OVec, OVecCategoryVec};
 use optima_optimization::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
 use optima_proximity::pair_group_queries::{OPairGroupQryTrait, PairGroupQryOutputCategoryParryFilter, ParryPairSelector, ToParryProximityOutputCategory};
 use optima_proximity::shapes::ShapeCategoryOParryShape;
-use crate::robotics_optimization2::robotics_optimization_functions::{LookAtAxis, LookAtTarget, robot_link_look_at_objective};
+use crate::robotics_optimization2::robotics_optimization_functions::{AxisDirection, LookAtTarget, robot_link_look_at_objective, robot_link_look_at_roll_prevention_objective};
 use crate::robotics_optimization2::robotics_optimization_ik::{DifferentiableFunctionIKObjective, IKGoalRwLockVecTrait, IKGoalUpdateMode, IKPrevStatesRwLockTrait};
 
 pub struct DifferentiableFunctionClassLookAt<C, L, FQ, Q>(PhantomData<(C, L, FQ, Q)>)
@@ -36,17 +36,19 @@ pub struct DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q>
           Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
     ik_objective: DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q>,
     looker_link: usize,
-    looker_axis: LookAtAxis,
+    looker_forward_axis: AxisDirection,
+    looker_side_axis: AxisDirection,
     look_at_target: RwLock<LookAtTarget<T, O3DVecCategoryArr>>,
-    look_at_weight: T
+    look_at_weight: T,
+    roll_prevention_weight: T
 }
 impl<'a, T, C, L, FQ, Q> DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q> where T: AD,
                                                                                 C: O3DPoseCategory + 'static,
                                                                                 L: OLinalgCategory + 'static,
                                                                                 FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,
                                                                                 Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
-    pub fn new(ik_objective: DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q>, looker_link: usize, looker_axis: LookAtAxis, look_at_target: LookAtTarget<T, O3DVecCategoryArr>, look_at_weight: T) -> Self {
-        Self { ik_objective, looker_link, looker_axis, look_at_target: RwLock::new(look_at_target), look_at_weight }
+    pub fn new(ik_objective: DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q>, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<T, O3DVecCategoryArr>, look_at_weight: T, roll_prevention_weight: T) -> Self {
+        Self { ik_objective, looker_link, looker_forward_axis, looker_side_axis, look_at_target: RwLock::new(look_at_target), look_at_weight, roll_prevention_weight }
     }
 }
 impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q>
@@ -56,12 +58,13 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableF
           FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,
           Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory>
 {
-    fn call(&self, inputs: &[T], _freeze: bool) -> Vec<T> {
-        let (output, fk_res) = self.ik_objective.call_and_return_fk_res(inputs);
+    fn call(&self, inputs: &[T], freeze: bool) -> Vec<T> {
+        let (output, fk_res) = self.ik_objective.call_and_return_fk_res(inputs, freeze);
 
         let mut out = output[0];
         let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.2), T::constant(1.0), T::constant(2.0));
-        out += self.look_at_weight*loss.loss(robot_link_look_at_objective::<T, C>(&fk_res, self.looker_link, &self.looker_axis, &self.look_at_target.read().unwrap()));
+        out += self.look_at_weight*loss.loss(robot_link_look_at_objective::<T, C>(&fk_res, self.looker_link, &self.looker_forward_axis, &self.look_at_target.read().unwrap()));
+        out += self.roll_prevention_weight*loss.loss(robot_link_look_at_roll_prevention_objective::<T, C>(&fk_res, self.looker_link, &self.looker_side_axis));
 
         vec![out]
     }

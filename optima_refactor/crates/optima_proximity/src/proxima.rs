@@ -113,7 +113,7 @@ impl OPairGroupQryTrait for ParryProximaQry {
             }
         });
 
-        v.sort_by(|x, y| { (y.1 - y.0).partial_cmp(&(x.1 - x.0)).unwrap() });
+        v.sort_by(|x, y| { (y.1 - y.0).partial_cmp(&(x.1 - x.0)).expect(&format!("y.1 {:?}, y.0 {:?}, x.1 {:?}, x.0 {:?}", y.1, y.0, x.1, x.0)) });
 
         let mut proximity_lower_bound_output;
         let mut proximity_upper_bound_output;
@@ -154,7 +154,7 @@ impl OPairGroupQryTrait for ParryProximaQry {
 
             let selector = ParryPairSelector::PairsByIdxs(vec![idxs.clone()]);
 
-            let res = ParryContactGroupQry::query(shape_group_a, shape_group_b, poses_a, poses_b, &selector, pair_skips, pair_average_distances, false, &ParryContactGroupArgs::new(args.parry_shape_rep.clone(), args.cutoff_distance, args.use_average_distance, args.for_filter, T::constant(f64::MIN)));
+            let res = ParryContactGroupQry::query(shape_group_a, shape_group_b, poses_a, poses_b, &selector, pair_skips, pair_average_distances, false, &ParryContactGroupArgs::new(args.parry_shape_rep.clone(), T::constant(f64::MAX), args.use_average_distance, args.for_filter, T::constant(f64::MIN)));
             let output = &res.outputs()[0];
             let data = output.data();
             let distance_wrt_average = data.distance_wrt_average.expect("this should never be none");

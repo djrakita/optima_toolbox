@@ -9,6 +9,7 @@ edition = "2021"
 ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
 optima_linalg = { path = "../optima_linalg" }
 optimization_engine = { version = "0.8.1", features=["wasm"] }
+optima_sampling = { path = "../optima_sampling" }
 argmin = "0.8.1"
 argmin-math = "0.3.0"
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }

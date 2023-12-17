@@ -274,7 +274,7 @@ impl<T: AD> O3DVec<T> for Vector3<T> {
 
     #[inline]
     fn norm(&self) -> T {
-        self.norm()
+        (self[0].powi(2) + self[1].powi(2) + self[2].powi(2)).sqrt()
     }
 
     #[inline]

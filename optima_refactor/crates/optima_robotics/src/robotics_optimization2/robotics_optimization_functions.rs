@@ -20,7 +20,9 @@ pub fn robot_self_proximity_refilter_check<'a, T, C, L, FQ>(robot: &ORobot<T, C,
     let inputs_as_vec = inputs.to_vec().o3dvec_to_other_ad_type::<f64>();
     let dis = match last_proximity_filter_state.as_ref().borrow().as_ref() {
         None => { f64::MAX }
-        Some(state) => { state.ovec_sub(&inputs_as_vec).ovec_linf_norm() }
+        Some(state) => {
+            state.ovec_sub(&inputs_as_vec).ovec_p_norm(&15.0)
+        }
     };
 
     if dis > linf_dis_cutoff {
@@ -30,13 +32,13 @@ pub fn robot_self_proximity_refilter_check<'a, T, C, L, FQ>(robot: &ORobot<T, C,
     }
 }
 
-pub fn robot_self_proximity_objective<'a, T, C, L, Q>(robot: &ORobot<T, C, L>, fk_res: &FKResult<T, C::P<T>>, distance_query: &OwnedPairGroupQry<'a, T, Q>, selector: &ParryPairSelector, cutoff: T, p_norm: T, loss_function: ProximityLossFunction) -> T
+pub fn robot_self_proximity_objective<'a, T, C, L, Q>(robot: &ORobot<T, C, L>, fk_res: &FKResult<T, C::P<T>>, distance_query: &OwnedPairGroupQry<'a, T, Q>, selector: &ParryPairSelector, cutoff: T, p_norm: T, loss_function: ProximityLossFunction, freeze: bool) -> T
     where T: AD,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
           Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory>
 {
-    let res = robot.parry_shape_scene_self_query_from_fk_res(fk_res, distance_query, selector, false);
+    let res = robot.parry_shape_scene_self_query_from_fk_res(fk_res, distance_query, selector, freeze);
     res.get_proximity_objective_value(cutoff, p_norm, loss_function)
 }
 
@@ -58,20 +60,20 @@ pub fn robot_ik_goals_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, ik_goal
     out
 }
 
-pub fn robot_link_look_at_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, look_at_link: usize, look_at_axis: &LookAtAxis, look_at_target: &LookAtTarget<T, O3DVecCategoryArr>) -> T
+pub fn robot_link_look_at_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, looker_link: usize, looker_link_forward_axis: &AxisDirection, look_at_target: &LookAtTarget<T, O3DVecCategoryArr>) -> T
     where T: AD,
           C: O3DPoseCategory + 'static
 {
-    let looker_pose = fk_res.get_link_pose(look_at_link).as_ref().expect("error");
+    let looker_pose = fk_res.get_link_pose(looker_link).as_ref().expect("error");
     let looker_location = looker_pose.translation().o3dvec_to_other_generic_category::<T, O3DVecCategoryArr>();
     let axes = looker_pose.rotation().coordinate_frame_vectors();
-    let axis = match look_at_axis {
-        LookAtAxis::X => { axes[0] }
-        LookAtAxis::Y => { axes[1] }
-        LookAtAxis::Z => { axes[2] }
-        LookAtAxis::NegX => { axes[0].o3dvec_scalar_mul(T::constant(-1.0)) }
-        LookAtAxis::NegY => { axes[1].o3dvec_scalar_mul(T::constant(-1.0)) }
-        LookAtAxis::NegZ => { axes[2].o3dvec_scalar_mul(T::constant(-1.0)) }
+    let axis = match looker_link_forward_axis {
+        AxisDirection::X => { axes[0] }
+        AxisDirection::Y => { axes[1] }
+        AxisDirection::Z => { axes[2] }
+        AxisDirection::NegX => { axes[0].o3dvec_scalar_mul(T::constant(-1.0)) }
+        AxisDirection::NegY => { axes[1].o3dvec_scalar_mul(T::constant(-1.0)) }
+        AxisDirection::NegZ => { axes[2].o3dvec_scalar_mul(T::constant(-1.0)) }
     };
 
     let scaled_looker_axis = axis.o3dvec_scalar_mul(T::constant(10.0));
@@ -91,8 +93,45 @@ pub fn robot_link_look_at_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, loo
     res.0
 }
 
+pub fn robot_link_look_at_roll_prevention_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, looker_link: usize, looker_link_side_axis: &AxisDirection) -> T
+    where T: AD,
+          C: O3DPoseCategory + 'static {
+    let looker_link_pose = fk_res.get_link_pose(looker_link).as_ref().expect("error");
+    let looker_link_pose_coordinate_frame_vectors = looker_link_pose.rotation().coordinate_frame_vectors();
+    let looker_link_side_vector = match looker_link_side_axis {
+        AxisDirection::X => { looker_link_pose_coordinate_frame_vectors[0] }
+        AxisDirection::Y => { looker_link_pose_coordinate_frame_vectors[1] }
+        AxisDirection::Z => { looker_link_pose_coordinate_frame_vectors[2] }
+        AxisDirection::NegX => { looker_link_pose_coordinate_frame_vectors[0].o3dvec_scalar_mul(T::constant(-1.0)) }
+        AxisDirection::NegY => { looker_link_pose_coordinate_frame_vectors[1].o3dvec_scalar_mul(T::constant(-1.0)) }
+        AxisDirection::NegZ => { looker_link_pose_coordinate_frame_vectors[2].o3dvec_scalar_mul(T::constant(-1.0)) }
+    };
+
+    let up_vector = [T::zero(), T::zero(), T::one()];
+    let res = looker_link_side_vector.o3dvec_dot(&up_vector).powi(2);
+
+    res
+}
+
+pub fn robot_per_instant_velocity_acceleration_and_jerk_objectives<T: AD>(inputs: &[T], prev_states: &IKPrevStates<T>, p_norm: T) -> (T, T, T) {
+    let x_vec = inputs.to_vec();
+    let v0 = x_vec.ovec_sub(&prev_states.prev_state_0);
+    let v1 = prev_states.prev_state_0.ovec_sub(&prev_states.prev_state_1);
+    let v2 = prev_states.prev_state_1.ovec_sub(&prev_states.prev_state_2);
+    let a0 = v0.ovec_sub(&v1);
+    let a1 = v1.ovec_sub(&v2);
+    let j0 = a0.ovec_sub(&a1);
+
+    let v = v0.ovec_p_norm(&p_norm);
+    let a = a0.ovec_p_norm(&p_norm);
+    let j = j0.ovec_p_norm(&p_norm);
+
+    (v,a,j)
+}
+
+
 #[derive(Clone, Debug)]
-pub enum LookAtAxis { X, Y, Z, NegX, NegY, NegZ }
+pub enum AxisDirection { X, Y, Z, NegX, NegY, NegZ }
 
 #[derive(Clone, Debug)]
 pub enum LookAtTarget<T: AD, VC: O3DVecCategoryTrait> {
@@ -111,20 +150,4 @@ impl<T: AD, VC: O3DVecCategoryTrait> LookAtTarget<T, VC> {
             LookAtTarget::PhantomData(t1) => { LookAtTarget::PhantomData(t1.to_other_ad_type::<T1>()) }
         }
     }
-}
-
-pub fn robot_per_instant_velocity_acceleration_and_jerk_objectives<T: AD>(inputs: &[T], prev_states: &IKPrevStates<T>, p_norm: T) -> (T, T, T) {
-    let x_vec = inputs.to_vec();
-    let v0 = x_vec.ovec_sub(&prev_states.prev_state_0);
-    let v1 = prev_states.prev_state_0.ovec_sub(&prev_states.prev_state_1);
-    let v2 = prev_states.prev_state_1.ovec_sub(&prev_states.prev_state_2);
-    let a0 = v0.ovec_sub(&v1);
-    let a1 = v1.ovec_sub(&v2);
-    let j0 = a0.ovec_sub(&a1);
-
-    let v = v0.ovec_p_norm(&p_norm);
-    let a = a0.ovec_p_norm(&p_norm);
-    let j = j0.ovec_p_norm(&p_norm);
-
-    (v,a,j)
 }

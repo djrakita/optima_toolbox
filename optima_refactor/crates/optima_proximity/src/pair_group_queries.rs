@@ -372,6 +372,7 @@ impl OPairGroupQryTrait for ParryDistanceGroupQry {
         };
 
         let (mut outputs, num_queries) = parry_generic_pair_group_query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, &args.parry_shape_rep, pair_skips, args.for_filter, f, termination);
+        println!("{:?}", outputs.len());
 
         outputs.sort_by(|x, y| x.data.partial_cmp(&y.data).unwrap());
 
@@ -485,7 +486,7 @@ impl OPairGroupQryTrait for ParryDistanceAsProximityGroupQry {
     type OutputCategory = ToParryProximityOutputCategory;
 
     fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, _freeze: bool, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
-        ParryDistanceGroupQry::query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, pair_average_distances, false, args)
+        ParryDistanceGroupQry::query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, pair_average_distances, _freeze, args)
     }
 }
 pub type OwnedParryDistanceAsProximityGroupQry<'a, T> = OwnedPairGroupQry<'a, T, ParryDistanceAsProximityGroupQry>;
@@ -1344,7 +1345,7 @@ impl OPairGroupQryTrait for EmptyToParryProximity {
     }
 }
 
-pub type OwnedEmptyToProximity<'a, T> = OwnedPairGroupQry<'a, T, EmptyToParryProximity>;
+pub type OwnedEmptyToProximityQry<'a, T> = OwnedPairGroupQry<'a, T, EmptyToParryProximity>;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 

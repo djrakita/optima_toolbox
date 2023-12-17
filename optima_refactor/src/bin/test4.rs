@@ -52,10 +52,10 @@ impl<'a, T: AD, Q> DifferentiableFunctionTrait2<'a, T> for TestFunction<'a, T, Q
 pub type DifferentiableBlockTestFunction<'a, Q, E> = DifferentiableBlock2<'a, TestFunctionClass<Q>, E>;
 
 fn main() {
-    type ADType = f64;
+    type ADType = adfn<6>;
     let r = ORobotDefault::load_from_saved_robot("ur5");
-    let q = OwnedParryProximaAsProximityQry::new(PairGroupQryArgsParryProxima::new(ParryShapeRep::Full, true, false, ProximaTermination::MaxError(0.1), 15.0, 0.7));
-    // let q = OwnedParryDistanceAsProximityGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, true, false, f64::MIN));
+    let q = OwnedParryProximaAsProximityQry::new(PairGroupQryArgsParryProxima::new(ParryShapeRep::OBB, true, false, ProximaTermination::MaxError(0.25), ProximityLossFunction::Hinge, 15.0, 0.7));
+    // let q = OwnedParryDistanceAsProximityGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::OBB, ParryDisMode::ContactDis, true, false, f64::MIN));
 
     let t2 = TestFunction {
         robot: r.to_new_ad_type::<ADType>(),
@@ -66,7 +66,7 @@ fn main() {
         q,
     };
 
-    let d = DifferentiableBlockTestFunction::new(FiniteDifferencing2::new(), t, t2);
+    let d = DifferentiableBlockTestFunction::new(ForwardADMulti2::new(), t, t2);
 
     let mut state = vec![3.0; 6];
     for _ in 0..701 {

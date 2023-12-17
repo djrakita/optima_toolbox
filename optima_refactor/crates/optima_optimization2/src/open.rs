@@ -5,6 +5,7 @@ use optimization_engine::core::SolverStatus;
 use optimization_engine::panoc::{PANOCCache, PANOCOptimizer};
 use optimization_engine::{constraints, Optimizer, Problem, SolverError};
 use optima_linalg::OVec;
+use optima_sampling::SimpleSampler;
 use crate::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
 
 pub struct SimpleOpEnOptimizer {
@@ -48,8 +49,10 @@ fn simple_open_optimize<'a, DC, E>(objective_function: &DifferentiableBlock2<'a,
     let mut binding = cache.lock();
     let cache = binding.as_mut().unwrap();
     let mut panoc = PANOCOptimizer::new(problem, cache);
+    // panoc = panoc.with_max_iter(3);
 
-    let mut x = init_condition.to_vec().ovec_add(&vec![0.0001; init_condition.len()]);
+    let s = SimpleSampler::uniform_samples(&vec![(-0.00001, 0.00001); init_condition.len()], None);
+    let mut x = init_condition.to_vec().ovec_add(&s);
     // let mut x = init_condition.to_vec();
     let solver_status = panoc.solve(x.as_mut_slice()).expect("error");
 

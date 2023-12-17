@@ -72,7 +72,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> w
         let prev_states = IKPrevStates::new(init_state.clone());
         Self { robot, ik_goals: RwLock::new(ik_goals), prev_states: RwLock::new(prev_states), filter_query, distance_query, constant_selector, dis_filter_cutoff, linf_dis_cutoff, last_proximity_filter_state, filter_output, ee_matching_weight, collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight }
     }
-    pub fn call_and_return_fk_res(&self, inputs: &[T]) -> (Vec<T>, FKResult<T, C::P<T>>) {
+    pub fn call_and_return_fk_res(&self, inputs: &[T], freeze: bool) -> (Vec<T>, FKResult<T, C::P<T>>) {
         let inputs_as_vec = inputs.to_vec();
         let fk_res = self.robot.forward_kinematics(&inputs_as_vec, None);
 
@@ -93,10 +93,10 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> w
                 None => {
                     let binding = self.filter_output.borrow();
                     let selector = binding.as_ref().unwrap().selector();
-                    robot_self_proximity_objective(&self.robot, &fk_res, &self.distance_query, selector, self.dis_filter_cutoff, T::constant(15.0), ProximityLossFunction::Hinge)
+                    robot_self_proximity_objective(&self.robot, &fk_res, &self.distance_query, selector, self.dis_filter_cutoff, T::constant(15.0), ProximityLossFunction::Hinge, freeze)
                 }
                 Some(selector) => {
-                    robot_self_proximity_objective(&self.robot, &fk_res, &self.distance_query, selector, self.dis_filter_cutoff, T::constant(15.0), ProximityLossFunction::Hinge)
+                    robot_self_proximity_objective(&self.robot, &fk_res, &self.distance_query, selector, self.dis_filter_cutoff, T::constant(15.0), ProximityLossFunction::Hinge, freeze)
                 }
             };
             // println!("{:?}", tmp);
@@ -131,8 +131,8 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableF
                                                                                                                              L: OLinalgCategory + 'static,
                                                                                                                              FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,
                                                                                                                              Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
-    fn call(&self, inputs: &[T], _freeze: bool) -> Vec<T> {
-        self.call_and_return_fk_res(inputs).0
+    fn call(&self, inputs: &[T], freeze: bool) -> Vec<T> {
+        self.call_and_return_fk_res(inputs, freeze).0
     }
 
     fn num_inputs(&self) -> usize {
