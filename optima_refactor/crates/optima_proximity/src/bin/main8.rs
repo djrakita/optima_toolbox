@@ -25,12 +25,12 @@ fn main() {
 
     let mut poses = vec![p1, p2, p3, p4];
 
-    let res = q2.query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &(), &());
+    let res = q2.query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &(), &(), false);
     let p = res.get_proximity_objective_value(15.0, 15.0, ProximityLossFunctionHinge);
     println!("{:?}", res.aux_data());
     println!("{:?}", p);
 
-    let res = q1.query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &(), &());
+    let res = q1.query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &(), &(), false);
     let p = res.get_proximity_objective_value(15.0, 15.0, ProximityLossFunctionHinge);
     println!("{:?}", res.aux_data());
     println!("{:?}", res.maximum_possible_proximity_value_error());
@@ -38,12 +38,12 @@ fn main() {
 
     poses[0] = Isometry3::from_constructors(&[0.,0.,0.], &[0.3,0.2,0.11]);
 
-    let res = q2.query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &(), &());
+    let res = q2.query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &(), &(), false);
     let p = res.get_proximity_objective_value(15.0, 15.0, ProximityLossFunctionHinge);
     println!("{:?}", res.aux_data());
     println!("{:?}", p);
 
-    let res = q1.query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &(), &());
+    let res = q1.query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &(), &(), false);
     let p = res.get_proximity_objective_value(15.0, 15.0, ProximityLossFunctionHinge);
     println!("{:?}", res.aux_data());
     println!("{:?}", res.maximum_possible_proximity_value_error());
@@ -51,12 +51,12 @@ fn main() {
 
     poses[0] = Isometry3::from_constructors(&[0.,0.,0.], &[0.3,0.19,0.11]);
 
-    let res = q2.query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &(), &());
+    let res = q2.query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &(), &(), false);
     let p = res.get_proximity_objective_value(15.0, 15.0, ProximityLossFunctionHinge);
     println!("{:?}", res.aux_data());
     println!("{:?}", p);
 
-    let res = q1.query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &(), &());
+    let res = q1.query(&shapes, &shapes, &poses, &poses, &ParryPairSelector::HalfPairs, &(), &(), false);
     let p = res.get_proximity_objective_value(15.0, 15.0, ProximityLossFunctionHinge);
     println!("{:?}", res.aux_data());
     println!("{:?}", res.maximum_possible_proximity_value_error());

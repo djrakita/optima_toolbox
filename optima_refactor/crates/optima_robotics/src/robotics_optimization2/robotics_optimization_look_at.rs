@@ -56,7 +56,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableF
           FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,
           Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory>
 {
-    fn call(&self, inputs: &[T]) -> Vec<T> {
+    fn call(&self, inputs: &[T], _freeze: bool) -> Vec<T> {
         let (output, fk_res) = self.ik_objective.call_and_return_fk_res(inputs);
 
         let mut out = output[0];

@@ -23,9 +23,9 @@ pub trait OPairGroupQryTrait {
     type ShapeCategory : ShapeCategoryTrait;
     type SelectorType : AsAny;
     type ArgsCategory : PairGroupQryArgsCategory;
-    type OutputCategory : PairGroupQryOutputCategoryTrait;
+    type OutputCategory : PairGroupQryOutputCategory;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P>;
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, freeze: bool, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P>;
 }
 impl OPairGroupQryTrait for () {
     type ShapeCategory = ();
@@ -33,7 +33,7 @@ impl OPairGroupQryTrait for () {
     type ArgsCategory = ();
     type OutputCategory = ();
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, _pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, _pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _freeze: bool, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
         ()
     }
 }
@@ -48,14 +48,14 @@ impl PairGroupQryArgsCategory for () {
     type QueryType = ();
 }
 
-pub trait PairGroupQryOutputCategoryTrait {
+pub trait PairGroupQryOutputCategory {
     type Output<T: AD, P: O3DPose<T>> : Any;
 }
-impl PairGroupQryOutputCategoryTrait for () {
+impl PairGroupQryOutputCategory for () {
     type Output<T: AD, P: O3DPose<T>> = ();
 }
 
-impl<C: PairGroupQryOutputCategoryTrait> PairGroupQryOutputCategoryTrait for Box<C> {
+impl<C: PairGroupQryOutputCategory> PairGroupQryOutputCategory for Box<C> {
     type Output<T: AD, P: O3DPose<T>> = C::Output<T, P>;
 }
 
@@ -68,8 +68,8 @@ impl<'a, T: AD, Q: OPairGroupQryTrait> OwnedPairGroupQry<'a, T, Q> {
     pub fn new(args: <Q::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> Self {
         Self { args }
     }
-    pub fn query<S: PairSkipsTrait, A: PairAverageDistanceTrait<T>, P: O3DPose<T>>(&self, shape_group_a: &Vec<<Q::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Q::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Q::SelectorType, pair_skips: &S, pair_average_distances: &A) -> <Q::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
-        Q::query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, pair_average_distances, &self.args)
+    pub fn query<S: PairSkipsTrait, A: PairAverageDistanceTrait<T>, P: O3DPose<T>>(&self, shape_group_a: &Vec<<Q::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Q::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Q::SelectorType, pair_skips: &S, pair_average_distances: &A, freeze: bool) -> <Q::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
+        Q::query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, pair_average_distances, freeze, &self.args)
     }
     pub fn to_new_ad_type<T1: AD>(&self) -> OwnedPairGroupQry<'a, T1, Q> {
         let json_str = self.to_json_string();
@@ -251,7 +251,7 @@ impl OPairGroupQryTrait for ParryIntersectGroupQry {
     type ArgsCategory = PairGroupQryArgsCategoryParryIntersect;
     type OutputCategory = PairGroupQryOutputCategoryParryIntersect;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, _pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, _pair_average_distances: &A, _freeze: bool, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
         let start = Instant::now();
 
         let f = |shape_a: &OParryShape<T, P>, shape_b: &OParryShape<T, P>, pose_a: &P, pose_b: &P, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep: &ParryShapeRep| -> ParryIntersectOutput {
@@ -327,7 +327,7 @@ impl ParryIntersectGroupOutput {
 }
 
 pub struct PairGroupQryOutputCategoryParryIntersect;
-impl PairGroupQryOutputCategoryTrait for PairGroupQryOutputCategoryParryIntersect {
+impl PairGroupQryOutputCategory for PairGroupQryOutputCategoryParryIntersect {
     type Output<T: AD, P: O3DPose<T>> = Box<ParryIntersectGroupOutput>;
 }
 
@@ -338,7 +338,7 @@ impl OPairGroupQryTrait for EmptyParryPairGroupIntersectQry {
     type ArgsCategory = ();
     type OutputCategory = PairGroupQryOutputCategoryParryIntersect;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, _pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, _pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _freeze: bool, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
         Box::new(ParryIntersectGroupOutput {
             intersect: false,
             outputs: vec![],
@@ -359,7 +359,7 @@ impl OPairGroupQryTrait for ParryDistanceGroupQry {
     type ArgsCategory = PairGroupQryArgsCategoryParryDistance;
     type OutputCategory = PairGroupQryOutputCategoryParryDistance;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, _freeze: bool, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
         let start = Instant::now();
 
         let f = |shape_a: &OParryShape<T, P>, shape_b: &OParryShape<T, P>, pose_a: &P, pose_b: &P, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep: &ParryShapeRep| -> ParryDistanceOutput<T> {
@@ -451,7 +451,7 @@ impl<T: AD> ToParryProximityOutputTrait<T> for ParryDistanceGroupOutput<T> {
 }
 
 pub struct PairGroupQryOutputCategoryParryDistance;
-impl PairGroupQryOutputCategoryTrait for PairGroupQryOutputCategoryParryDistance {
+impl PairGroupQryOutputCategory for PairGroupQryOutputCategoryParryDistance {
     type Output<T: AD, P: O3DPose<T>> = Box<ParryDistanceGroupOutput<T>>;
 }
 
@@ -462,7 +462,7 @@ impl OPairGroupQryTrait for EmptyParryPairGroupDistanceQry {
     type ArgsCategory = ();
     type OutputCategory = PairGroupQryOutputCategoryParryDistance;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, _pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, _pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _freeze: bool, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
         Box::new(ParryDistanceGroupOutput {
             min_dis_wrt_average: T::constant(f64::MAX),
             min_raw_dis: T::constant(f64::MAX),
@@ -484,8 +484,8 @@ impl OPairGroupQryTrait for ParryDistanceAsProximityGroupQry {
     type ArgsCategory = PairGroupQryArgsCategoryParryDistance;
     type OutputCategory = ToParryProximityOutputCategory;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
-        ParryDistanceGroupQry::query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, pair_average_distances, args)
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, _freeze: bool, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
+        ParryDistanceGroupQry::query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, pair_average_distances, false, args)
     }
 }
 pub type OwnedParryDistanceAsProximityGroupQry<'a, T> = OwnedPairGroupQry<'a, T, ParryDistanceAsProximityGroupQry>;
@@ -501,7 +501,7 @@ impl OPairGroupQryTrait for ParryContactGroupQry {
     type ArgsCategory = PairGroupQryArgsCategoryParryContact;
     type OutputCategory = PairGroupQryOutputCategoryParryContact;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, _freeze: bool, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
         let start = Instant::now();
 
         let f = |shape_a: &OParryShape<T, P>, shape_b: &OParryShape<T, P>, pose_a: &P, pose_b: &P, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep: &ParryShapeRep| -> ParryContactOutput<T> {
@@ -606,7 +606,7 @@ impl<T: AD> ToParryProximityOutputTrait<T> for ParryContactGroupOutput<T> {
 */
 
 pub struct PairGroupQryOutputCategoryParryContact;
-impl PairGroupQryOutputCategoryTrait for PairGroupQryOutputCategoryParryContact {
+impl PairGroupQryOutputCategory for PairGroupQryOutputCategoryParryContact {
     type Output<T: AD, P: O3DPose<T>> = Box<ParryContactGroupOutput<T>>;
 }
 
@@ -856,7 +856,7 @@ impl AsParryFilterOutputTrait for ParryFilterOutput {
 }
 
 pub struct PairGroupQryOutputCategoryParryFilter;
-impl PairGroupQryOutputCategoryTrait for PairGroupQryOutputCategoryParryFilter {
+impl PairGroupQryOutputCategory for PairGroupQryOutputCategoryParryFilter {
     type Output<T: AD, P: O3DPose<T>> = ParryFilterOutput;
 }
 
@@ -875,7 +875,7 @@ impl OPairGroupQryTrait for ParryDistanceGroupFilter {
     type ArgsCategory = PairGroupQryArgsCategoryParryDistanceFilter;
     type OutputCategory = PairGroupQryOutputCategoryParryFilter;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, _freeze: bool, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
         let qry = OwnedPairGroupQry::<T, ParryDistanceGroupQry>::new(ParryDistanceGroupArgs::new(args.parry_shape_rep.clone(), args.parry_dis_mode.clone(), args.use_average_distance, true, T::constant(f64::MIN)));
         let f = | output: &Box<ParryDistanceGroupOutput<T>> | -> Vec<ParryPairIdxs> {
             let mut a = vec![];
@@ -934,7 +934,7 @@ impl OPairGroupQryTrait for ParryIntersectGroupFilter {
     type ArgsCategory = PairGroupQryArgsCategoryParryIntersectFilter;
     type OutputCategory = PairGroupQryOutputCategoryParryFilter;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, _freeze: bool, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
         let qry = OwnedPairGroupQry::<T, ParryIntersectGroupQry>::new(ParryIntersectGroupArgs::new(args.parry_shape_rep.clone(), false, true));
         let f = | output: &Box<ParryIntersectGroupOutput> | -> Vec<ParryPairIdxs> {
             let mut a = vec![];
@@ -987,7 +987,7 @@ impl OPairGroupQryTrait for ParryToSubcomponentFilter {
     type ArgsCategory = ();
     type OutputCategory = PairGroupQryOutputCategoryParryFilter;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, _freeze: bool, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
         let start = Instant::now();
         let mut subcomponent_idxs = vec![];
         match pair_selector {
@@ -1050,10 +1050,10 @@ impl OPairGroupQryTrait for ParryToSubcomponentFilter {
                 }
             }
             ParryPairSelector::AllPairsSubcomponents => {
-                return Self::query(shape_group_a, shape_group_b, poses_a, poses_b, &ParryPairSelector::AllPairs, pair_skips, pair_average_distances, &());
+                return Self::query(shape_group_a, shape_group_b, poses_a, poses_b, &ParryPairSelector::AllPairs, pair_skips, pair_average_distances, false, &());
             }
             ParryPairSelector::HalfPairsSubcomponents => {
-                return Self::query(shape_group_a, shape_group_b, poses_a, poses_b, &ParryPairSelector::HalfPairs, pair_skips, pair_average_distances, &());
+                return Self::query(shape_group_a, shape_group_b, poses_a, poses_b, &ParryPairSelector::HalfPairs, pair_skips, pair_average_distances, false, &());
             }
         }
 
@@ -1079,7 +1079,7 @@ impl OPairGroupQryTrait for ParryIntersectGroupSequenceFilter {
     type ArgsCategory = PairGroupQryArgsCategoryParryIntersectSequenceFilter;
     type OutputCategory = PairGroupQryOutputCategoryParryFilter;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, _freeze: bool, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
         let start = Instant::now();
 
         let mut curr = pair_selector.clone();
@@ -1088,7 +1088,7 @@ impl OPairGroupQryTrait for ParryIntersectGroupSequenceFilter {
         args.shape_rep_seq.iter().for_each(|x| {
             // let f = ParryIntersectGroupFilter2::new(x.clone());
             // let res = f.pair_group_filter(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances);
-            let res = ParryIntersectGroupFilter::query(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances, &ParryIntersectGroupFilterArgs::new(x.clone()));
+            let res = ParryIntersectGroupFilter::query(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances, false, &ParryIntersectGroupFilterArgs::new(x.clone()));
             aux_datas.extend(res.aux_datas);
             curr = res.selector;
         });
@@ -1096,7 +1096,7 @@ impl OPairGroupQryTrait for ParryIntersectGroupSequenceFilter {
         if args.subcomponent_shape_rep_seq.len() > 0 {
             // let f = ParryToSubcomponentsFilter2 { };
             // let res = f.pair_group_filter(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances);
-            let res = ParryToSubcomponentFilter::query(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances, &());
+            let res = ParryToSubcomponentFilter::query(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances, false, &());
             aux_datas.extend(res.aux_datas);
             curr = res.selector;
         }
@@ -1104,7 +1104,7 @@ impl OPairGroupQryTrait for ParryIntersectGroupSequenceFilter {
         args.subcomponent_shape_rep_seq.iter().for_each(|x| {
             // let f = ParryIntersectGroupFilter2::new(x.clone());
             // let res = f.pair_group_filter(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances);
-            let res = ParryIntersectGroupFilter::query(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances, &ParryIntersectGroupFilterArgs::new(x.clone()));
+            let res = ParryIntersectGroupFilter::query(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances, false, &ParryIntersectGroupFilterArgs::new(x.clone()));
             aux_datas.extend(res.aux_datas);
             curr = res.selector;
         });
@@ -1155,7 +1155,7 @@ impl OPairGroupQryTrait for ParryDistanceGroupSequenceFilter {
     type ArgsCategory = PairGroupQryArgsCategoryParryDistanceSequenceFilter;
     type OutputCategory = PairGroupQryOutputCategoryParryFilter;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, _freeze: bool, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
         let start = Instant::now();
 
         let mut curr = pair_selector.clone();
@@ -1164,7 +1164,7 @@ impl OPairGroupQryTrait for ParryDistanceGroupSequenceFilter {
         args.shape_rep_seq.iter().for_each(|x| {
             // let f = ParryDistanceGroupFilter2::new(x.clone(), args.parry_dis_mode.clone(), args.use_average_distance, args.distance_threshold);
             // let res = f.pair_group_filter(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances);
-            let res = ParryDistanceGroupFilter::query(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances, &ParryDistanceGroupFilterArgs::new(x.clone(), args.parry_dis_mode.clone(), args.use_average_distance, args.distance_threshold));
+            let res = ParryDistanceGroupFilter::query(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances, false, &ParryDistanceGroupFilterArgs::new(x.clone(), args.parry_dis_mode.clone(), args.use_average_distance, args.distance_threshold));
 
             aux_datas.extend(res.aux_datas);
             curr = res.selector;
@@ -1173,7 +1173,7 @@ impl OPairGroupQryTrait for ParryDistanceGroupSequenceFilter {
         if args.subcomponent_shape_rep_seq.len() > 0 {
             // let f = ParryToSubcomponentsFilter2 { };
             // let res = f.pair_group_filter(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances);
-            let res = ParryToSubcomponentFilter::query(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances, &());
+            let res = ParryToSubcomponentFilter::query(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances, false, &());
             aux_datas.extend(res.aux_datas);
             curr = res.selector;
         }
@@ -1181,7 +1181,7 @@ impl OPairGroupQryTrait for ParryDistanceGroupSequenceFilter {
         args.subcomponent_shape_rep_seq.iter().for_each(|x| {
             // let f = ParryDistanceGroupFilter2::new(x.clone(), args.parry_dis_mode.clone(), args.use_average_distance, args.distance_threshold);
             // let res = f.pair_group_filter(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances);
-            let res = ParryDistanceGroupFilter::query(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances, &ParryDistanceGroupFilterArgs::new(x.clone(), args.parry_dis_mode.clone(), args.use_average_distance, args.distance_threshold));
+            let res = ParryDistanceGroupFilter::query(shape_group_a, shape_group_b, poses_a, poses_b, &curr, pair_skips, pair_average_distances, false, &ParryDistanceGroupFilterArgs::new(x.clone(), args.parry_dis_mode.clone(), args.use_average_distance, args.distance_threshold));
             aux_datas.extend(res.aux_datas);
             curr = res.selector;
         });
@@ -1239,7 +1239,7 @@ impl OPairGroupQryTrait for EmptyParryFilter {
     type OutputCategory = PairGroupQryOutputCategoryParryFilter;
 
     #[inline(always)]
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _freeze: bool, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
         let start = Instant::now();
         ParryFilterOutput {
             selector: pair_selector.clone(),
@@ -1307,7 +1307,7 @@ impl<T: AD> ToParryProximityOutputTrait<T> for () {
     }
 }
 
-#[derive(Clone, Debug, Copy)]
+#[derive(Clone, Debug, Copy, Serialize, Deserialize)]
 pub enum ProximityLossFunction {
     Hinge
 }
@@ -1327,7 +1327,7 @@ impl ProximityLossFunction {
 }
 
 pub struct ToParryProximityOutputCategory;
-impl PairGroupQryOutputCategoryTrait for ToParryProximityOutputCategory {
+impl PairGroupQryOutputCategory for ToParryProximityOutputCategory {
     type Output<T: AD, P: O3DPose<T>> = Box<dyn ToParryProximityOutputTrait<T>>;
 }
 
@@ -1339,7 +1339,7 @@ impl OPairGroupQryTrait for EmptyToParryProximity {
     type OutputCategory = ToParryProximityOutputCategory;
 
     #[inline(always)]
-    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, _pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(_shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, _poses_a: &Vec<P>, _poses_b: &Vec<P>, _pair_selector: &Self::SelectorType, _pair_skips: &S, _pair_average_distances: &A, _freeze: bool, _args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
         Box::new(())
     }
 }
@@ -1385,16 +1385,16 @@ pub fn get_all_parry_pairs_idxs<T: AD, P: O3DPose<T>>(shape_group_a: &Vec<OParry
 }
 
 #[inline]
-pub (crate) fn parry_generic_pair_group_query<T: AD, P: O3DPose<T>, S: PairSkipsTrait, O: AsAny, F, Termination>(shape_group_a: &Vec<OParryShape<T, P>>,
-                                                                                                     shape_group_b: &Vec<OParryShape<T, P>>,
-                                                                                                     poses_a: &Vec<P>,
-                                                                                                     poses_b: &Vec<P>,
-                                                                                                     pair_selector: &ParryPairSelector,
-                                                                                                     parry_shape_rep: &ParryShapeRep,
-                                                                                                     pair_skips: &S,
-                                                                                                     for_filter: bool,
-                                                                                                     f: F,
-                                                                                                     termination: Termination) -> (Vec<ParryPairGroupOutputWrapper<O>>, usize)
+pub(crate) fn parry_generic_pair_group_query<T: AD, P: O3DPose<T>, S: PairSkipsTrait, O: AsAny, F, Termination>(shape_group_a: &Vec<OParryShape<T, P>>,
+                                                                                                                shape_group_b: &Vec<OParryShape<T, P>>,
+                                                                                                                poses_a: &Vec<P>,
+                                                                                                                poses_b: &Vec<P>,
+                                                                                                                pair_selector: &ParryPairSelector,
+                                                                                                                parry_shape_rep: &ParryShapeRep,
+                                                                                                                pair_skips: &S,
+                                                                                                                for_filter: bool,
+                                                                                                                f: F,
+                                                                                                                termination: Termination) -> (Vec<ParryPairGroupOutputWrapper<O>>, usize)
     where F: Fn(&OParryShape<T, P>, &OParryShape<T, P>, &P, &P, &ParryQryShapeType, &ParryShapeRep) -> O,
           Termination: Fn(&O) -> bool
 {
@@ -1427,7 +1427,7 @@ pub (crate) fn parry_generic_pair_group_query<T: AD, P: O3DPose<T>, S: PairSkips
                         count += 1;
                         let o = f(shape_a, shape_b, pose_a, pose_b, &ParryQryShapeType::Standard, parry_shape_rep);
                         let terminate = termination(&o);
-                        out_vec.push(ParryPairGroupOutputWrapper { data: o, pair_ids: (id_a,id_b), pair_idxs: ParryPairIdxs::Shapes(i, j) });
+                        out_vec.push(ParryPairGroupOutputWrapper { data: o, pair_ids: (id_a, id_b), pair_idxs: ParryPairIdxs::Shapes(i, j) });
                         if terminate { break 'l; }
                     }
                 }
@@ -1474,7 +1474,7 @@ pub (crate) fn parry_generic_pair_group_query<T: AD, P: O3DPose<T>, S: PairSkips
                         count += 1;
                         let o = f(shape_a, shape_b, pose_a, pose_b, &ParryQryShapeType::ConvexSubcomponentsWithIdxs { shape_a_subcomponent_idx, shape_b_subcomponent_idx }, parry_shape_rep);
                         let terminate = termination(&o);
-                        out_vec.push(ParryPairGroupOutputWrapper { data: o, pair_ids: (id_a, id_b), pair_idxs: ParryPairIdxs::ShapeSubcomponents((shape_a_idx, shape_a_subcomponent_idx), (shape_b_idx, shape_b_subcomponent_idx) ) });
+                        out_vec.push(ParryPairGroupOutputWrapper { data: o, pair_ids: (id_a, id_b), pair_idxs: ParryPairIdxs::ShapeSubcomponents((shape_a_idx, shape_a_subcomponent_idx), (shape_b_idx, shape_b_subcomponent_idx)) });
                         if terminate { break 'l; }
                     }
                 }
@@ -1555,11 +1555,11 @@ pub (crate) fn parry_generic_pair_group_filter<T: AD, P: O3DPose<T>, S: PairSkip
                                                                                                                                                                                                                                          pair_skips: &S,
                                                                                                                                                                                                                                          pair_average_distances: &A,
                                                                                                                                                                                                                                          f: F) -> ParryFilterOutput
-    where F: Fn(&<Q::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, P>) -> Vec<ParryPairIdxs>
+    where F: Fn(&<Q::OutputCategory as PairGroupQryOutputCategory>::Output<T, P>) -> Vec<ParryPairIdxs>
 {
     let start = Instant::now();
 
-    let output = qry.query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, pair_average_distances);
+    let output = qry.query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, pair_average_distances, false);
     let parry_pair_idxs = f(&output);
 
     let selector = convert_parry_pair_idxs_to_parry_pair_selector(parry_pair_idxs);

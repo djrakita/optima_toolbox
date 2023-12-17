@@ -53,6 +53,11 @@ pub trait O3DRotation<T: AD> :
     fn displacement(&self, other: &Self) -> Self;
     fn dis(&self, other: &Self) -> T;
     fn interpolate(&self, to: &Self, t: T) -> Self;
+    #[inline(always)]
+    fn o3drot_to_constant_ads(&self) -> Self {
+        let axis: Vec<T> = self.scaled_axis_of_rotation().iter().map(|x| T::constant(x.to_constant()) ).collect();
+        Self::from_scaled_axis_of_rotation(&axis)
+    }
     fn o3drot_to_other_generic_category<T2: AD, C: O3DRotationCategoryTrait>(&self) -> C::R<T2> {
         let scaled_axis = self.scaled_axis_of_rotation().o3dvec_to_other_ad_type::<T2>();
         C::R::from_scaled_axis_of_rotation(&scaled_axis)

@@ -701,7 +701,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
 
             for shape_rep in &shape_reps {
                 for selector in &selectors {
-                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), &ParryIntersectGroupArgs::new(shape_rep.clone(), false, false));
+                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), false, &ParryIntersectGroupArgs::new(shape_rep.clone(), false, false));
                     out.outputs().iter().for_each(|x| {
                        if x.data().intersect() {
                            let (id_a, id_b) = x.pair_ids();
@@ -737,7 +737,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                     let poses = self.get_poses(&(robot, &sample));
                     let poses = poses.as_ref();
 
-                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), &ParryIntersectGroupArgs::new(shape_rep.clone(), false, false));
+                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), false, &ParryIntersectGroupArgs::new(shape_rep.clone(), false, false));
                     out.outputs().iter().for_each(|x| {
                         let ids = x.pair_ids();
                         if x.data().intersect() && first_loop {
@@ -784,7 +784,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                     let poses = self.get_poses(&(robot, &sample));
                     let poses = poses.as_ref();
 
-                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), &ParryIntersectGroupArgs::new(shape_rep.clone(), false, false));
+                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), false, &ParryIntersectGroupArgs::new(shape_rep.clone(), false, false));
                     out.outputs().iter().for_each(|x| {
                         let ids = x.pair_ids();
                         if !x.data().intersect() && first_loop {
@@ -825,7 +825,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                     progress_bar.message(&format!("shape rep {:?}, selector {:?}: average distance sample {} of {}", shape_rep, selector, i, num_samples));
                     progress_bar.set(i as u64);
 
-                    let res = ParryDistanceGroupQry::query(shapes, shapes, poses, poses, selector, &(), &(), &ParryDistanceGroupArgs::new(shape_rep.clone(), ParryDisMode::ContactDis, false, false, T::constant(f64::MIN)));
+                    let res = ParryDistanceGroupQry::query(shapes, shapes, poses, poses, selector, &(), &(), false, &ParryDistanceGroupArgs::new(shape_rep.clone(), ParryDisMode::ContactDis, false, false, T::constant(f64::MIN)));
                     res.outputs().iter().for_each(|output| {
                         let ids = output.pair_ids();
 

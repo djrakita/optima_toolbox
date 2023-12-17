@@ -22,7 +22,7 @@ bevy_egui = { version = "0.21" }
 bevy_stl = { version = "0.11.0", features = ["wireframe"] }
 bevy_mod_picking = {version = "0.15.0" }
 bevy_transform_gizmo = { version = "0.8.0" }
-bevy_mod_debugdump = { git = "https://github.com/jakobhellermann/bevy_mod_debugdump" }
+# bevy_mod_debugdump = { git = "https://github.com/jakobhellermann/bevy_mod_debugdump" }
 bevy_prototype_debug_lines = { version="0.11.1", features = ["3d"]}
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 

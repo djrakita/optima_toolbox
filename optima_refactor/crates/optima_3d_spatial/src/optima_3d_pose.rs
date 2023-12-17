@@ -50,8 +50,15 @@ pub trait O3DPose<T: AD> :
     }
     fn inverse(&self) -> Self;
     fn displacement(&self, other: &Self) -> Self;
+    fn magnitude(&self) -> T;
     fn dis(&self, other: &Self) -> T;
     fn interpolate(&self, to: &Self, t: T) -> Self;
+    #[inline(always)]
+    fn o3dpose_to_constant_ads(&self) -> Self {
+        let translation = self.translation().o3dvec_to_constant_ads();
+        let rotation = self.rotation().o3drot_to_constant_ads();
+        Self::from_translation_and_rotation(&translation, &rotation)
+    }
     fn o3dpose_to_other_generic_category<T2: AD, C: O3DPoseCategory>(&self) -> C::P<T2> {
         let translation_slice = self.translation().o3dvec_as_slice();
         let binding = self.rotation().scaled_axis_of_rotation();
@@ -176,6 +183,12 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
     }
 
     #[inline(always)]
+    fn magnitude(&self) -> T {
+        let ln = self.ln();
+        ln.norm()
+    }
+
+    #[inline(always)]
     fn dis(&self, other: &Self) -> T {
         let l = self.displacement(other).ln();
         l.norm()
@@ -259,6 +272,11 @@ impl<T: AD> O3DPose<T> for Isometry3<T> {
     #[inline(always)]
     fn displacement(&self, other: &Self) -> Self {
         self.inverse() * other
+    }
+
+    #[inline(always)]
+    fn magnitude(&self) -> T {
+        generic_pose_ln(&self.translation.vector, &self.rotation).norm()
     }
 
     #[inline(always)]

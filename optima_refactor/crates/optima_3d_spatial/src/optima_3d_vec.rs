@@ -40,6 +40,11 @@ pub trait O3DVec<T: AD> :
     fn o3dvec_dot(&self, other: &Self) -> T;
     fn cross(&self, other: &Self) -> Self;
     fn dis(&self, other: &Self) -> T;
+    #[inline(always)]
+    fn o3dvec_to_constant_ads(&self) -> Self {
+        let tmp: Vec<T> = self.o3dvec_as_slice().iter().map(|x| T::constant(x.to_constant())).collect();
+        Self::o3dvec_from_slice(&tmp)
+    }
     fn o3dvec_to_other_generic_category<T2: AD, C: O3DVecCategoryTrait>(&self) -> C::V<T2> {
         let x = self.x().to_constant();
         let y = self.y().to_constant();

@@ -339,6 +339,21 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceBoundsQry
 
     fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
         let start = Instant::now();
+
+        let lower_bound_res = ParryProximaDistanceLowerBoundQry::query(shape_a, shape_b, pose_a, pose_b, &ParryProximaDistanceLowerBoundArgs {
+            parry_qry_shape_type: args.parry_qry_shape_type.clone(),
+            parry_shape_rep: args.parry_shape_rep.clone(),
+            raw_distance_j: args.raw_distance_j,
+            displacement_between_a_and_b_j: &args.displacement_between_a_and_b_j,
+            average_distance: args.average_distance.clone(),
+        });
+
+        // println!("{:?}, {:?}", upper_bound_res.distance_upper_bound(), lower_bound_res.distance_lower_bound_wrt_average);
+
+        if lower_bound_res.distance_lower_bound() > args.cutoff_distance {
+            return ParryProximaDistanceBoundsOutputOption(None);
+        }
+
         let upper_bound_res = ParryProximaDistanceUpperBoundQry::query(shape_a, shape_b, pose_a, pose_b, &ParryProximaDistanceUpperBoundArgs {
             parry_qry_shape_type: args.parry_qry_shape_type.clone(),
             parry_shape_rep: args.parry_shape_rep.clone(),
@@ -346,18 +361,6 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceBoundsQry
             pose_b_j: args.pose_b_j,
             closest_point_a_j: args.closest_point_a_j,
             closest_point_b_j: args.closest_point_b_j,
-            average_distance: args.average_distance.clone(),
-        });
-
-        if upper_bound_res.distance_upper_bound() > args.cutoff_distance {
-            return ParryProximaDistanceBoundsOutputOption(None);
-        }
-
-        let lower_bound_res = ParryProximaDistanceLowerBoundQry::query(shape_a, shape_b, pose_a, pose_b, &ParryProximaDistanceLowerBoundArgs {
-            parry_qry_shape_type: args.parry_qry_shape_type.clone(),
-            parry_shape_rep: args.parry_shape_rep.clone(),
-            raw_distance_j: args.raw_distance_j,
-            displacement_between_a_and_b_j: &args.displacement_between_a_and_b_j,
             average_distance: args.average_distance.clone(),
         });
 
@@ -386,6 +389,47 @@ pub struct ParryProximaDistanceBoundsArgs<'a, T: AD, P: O3DPose<T>, V: O3DVec<T>
     pub cutoff_distance: T,
     pub average_distance: Option<T>
 }
+
+/*
+pub struct ParryProxima2DistanceBoundsQry;
+impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProxima2DistanceBoundsQry {
+    type ShapeTypeA = OParryShape<T, P>;
+    type ShapeTypeB = OParryShape<T, P>;
+    type Args<'a> = ParryProxima2DistanceBoundsArgs<'a, T, P>;
+    type Output = ParryProximaDistanceBoundsOutput<T, P>;
+
+    fn query<'a>(_shape_a: &Self::ShapeTypeA, _shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
+        let start = Instant::now();
+        let displacement_between_a_and_b_k = pose_a.displacement(pose_b);
+        let disp_of_disps = args.displacement_between_a_and_b_j.displacement(&displacement_between_a_and_b_k);
+        let m = disp_of_disps.magnitude();
+        let s = m*args.max_delta_distance_per_unit;
+        let lower_bound_distance = args.raw_distance_j - s;
+        let upper_bound_distance = args.raw_distance_j + s;
+
+        let average = args.average_distance.unwrap_or_else(|| T::one());
+
+        ParryProximaDistanceBoundsOutput {
+            distance_lower_bound_wrt_average: lower_bound_distance / average,
+            distance_upper_bound_wrt_average: upper_bound_distance / average,
+            raw_distance_lower_bound: lower_bound_distance,
+            raw_distance_upper_bound: upper_bound_distance,
+            displacement_between_a_and_b_k,
+            aux_data: ParryOutputAuxData { num_queries: 0, duration: start.elapsed() },
+        }
+    }
+}
+
+pub struct ParryProxima2DistanceBoundsArgs<'a, T: AD, P: O3DPose<T>> {
+    pub parry_qry_shape_type: ParryQryShapeType,
+    pub parry_shape_rep: ParryShapeRep,
+    pub raw_distance_j: T,
+    pub displacement_between_a_and_b_j: &'a P,
+    pub max_delta_distance_per_unit: T,
+    pub cutoff_distance: T,
+    pub average_distance: Option<T>
+}
+*/
 
 /*
 pub struct ParryDistanceBoundsWrtAverageQry;

@@ -24,19 +24,19 @@ pub fn robot_self_proximity_refilter_check<'a, T, C, L, FQ>(robot: &ORobot<T, C,
     };
 
     if dis > linf_dis_cutoff {
-        let new_filter = robot.parry_shape_scene_self_query_from_fk_res(fk_res, filter_query, &ParryPairSelector::HalfPairs);
+        let new_filter = robot.parry_shape_scene_self_query_from_fk_res(fk_res, filter_query, &ParryPairSelector::HalfPairs, false);
         *filter_output.borrow_mut() = Some(new_filter);
         *last_proximity_filter_state.borrow_mut() = Some(inputs_as_vec);
     }
 }
 
-pub fn robot_self_proximity_objective<'a, T, C, L, Q>(robot: &ORobot<T, C, L>, fk_res: &FKResult<T, C::P<T>>, distance_query: &OwnedPairGroupQry<'a, T, Q>, filter_output: &ParryFilterOutput, cutoff: T, p_norm: T, loss_function: ProximityLossFunction) -> T
+pub fn robot_self_proximity_objective<'a, T, C, L, Q>(robot: &ORobot<T, C, L>, fk_res: &FKResult<T, C::P<T>>, distance_query: &OwnedPairGroupQry<'a, T, Q>, selector: &ParryPairSelector, cutoff: T, p_norm: T, loss_function: ProximityLossFunction) -> T
     where T: AD,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
           Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory>
 {
-    let res = robot.parry_shape_scene_self_query_from_fk_res(fk_res, distance_query, filter_output.selector());
+    let res = robot.parry_shape_scene_self_query_from_fk_res(fk_res, distance_query, selector, false);
     res.get_proximity_objective_value(cutoff, p_norm, loss_function)
 }
 

@@ -122,6 +122,11 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync + AsAny  {
         self.ovec_as_slice().iter().map(|x| x.to_constant()).collect()
     }
     #[inline(always)]
+    fn ovec_to_constant_ads(&self) -> Self {
+        let tmp: Vec<T> = self.ovec_as_slice().iter().map(|x| T::constant(x.to_constant())).collect();
+        Self::ovec_from_slice(&tmp)
+    }
+    #[inline(always)]
     fn ovec_to_other_generic_category<T2: AD, C: OVecCategoryTrait>(&self) -> C::V<T2> {
         let s: Vec<T2> = self.to_constant_vec().iter().map(|x| T2::constant(*x)).collect();
         C::V::ovec_from_slice(&s)

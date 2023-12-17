@@ -23,7 +23,7 @@ use crate::robotics_functions::compute_chain_info;
 use crate::robotics_traits::{AsRobotTrait, JointTrait};
 use optima_misc::arr_storage::MutArrTraitRaw;
 use optima_misc::arr_storage::ImmutArrTraitRaw;
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, PairGroupQryOutputCategoryParryFilter, PairGroupQryOutputCategoryTrait, ParryFilterOutput, ParryPairSelector, ToParryProximityOutputCategory};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, PairGroupQryOutputCategoryParryFilter, PairGroupQryOutputCategory, ParryFilterOutput, ParryPairSelector, ToParryProximityOutputCategory};
 use optima_proximity::shape_scene::ShapeSceneTrait;
 use optima_proximity::shapes::ShapeCategoryOParryShape;
 use optima_sampling::SimpleSampler;
@@ -428,7 +428,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
     pub fn parry_shape_scene(&self) -> &ORobotParryShapeScene<T, C, L> {
         &self.parry_shape_scene
     }
-    pub fn parry_shape_scene_self_query<Q, V: OVec<T>>(&self, state: &V, query: &OwnedPairGroupQry<T, Q>, pair_selector: &ParryPairSelector) -> <Q::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, C::P<T>>
+    pub fn parry_shape_scene_self_query<Q, V: OVec<T>>(&self, state: &V, query: &OwnedPairGroupQry<T, Q>, pair_selector: &ParryPairSelector, freeze: bool) -> <Q::OutputCategory as PairGroupQryOutputCategory>::Output<T, C::P<T>>
         where Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector>,
     {
         let shapes = self.parry_shape_scene.get_shapes();
@@ -436,9 +436,9 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
         let pair_skips = self.parry_shape_scene.get_pair_skips();
         let pair_average_distances = self.parry_shape_scene.get_pair_average_distances();
 
-        query.query(shapes, shapes, p.as_ref(), p.as_ref(), pair_selector, pair_skips, pair_average_distances)
+        query.query(shapes, shapes, p.as_ref(), p.as_ref(), pair_selector, pair_skips, pair_average_distances, freeze)
     }
-    pub fn parry_shape_scene_self_query_from_fk_res<Q>(&self, fk_res: &FKResult<T, C::P<T>>, query: &OwnedPairGroupQry<T, Q>, pair_selector: &ParryPairSelector) -> <Q::OutputCategory as PairGroupQryOutputCategoryTrait>::Output<T, C::P<T>>
+    pub fn parry_shape_scene_self_query_from_fk_res<Q>(&self, fk_res: &FKResult<T, C::P<T>>, query: &OwnedPairGroupQry<T, Q>, pair_selector: &ParryPairSelector, freeze: bool) -> <Q::OutputCategory as PairGroupQryOutputCategory>::Output<T, C::P<T>>
         where Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector>
     {
         let shapes = self.parry_shape_scene.get_shapes();
@@ -446,7 +446,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
         let pair_skips = self.parry_shape_scene.get_pair_skips();
         let pair_average_distances = self.parry_shape_scene.get_pair_average_distances();
 
-        query.query(shapes, shapes, p.as_ref(), p.as_ref(), pair_selector, pair_skips, pair_average_distances)
+        query.query(shapes, shapes, p.as_ref(), p.as_ref(), pair_selector, pair_skips, pair_average_distances, freeze)
     }
     #[inline(always)]
     pub fn get_dof_bounds(&self) -> Vec<(T, T)> {
@@ -929,7 +929,7 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ORobot<T, C, L> {
     }
 }
 impl<C: O3DPoseCategory, L: OLinalgCategory> ORobot<f64, C, L> {
-    pub fn get_ik_differentiable_block<'a, E, FQ, Q>(&'a self, derivative_method: E, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64) -> DifferentiableBlock2<'a, DifferentiableFunctionClassIKObjective<C, L, FQ, Q>, E>
+    pub fn get_ik_differentiable_block<'a, E, FQ, Q>(&'a self, derivative_method: E, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, constant_selector: Option<ParryPairSelector>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64) -> DifferentiableBlock2<'a, DifferentiableFunctionClassIKObjective<C, L, FQ, Q>, E>
         where E: DerivativeMethodTrait2,
               FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,
               Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
@@ -937,27 +937,27 @@ impl<C: O3DPoseCategory, L: OLinalgCategory> ORobot<f64, C, L> {
         let last_proximity_filter_state: Rc<RefCell<Option<Vec<f64>>>> = Rc::new(RefCell::new(None));
         let filter_output: Rc<RefCell<Option<ParryFilterOutput>>> = Rc::new(RefCell::new(None));
 
-        let f2 = self.get_ik_objective_function(Cow::Owned(self.to_new_ad_type::<E::T>()), filter_query.clone(), distance_query.clone(), init_state, ik_goal_link_idxs.clone(), linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, last_proximity_filter_state.clone(), filter_output.clone());
-        let f1= self.get_ik_objective_function(Cow::Borrowed(self), filter_query, distance_query, init_state, ik_goal_link_idxs, linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, last_proximity_filter_state.clone(), filter_output.clone());
+        let f2 = self.get_ik_objective_function(Cow::Owned(self.to_new_ad_type::<E::T>()), filter_query.clone(), distance_query.clone(), constant_selector.clone(), init_state, ik_goal_link_idxs.clone(), linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, last_proximity_filter_state.clone(), filter_output.clone());
+        let f1= self.get_ik_objective_function(Cow::Borrowed(self), filter_query, distance_query, constant_selector, init_state, ik_goal_link_idxs, linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, last_proximity_filter_state.clone(), filter_output.clone());
 
         DifferentiableBlockIKObjective::new(derivative_method, f1, f2)
     }
-    pub fn get_look_at_differentiable_block<'a, E, FQ, Q>(&'a self, derivative_method: E, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, looker_link: usize, looker_axis: LookAtAxis, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64, look_at_weight: f64) -> DifferentiableBlock2<'a, DifferentiableFunctionClassLookAt<C, L, FQ, Q>, E>
+    pub fn get_look_at_differentiable_block<'a, E, FQ, Q>(&'a self, derivative_method: E, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, constant_selector: Option<ParryPairSelector>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, looker_link: usize, looker_axis: LookAtAxis, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64, look_at_weight: f64) -> DifferentiableBlock2<'a, DifferentiableFunctionClassLookAt<C, L, FQ, Q>, E>
         where E: DerivativeMethodTrait2,
               FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,
               Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
         let last_proximity_filter_state: Rc<RefCell<Option<Vec<f64>>>> = Rc::new(RefCell::new(None));
         let filter_output: Rc<RefCell<Option<ParryFilterOutput>>> = Rc::new(RefCell::new(None));
 
-        let f2 = self.get_look_at_objective_function(Cow::Owned(self.to_new_ad_type::<E::T>()), filter_query.clone(), distance_query.clone(), init_state, ik_goal_link_idxs.clone(), looker_link, looker_axis.clone(), look_at_target.clone(), linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, look_at_weight, last_proximity_filter_state.clone(), filter_output.clone());
-        let f1 = self.get_look_at_objective_function(Cow::Borrowed(self), filter_query, distance_query, init_state, ik_goal_link_idxs, looker_link, looker_axis.clone(), look_at_target.clone(), linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, look_at_weight, last_proximity_filter_state.clone(), filter_output.clone());
+        let f2 = self.get_look_at_objective_function(Cow::Owned(self.to_new_ad_type::<E::T>()), filter_query.clone(), distance_query.clone(), constant_selector.clone(), init_state, ik_goal_link_idxs.clone(), looker_link, looker_axis.clone(), look_at_target.clone(), linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, look_at_weight, last_proximity_filter_state.clone(), filter_output.clone());
+        let f1 = self.get_look_at_objective_function(Cow::Borrowed(self), filter_query, distance_query, constant_selector, init_state, ik_goal_link_idxs, looker_link, looker_axis.clone(), look_at_target.clone(), linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, look_at_weight, last_proximity_filter_state.clone(), filter_output.clone());
 
         DifferentiableBlock2::new(derivative_method, f1, f2)
     }
 }
 /// Objective Functions
 impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory> ORobot<T, C, L > {
-    pub fn get_ik_objective_function<'a, T1, FQ, Q>(&'a self, robot: Cow<'a, ORobot<T1, C, L>>, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64, last_proximity_filter_state: Rc<RefCell<Option<Vec<f64>>>>, filter_output: Rc<RefCell<Option<ParryFilterOutput>>>) -> DifferentiableFunctionIKObjective<T1, C, L, FQ, Q>
+    pub fn get_ik_objective_function<'a, T1, FQ, Q>(&'a self, robot: Cow<'a, ORobot<T1, C, L>>, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, constant_selector: Option<ParryPairSelector>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64, last_proximity_filter_state: Rc<RefCell<Option<Vec<f64>>>>, filter_output: Rc<RefCell<Option<ParryFilterOutput>>>) -> DifferentiableFunctionIKObjective<T1, C, L, FQ, Q>
         where T1: AD,
               FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,
               Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory>
@@ -967,15 +967,15 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory> ORobot<T, C, L > {
         let mut ik_goals: Vec<IKGoal<T, C::P<T>>> = vec![];
         ik_goal_link_idxs.iter().for_each(|x| { ik_goals.push(IKGoal::new(*x, fk_res.get_link_pose(*x).as_ref().expect("error").clone(), T::constant(1.0))); });
 
-        let f = DifferentiableFunctionIKObjective::new(robot, ik_goals.to_new_generic_types::<T1, C>(), init_state.to_vec().ovec_to_other_ad_type::<T1>(), filter_query.to_new_ad_type::<T1>(), distance_query.to_new_ad_type::<T1>(), T1::constant(dis_filter_cutoff), linf_dis_cutoff, last_proximity_filter_state.clone(), filter_output.clone(), T1::constant(ee_matching_weight), T1::constant(self_collision_avoidance_weight), T1::constant(min_vel_weight), T1::constant(min_acc_weight), T1::constant(min_jerk_weight));
+        let f = DifferentiableFunctionIKObjective::new(robot, ik_goals.to_new_generic_types::<T1, C>(), init_state.to_vec().ovec_to_other_ad_type::<T1>(), filter_query.to_new_ad_type::<T1>(), distance_query.to_new_ad_type::<T1>(), constant_selector, T1::constant(dis_filter_cutoff), linf_dis_cutoff, last_proximity_filter_state.clone(), filter_output.clone(), T1::constant(ee_matching_weight), T1::constant(self_collision_avoidance_weight), T1::constant(min_vel_weight), T1::constant(min_acc_weight), T1::constant(min_jerk_weight));
 
         f
     }
-    pub fn get_look_at_objective_function<'a, T1, FQ, Q>(&'a self, robot: Cow<'a, ORobot<T1, C, L>>, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, looker_link: usize, looker_axis: LookAtAxis, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64, look_at_weight: f64, last_proximity_filter_state: Rc<RefCell<Option<Vec<f64>>>>, filter_output: Rc<RefCell<Option<ParryFilterOutput>>>) -> DifferentiableFunctionLookAt<T1, C, L, FQ, Q>
+    pub fn get_look_at_objective_function<'a, T1, FQ, Q>(&'a self, robot: Cow<'a, ORobot<T1, C, L>>, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, constant_selector: Option<ParryPairSelector>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, looker_link: usize, looker_axis: LookAtAxis, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64, look_at_weight: f64, last_proximity_filter_state: Rc<RefCell<Option<Vec<f64>>>>, filter_output: Rc<RefCell<Option<ParryFilterOutput>>>) -> DifferentiableFunctionLookAt<T1, C, L, FQ, Q>
         where T1: AD,
               FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,
               Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
-        let ik_objective = self.get_ik_objective_function(robot, filter_query, distance_query, init_state, ik_goal_link_idxs, linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, last_proximity_filter_state, filter_output);
+        let ik_objective = self.get_ik_objective_function(robot, filter_query, distance_query, constant_selector, init_state, ik_goal_link_idxs, linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, last_proximity_filter_state, filter_output);
 
         DifferentiableFunctionLookAt::new(ik_objective, looker_link, looker_axis, look_at_target.to_new_ad_type::<T1>(), T1::constant(look_at_weight))
     }

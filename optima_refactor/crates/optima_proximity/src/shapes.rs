@@ -20,7 +20,7 @@ use ad_trait::SerdeAD;
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
 use optima_file::path::OStemCellPath;
 use crate::pair_queries::{ParryContactOutput, ParryDisMode, ParryDistanceOutput, ParryIntersectOutput, ParryOutputAuxData, ParryQryShapeType, ParryShapeRep};
-use crate::shape_queries::{ContactOutputTrait, OShpQryContactTrait, OShpQryDistanceTrait, OShpQryIntersectTrait};
+use crate::shape_queries::{OShpQryContactTrait, OShpQryDistanceTrait, OShpQryIntersectTrait};
 
 pub trait ShapeCategoryTrait {
     type ShapeType<T: AD, P: O3DPose<T>>;
@@ -621,16 +621,18 @@ impl<T: AD, P: O3DPose<T>> OShpQryDistanceTrait<T, P, OParryShpGeneric<T, P>> fo
             }
             ParryDisMode::ContactDis => {
                 let c = self.contact(other, pose_a, pose_b, &(T::constant(f64::INFINITY), args.1));
-                let distance = c.signed_distance().unwrap();
+                // let distance = c.signed_distance().expect(&format!("this should never be None.  {:?}, {:?}", pose_a, pose_b));
 
+                /*
                 let distance_wrt_average = match &args.1 {
                     None => { distance }
                     Some(a) => { distance / *a }
                 };
+                */
 
                 ParryDistanceOutput {
-                    distance_wrt_average,
-                    raw_distance: distance,
+                    distance_wrt_average: c.distance_wrt_average.unwrap(),
+                    raw_distance: c.contact.unwrap().dist,
                     aux_data: ParryOutputAuxData { num_queries: 1, duration: start.elapsed() }
                 }
             }

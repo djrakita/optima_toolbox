@@ -32,10 +32,10 @@ impl<C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, FQ, Q> Differen
         let filter_output = binding.as_ref().unwrap();
         let distance_output = match &**filter_output {
             None => {
-                args.robot.parry_shape_scene_self_query(&inputs.to_vec(), &args.distance_query, &ParryPairSelector::HalfPairs)
+                args.robot.parry_shape_scene_self_query(&inputs.to_vec(), &args.distance_query, &ParryPairSelector::HalfPairs, false)
             }
             Some(filter_output) => {
-                args.robot.parry_shape_scene_self_query(&inputs.to_vec(), &args.distance_query, filter_output.selector())
+                args.robot.parry_shape_scene_self_query(&inputs.to_vec(), &args.distance_query, filter_output.selector(), false)
             }
         };
 
@@ -135,7 +135,7 @@ impl<'a, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, FQ, Q, E: D
                 let mut last_proximity_filter_state_write = binding.unwrap();
                 *last_proximity_filter_state_write = Some(inputs_vec.clone());
 
-                let filter_result = function_standard_args.robot.parry_shape_scene_self_query(&inputs_vec, &function_standard_args.filter_query, &ParryPairSelector::HalfPairs);
+                let filter_result = function_standard_args.robot.parry_shape_scene_self_query(&inputs_vec, &function_standard_args.filter_query, &ParryPairSelector::HalfPairs, false);
                 *function_standard_args.filter_output.write().unwrap() = Some(filter_result.clone());
                 *function_derivative_args.filter_output.write().unwrap() = Some(filter_result);
             }

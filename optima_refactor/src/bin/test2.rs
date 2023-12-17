@@ -1,4 +1,5 @@
-use ad_trait::differentiable_function::{FiniteDifferencing2, ForwardADMulti2, ReverseAD2};
+use ad_trait::ADNumMode::ForwardAD;
+use ad_trait::differentiable_function::{FiniteDifferencing2, ForwardAD2, ForwardADMulti2, ReverseAD2};
 use ad_trait::forward_ad::adfn::adfn;
 use nalgebra::Isometry3;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
@@ -7,22 +8,25 @@ use optima_interpolation::InterpolatorTrait;
 use optima_interpolation::splines::{InterpolatingSpline, InterpolatingSplineType};
 use optima_optimization2::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
 use optima_optimization2::open::SimpleOpEnOptimizer;
-use optima_proximity::pair_group_queries::{OwnedEmptyParryFilter, OwnedEmptyParryPairGroupDistanceQry};
+use optima_proximity::pair_group_queries::{OwnedEmptyParryFilter, OwnedParryDistanceAsProximityGroupQry, OwnedParryDistanceGroupFilter, OwnedParryDistanceGroupSequenceFilter, ParryDistanceGroupArgs, ParryDistanceGroupFilterArgs, ParryDistanceGroupSequenceFilterArgs, ParryPairSelector};
+use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
+use optima_proximity::proxima::{OwnedParryProximaAsProximityQry, PairGroupQryArgsParryProxima, ProximaTermination};
 use optima_robotics::robot::ORobotDefault;
 use optima_robotics::robotics_optimization2::robotics_optimization_functions::{LookAtAxis, LookAtTarget};
 use optima_robotics::robotics_optimization2::robotics_optimization_ik::IKGoalUpdateMode;
 use optima_robotics::robotics_optimization2::robotics_optimization_look_at::DifferentiableBlockLookAtTrait;
 
 fn main() {
+    //robot.save_robot(Some("xarm7_bimanual_viewpoint"));
     let robot = ORobotDefault::load_from_saved_robot("xarm7_bimanual_viewpoint");
 
     let init = vec![0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3,  0.0, 3.14, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,];
-    let db = robot.get_look_at_differentiable_block(ForwardADMulti2::<adfn<16>>::new(), OwnedEmptyParryFilter::new(()), OwnedEmptyParryPairGroupDistanceQry::new(()), &init, vec![20], 32, LookAtAxis::Z, LookAtTarget::RobotLink(20), 0.07, 0.0, 0.5, 0.0, 1.0, 0.3, 0.2, 0.5);
+    let db = robot.get_look_at_differentiable_block(FiniteDifferencing2::new(), OwnedParryDistanceGroupSequenceFilter::new(ParryDistanceGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere], vec![], 0.7, true, ParryDisMode::ContactDis)), OwnedParryDistanceAsProximityGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::BoundingSphere, ParryDisMode::ContactDis, true, false, f64::MIN)), None, &init, vec![20], 32, LookAtAxis::Z, LookAtTarget::RobotLink(20), 0.08, 0.7, 0.5, 0.03, 1.0, 0.3, 0.2, 0.5);
     let o = SimpleOpEnOptimizer::new(robot.get_dof_lower_bounds(), robot.get_dof_upper_bounds(), 0.01);
 
     let mut states = vec![];
     let mut curr_solution = init.clone();
-    for i in 0..3000 {
+    for _ in 0..3000 {
         let res = o.optimize_unconstrained(curr_solution.as_slice(), &db);
         states.push(res.x_star().to_vec());
         curr_solution = res.x_star().to_vec();
