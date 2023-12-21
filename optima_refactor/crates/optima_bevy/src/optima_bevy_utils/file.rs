@@ -1,12 +1,13 @@
 use std::path::PathBuf;
 use optima_file::path::OStemCellPath;
 
+// todo: needs to be fixed.  Only works when called from main outside of sub-crates
 pub fn get_asset_path_str_from_ostemcellpath(p: &OStemCellPath) -> String {
     let mut path_buf_back_to_optima_assets = PathBuf::new();
     path_buf_back_to_optima_assets.push("../");
     path_buf_back_to_optima_assets.push("../");
-    path_buf_back_to_optima_assets.push("../");
-    path_buf_back_to_optima_assets.push("../");
+    // path_buf_back_to_optima_assets.push("../");
+    // path_buf_back_to_optima_assets.push("../");
     let string_components = p.split_path_into_string_components_back_to_given_dir("optima_toolbox");
 
     let mut path_buf_from_optima_toolbox = PathBuf::new();

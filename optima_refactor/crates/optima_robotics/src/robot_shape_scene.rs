@@ -713,6 +713,33 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
             }
         }
     }
+    pub fn add_close_proximity_states_pair_skips<V: OVec<T>>(&mut self, robot: &ORobot<T, C, L>, close_proximity_state: V, threshold: T) {
+        // self.pair_skips.clear_skip_reason_type(SkipReason::CloseProximityWrtAverageExample);
+
+        let shape_reps = vec![ ParryShapeRep::BoundingSphere, ParryShapeRep::OBB, ParryShapeRep::Full ];
+        let selectors = vec![ParryPairSelector::HalfPairs, ParryPairSelector::HalfPairsSubcomponents];
+
+        let shapes = &self.shapes;
+        let poses = self.get_shape_poses(&(robot, &close_proximity_state));
+        let poses = poses.as_ref().clone();
+
+        for shape_rep in &shape_reps {
+            for selector in &selectors {
+                // let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), false, &ParryIntersectGroupArgs::new(shape_rep.clone(), false, false));
+                let out = ParryDistanceGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &self.pair_average_distances, false, &ParryDistanceGroupArgs::new(shape_rep.clone(), ParryDisMode::ContactDis, true, false, T::constant(-1000.0), false));
+                out.outputs().iter().for_each(|x| {
+                    if x.data().distance() < threshold {
+                        let (id_a, id_b) = x.pair_ids();
+                        self.pair_skips.add_skip_reason(id_a, id_b, SkipReason::CloseProximityWrtAverageExample);
+                        self.pair_skips.add_skip_reason(id_b, id_a, SkipReason::CloseProximityWrtAverageExample);
+                    }
+                });
+            }
+        }
+    }
+    pub fn clear_close_proximity_states_pair_skips(&mut self) {
+        self.pair_skips.clear_skip_reason_type(SkipReason::CloseProximityWrtAverageExample);
+    }
     pub fn preprocess_always_in_collision_states_pair_skips(&mut self, robot: &ORobot<T, C, L>, num_same: usize) {
         self.pair_skips.clear_skip_reason_type(SkipReason::AlwaysInCollision);
 
@@ -957,5 +984,4 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ShapeSce
         return res.expect("not found").clone()
     }
 }
-
 

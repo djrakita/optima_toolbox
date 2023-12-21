@@ -556,11 +556,26 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
             self.set_non_collision_states_internal(save_robot);
         }
     }
+    pub fn add_close_proximity_state<V: OVec<T>>(&mut self, state: V, threshold: T, save_robot: SaveRobot) {
+        let r = self.clone();
+        self.parry_shape_scene.add_close_proximity_states_pair_skips(&r, state.clone(), threshold );
+        match save_robot {
+            SaveRobot::Save(s) => { self.save_robot(s) }
+            SaveRobot::DoNotSave => {}
+        }
+    }
     pub fn reset_non_collision_states(&mut self, save_robot: SaveRobot) {
         self.non_collision_states = vec![];
         // self.parry_shape_scene.add_non_collision_states_pair_skips(&self, &vec![]);
 
         self.set_non_collision_states_internal(save_robot);
+    }
+    pub fn reset_close_proximity_states(&mut self, save_robot: SaveRobot) {
+        self.parry_shape_scene.clear_close_proximity_states_pair_skips();
+        match save_robot {
+            SaveRobot::Save(s) => { self.save_robot(s) }
+            SaveRobot::DoNotSave => {}
+        }
     }
     #[inline]
     pub fn get_ik_goal<V: OVec<T>>(&self, state: &V, link_idx: usize, ik_goal_mode: IKGoalMode<T, C>) -> C::P<T> {

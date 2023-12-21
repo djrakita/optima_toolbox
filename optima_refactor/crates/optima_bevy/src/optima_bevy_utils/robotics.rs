@@ -346,7 +346,7 @@ impl RoboticsSystems {
                                     let res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), &p1[0], skips, &(), false, &ParryIntersectGroupArgs::new(p2[0].clone(), false, false));
 
                                     // let fr = ParryDistanceGroupSequenceFilter::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a, &ParryDistanceGroupSequenceFilterArgs::new(vec![], vec![], T::constant(0.6), true, ParryDisMode::ContactDis));
-                                    let res2 = ParryDistanceGroupQry::query(s, s, p.as_ref(), p.as_ref(), &p1[0], skips, a, false, &ParryDistanceGroupArgs::new(p2[0].clone(), ParryDisMode::ContactDis, true, false, T::constant(f64::MIN), false));
+                                    let res2 = ParryDistanceGroupQry::query(s, s, p.as_ref(), p.as_ref(), &p1[0], skips, a, false, &ParryDistanceGroupArgs::new(p2[0].clone(), ParryDisMode::ContactDis, true, false, T::constant(f64::MIN), true));
 
                                     let proximity_objective_value = res2.get_proximity_objective_value(T::constant(0.6), T::constant(20.0), ProximityLossFunction::Hinge);
 
@@ -370,6 +370,36 @@ impl RoboticsSystems {
                                     if ui.button("Clear non-collision states").clicked() {
                                         robot.0.reset_non_collision_states(SaveRobot::Save(None));
                                     }
+
+                                    ui.separator();
+                                    ui.separator();
+
+                                    drop(binding);
+                                    ui.label("Any distances wrt average ");
+                                    ui.label("less than this value will ");
+                                    ui.label("be skipped. ");
+                                    OEguiSlider::new(0.0, 2.0, 0.5)
+                                        .show("distance_threshold", ui, &egui_engine, &());
+
+                                    let binding = egui_engine.get_mutex_guard();
+                                    let response = binding.get_slider_response("distance_threshold").expect("error");
+
+                                    ui.separator();
+                                    ui.separator();
+
+                                    if ui.button("Mark as close proximity state").clicked() {
+                                        robot.0.add_close_proximity_state(state.clone(), T::constant(response.slider_value), SaveRobot::Save(None));
+                                    }
+
+                                    ui.separator();
+                                    ui.separator();
+
+                                    if ui.button("Clear close proximity states").clicked() {
+                                        robot.0.reset_close_proximity_states(SaveRobot::Save(None));
+                                    }
+
+                                    ui.separator();
+                                    ui.separator();
                                 }
                             }
 

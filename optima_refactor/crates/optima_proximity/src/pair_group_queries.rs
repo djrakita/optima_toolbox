@@ -173,7 +173,8 @@ impl AHashMapWrapperSkipsWithReasonsTrait for AHashMapWrapper<(u64, u64), Vec<Sk
 }
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum SkipReason {
-    AlwaysInCollision, NeverInCollision, FromNonCollisionExample
+    AlwaysInCollision, NeverInCollision, FromNonCollisionExample,
+    CloseProximityWrtAverageExample
 }
 
 pub trait PairAverageDistanceTrait<T: AD> {
@@ -380,6 +381,7 @@ impl OPairGroupQryTrait for ParryDistanceGroupQry {
         Box::new(ParryDistanceGroupOutput {
             min_dis_wrt_average: if outputs.len() == 0 { T::constant(100_000_000.0) } else { outputs[0].data.distance_wrt_average },
             min_raw_dis: if outputs.len() == 0 { T::constant(100_000_000.0) } else { outputs[0].data.raw_distance },
+            sorted: args.sort_outputs,
             outputs,
             aux_data: ParryOutputAuxData { num_queries, duration: start.elapsed() },
         })
@@ -422,14 +424,17 @@ impl ADConvertableTrait for PairGroupQryArgsCategoryParryDistanceConverter {
 pub struct ParryDistanceGroupOutput<T: AD> {
     min_dis_wrt_average: T,
     min_raw_dis: T,
+    sorted: bool,
     outputs: Vec<ParryPairGroupOutputWrapper<ParryDistanceOutput<T>>>,
     aux_data: ParryOutputAuxData
 }
 impl<T: AD> ParryDistanceGroupOutput<T> {
     pub fn min_dis_wrt_average(&self) -> &T {
+        assert!(self.sorted, "must be sorted in order to get minimum in this way");
         &self.min_dis_wrt_average
     }
     pub fn min_raw_dis(&self) -> &T {
+        assert!(self.sorted, "must be sorted in order to get minimum in this way");
         &self.min_raw_dis
     }
     pub fn outputs(&self) -> &Vec<ParryPairGroupOutputWrapper<ParryDistanceOutput<T>>> {
@@ -469,6 +474,7 @@ impl OPairGroupQryTrait for EmptyParryPairGroupDistanceQry {
         Box::new(ParryDistanceGroupOutput {
             min_dis_wrt_average: T::constant(f64::MAX),
             min_raw_dis: T::constant(f64::MAX),
+            sorted: true,
             outputs: vec![],
             aux_data: ParryOutputAuxData { num_queries: 0, duration: Default::default() },
         })

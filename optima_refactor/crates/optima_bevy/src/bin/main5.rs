@@ -1,3 +1,4 @@
+use std::env;
 use bevy::app::{App, Startup};
 use bevy::asset::{Assets, AssetServer};
 use bevy::pbr::StandardMaterial;

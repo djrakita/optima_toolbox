@@ -84,7 +84,8 @@ impl ShapeSceneActions {
             TypedShape::ConvexPolyhedron(_) => {
                 let path = shape.boxed_shape().path().as_ref().expect("error");
                 let asset_path_str = get_asset_path_str_from_ostemcellpath(&path);
-                asset_server.load(&asset_path_str)
+                let h = asset_server.load(&asset_path_str);
+                h
             }
             TypedShape::Cylinder(c) => {
                 meshes.add(shape::Cylinder {
