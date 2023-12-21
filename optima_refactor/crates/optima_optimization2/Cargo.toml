@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
+# ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
+ad_trait = { git = "https://github.com/djrakita/ad_trait" }
 optima_linalg = { path = "../optima_linalg" }
 optimization_engine = { version = "0.8.1", features=["wasm"] }
 optima_sampling = { path = "../optima_sampling" }

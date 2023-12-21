@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
+# ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
+ad_trait = { git = "https://github.com/djrakita/ad_trait" }
 optima_linalg = { path = "../optima_linalg" }
 rand = { version="0.8.5", features=["getrandom"] }
 rand_distr = { version="0.4.3" }

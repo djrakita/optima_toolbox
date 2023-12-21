@@ -15,3 +15,4 @@ optima_wasm
 optima_book
 .DS_Store
 chains
+.cargo

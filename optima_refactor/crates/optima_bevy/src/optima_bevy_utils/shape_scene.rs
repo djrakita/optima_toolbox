@@ -33,7 +33,7 @@ impl ShapeSceneActions {
             let full = base_shape.base_shape();
 
             Self::action_spawn_parry_shape_generic(&bounding_sphere, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::BoundingSphere, i), commands, asset_server, meshes, materials);
-            // Self::action_spawn_parry_shape_generic(&obb, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::OBB, i), commands, asset_server, meshes, materials);
+            Self::action_spawn_parry_shape_generic(&obb, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::OBB, i), commands, asset_server, meshes, materials);
             Self::action_spawn_parry_shape_generic(&full, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::ConvexShape, i), commands, asset_server, meshes, materials);
 
             let convex_subcomponents = parry_shape.convex_subcomponents();
@@ -42,9 +42,9 @@ impl ShapeSceneActions {
                 let obb = convex_subcomponent.obb();
                 let full = convex_subcomponent.base_shape();
 
-                // Self::action_spawn_parry_shape_generic(&bounding_sphere, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::SubcomponentsBoundingSphere, i), commands, asset_server, meshes, materials);
-                // Self::action_spawn_parry_shape_generic(&obb, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::SubcomponentsOBB, i), commands, asset_server, meshes, materials);
-                // Self::action_spawn_parry_shape_generic(&full, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::SubcomponentsConvexShape, i), commands, asset_server, meshes, materials);
+                Self::action_spawn_parry_shape_generic(&bounding_sphere, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::SubcomponentsBoundingSphere, i), commands, asset_server, meshes, materials);
+                Self::action_spawn_parry_shape_generic(&obb, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::SubcomponentsOBB, i), commands, asset_server, meshes, materials);
+                Self::action_spawn_parry_shape_generic(&full, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::SubcomponentsConvexShape, i), commands, asset_server, meshes, materials);
             }
         }
     }

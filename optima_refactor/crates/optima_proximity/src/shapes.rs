@@ -17,7 +17,6 @@ use optima_linalg::OVec;
 use optima_sampling::SimpleSampler;
 use serde_with::*;
 use ad_trait::SerdeAD;
-use parry_ad::bounding_volume::BoundingVolume;
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
 use optima_file::path::OStemCellPath;
 use crate::pair_queries::{ParryContactOutput, ParryDisMode, ParryDistanceOutput, ParryIntersectOutput, ParryOutputAuxData, ParryQryShapeType, ParryShapeRep};

@@ -33,7 +33,8 @@ members = [
 ]
 
 [dependencies]
-ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
+# ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
+ad_trait = { git = "https://github.com/djrakita/ad_trait" }
 optima_file = { path = "crates/optima_file" }
 optima_console = { path = "crates/optima_console" }
 optima_3d_spatial = { path = "crates/optima_3d_spatial" }

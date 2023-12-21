@@ -6,10 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
-parry_ad = { package = "parry3d-f64", path = "/Users/djrakita/Documents/parry_ad/crates/parry3d-f64" }
+# ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
+ad_trait = { git = "https://github.com/djrakita/ad_trait" }
+parry_ad = { package = "parry3d-f64", git="https://github.com/djrakita/parry_ad" }
+# parry_ad = { package = "parry3d-f64", path = "/Users/djrakita/Documents/parry_ad/crates/parry3d-f64" }
 # parry3d-f64 = { path = "/Users/djrakita/Documents/parry/crates/parry3d-f64" }
-parry3d-f64 = { version="0.13.5", features=["serde-serialize"] }
+# parry3d-f64 = { version="0.13.5", features=["serde-serialize"] }
 optima_3d_spatial = { path = "../optima_3d_spatial" }
 optima_3d_mesh = { path = "../optima_3d_mesh" }
 optima_linalg = { path = "../optima_linalg" }

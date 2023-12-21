@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
+# ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
+ad_trait = { git = "https://github.com/djrakita/ad_trait" }
 optima_3d_spatial = { path = "../optima_3d_spatial" }
 optima_file = { path = "../optima_file" }
 dae-parser = { version="0.10.0" }
@@ -15,3 +16,5 @@ serde_json = { version="*" }
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 stl_io = { version="0.7.0" }
 parry3d-f64 = { version="0.13.5" }
+
+
