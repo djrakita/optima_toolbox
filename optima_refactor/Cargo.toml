@@ -84,3 +84,6 @@ opt-level = 3
 [profile.release]
 opt-level = 3
 # lto = "thin"
+
+[patch.crates-io]
+simba = { git = "https://github.com/dimforge/simba" }
