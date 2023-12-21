@@ -178,7 +178,7 @@ impl<'a, C, L, FQ, Q, E> DifferentiableBlockIKObjectiveTrait<'a, C> for Differen
 pub struct IKGoal<T: AD, P: O3DPose<T>> {
     pub (crate) goal_link_idx: usize,
     #[serde_as(as = "SerdeO3DPose<T, P>")]
-    pub (crate)goal_pose: P,
+    pub (crate) goal_pose: P,
     #[serde_as(as = "SerdeAD<T>")]
     pub (crate) weight: T,
 }
@@ -207,6 +207,12 @@ impl<T: AD, P: O3DPose<T>> IKGoal<T, P> {
                 self.goal_pose = pose;
             }
         }
+    }
+    #[inline]
+    pub fn update_goal_pose_interpolated(&mut self, pose: &P, fk_res: &FKResult<T, P>, max_translation: T, max_rotation: T) {
+        let curr_pose = fk_res.get_link_pose(self.goal_link_idx).as_ref().expect("error");
+        let interpolated_pose = curr_pose.interpolate_with_separate_max_translation_and_rotation(pose, max_translation, max_rotation);
+        self.update_goal_pose(interpolated_pose, IKGoalUpdateMode::Absolute);
     }
 }
 

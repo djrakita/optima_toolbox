@@ -22,7 +22,9 @@
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_network/examples" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_proximity/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_proximity/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/optima_environment/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_sampling/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/crates/optima_unity_wrappers/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_optimization2/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/crates/optima_universal_hashmap/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />

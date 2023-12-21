@@ -22,6 +22,7 @@ pub mod scripts;
 pub mod optima_bevy_utils;
 
 pub trait OptimaBevyTrait {
+    fn optima_bevy_starter_scene(&mut self) -> &mut Self;
     fn optima_bevy_base(&mut self) -> &mut Self;
     fn optima_bevy_robotics_base<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, A: AsRobotTrait<T, C, L>>(&mut self, as_chain: A) -> &mut Self;
     fn optima_bevy_pan_orbit_camera(&mut self) -> &mut Self;
@@ -31,6 +32,16 @@ pub trait OptimaBevyTrait {
     fn optima_bevy_egui(&mut self) -> &mut Self;
 }
 impl OptimaBevyTrait for App {
+    fn optima_bevy_starter_scene(&mut self) -> &mut Self {
+        self
+            .optima_bevy_base()
+            .optima_bevy_pan_orbit_camera()
+            .optima_bevy_egui()
+            .optima_bevy_starter_lights()
+            .optima_bevy_robotics_scene_visuals_starter();
+
+        self
+    }
     fn optima_bevy_base(&mut self) -> &mut Self {
         self
             .insert_resource(ClearColor(Color::rgb(0.5, 0.5, 0.5)))

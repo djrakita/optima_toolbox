@@ -10,6 +10,7 @@ edition = "2021"
 ad_trait = { path = "/Users/djrakita/Documents/ad_trait" }
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 optima_file = { path = "../optima_file" }
+optima_linalg = { path = "../optima_linalg" }
 serde = { version="*", features = ["derive"] }
 serde_json = { version="*" }
 serde_with = { version="3.2.0" }

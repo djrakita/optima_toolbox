@@ -17,6 +17,7 @@ use optima_linalg::OVec;
 use optima_sampling::SimpleSampler;
 use serde_with::*;
 use ad_trait::SerdeAD;
+use parry_ad::bounding_volume::BoundingVolume;
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
 use optima_file::path::OStemCellPath;
 use crate::pair_queries::{ParryContactOutput, ParryDisMode, ParryDistanceOutput, ParryIntersectOutput, ParryOutputAuxData, ParryQryShapeType, ParryShapeRep};
@@ -670,8 +671,17 @@ impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P, OParryShpGeneric<T, P>> for
 }
 
 pub struct BoxedShape<T: AD>{
-    pub shape: Box<dyn Shape<T>>,
-    pub path: Option<OStemCellPath>
+    pub (crate) shape: Box<dyn Shape<T>>,
+    pub (crate) path: Option<OStemCellPath>
+}
+impl<T: AD> BoxedShape<T> {
+    #[inline(always)]
+    pub fn shape(&self) -> &Box<dyn Shape<T>> {
+        &self.shape
+    }
+    pub fn path(&self) -> &Option<OStemCellPath> {
+        &self.path
+    }
 }
 impl<T: AD> Clone for BoxedShape<T> {
     fn clone(&self) -> Self {
@@ -876,9 +886,29 @@ pub fn boxed_shape_custom_serialize<S, T: AD>(value: &BoxedShape<T>, serializer:
 */
 
 pub (crate) fn get_bounding_sphere_from_shape<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(shape: &Box<S>, offset: &P) -> OParryShpGeneric<T, P> {
-    let bounding_sphere = shape.compute_local_bounding_sphere();
-    let offset = offset.mul(&P::from_constructors(&bounding_sphere.center, &[T::zero();3]));
-    let sphere = Ball::new(bounding_sphere.radius);
+    // let bounding_sphere = shape.compute_local_bounding_sphere();
+    // println!("{:?}", bounding_sphere.center);
+    // let offset = offset.mul(&P::from_constructors(&bounding_sphere.center, &[T::zero();3]));
+    // let sphere = Ball::new(bounding_sphere.radius);
+    // OParryShpGeneric::new(sphere, offset, None)
+
+    let ts = shape.as_typed_shape();
+    let (vertices, _) = get_vertices_and_indices_from_typed_shape(&ts, 30);
+
+    let aabb = shape.compute_local_aabb();
+    let mins = aabb.mins;
+    let maxs = aabb.maxs;
+    let center = mins.o3dvec_add(&maxs).o3dvec_scalar_mul(T::constant(0.5));
+
+    let mut radius = T::zero();
+    vertices.iter().for_each(|x| {
+        let dis = (x - center).norm();
+        if radius < dis { radius = dis; }
+    });
+
+    let offset = offset.mul(&P::from_constructors(&center, &[T::zero();3]));
+    let sphere = Ball::new(radius);
+
     OParryShpGeneric::new(sphere, offset, None)
 }
 pub (crate) fn get_obb_from_shape<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(shape: &Box<S>, offset: &P) -> OParryShpGeneric<T, P> {
@@ -897,16 +927,7 @@ pub (crate) fn calculate_max_dis_error_between_shape_and_bounding_shape<T: AD, S
     let ts = shape.as_typed_shape();
 
     let subdiv = 10;
-    let (vertices, indices) = match &ts {
-        TypedShape::Ball(shape) => { shape.to_trimesh(subdiv, subdiv) }
-        TypedShape::Cuboid(shape) => { shape.to_trimesh() }
-        TypedShape::Capsule(shape) => { shape.to_trimesh(subdiv, subdiv) }
-        TypedShape::TriMesh(shape) => { (shape.vertices().clone(), shape.indices().clone()) }
-        TypedShape::ConvexPolyhedron(shape) => { shape.to_trimesh() }
-        TypedShape::Cylinder(shape) => { shape.to_trimesh(subdiv) }
-        TypedShape::Cone(shape) => { shape.to_trimesh(subdiv) }
-        _ => { panic!("shape type unsupported"); }
-    };
+    let (vertices, indices) = get_vertices_and_indices_from_typed_shape(&ts, subdiv);
 
     let mut max_dis = T::zero();
     /*
@@ -958,6 +979,22 @@ pub (crate) fn calculate_max_dis_error_between_shape_and_bounding_shape<T: AD, S
 
     max_dis
 }
+
+fn get_vertices_and_indices_from_typed_shape<T: AD>(ts: &TypedShape<T>, subdiv: u32) -> (Vec<Point3<T>>, Vec<[u32; 3]>) {
+    let (vertices, indices) = match &ts {
+        TypedShape::Ball(shape) => { shape.to_trimesh(subdiv, subdiv) }
+        TypedShape::Cuboid(shape) => { shape.to_trimesh() }
+        TypedShape::Capsule(shape) => { shape.to_trimesh(subdiv, subdiv) }
+        TypedShape::TriMesh(shape) => { (shape.vertices().clone(), shape.indices().clone()) }
+        TypedShape::ConvexPolyhedron(shape) => { shape.to_trimesh() }
+        TypedShape::Cylinder(shape) => { shape.to_trimesh(subdiv) }
+        TypedShape::Cone(shape) => { shape.to_trimesh(subdiv) }
+        _ => { panic!("shape type unsupported"); }
+    };
+
+    (vertices, indices)
+}
+
 pub (crate) fn calculate_convex_subcomponent_shapes<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(shape: &Box<S>, max_convex_hulls: u32) -> Vec<OParryShpGenericHierarchy<T, P>> {
     let ts = shape.as_typed_shape();
 

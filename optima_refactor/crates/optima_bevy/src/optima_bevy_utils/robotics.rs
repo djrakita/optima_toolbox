@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use ad_trait::AD;
@@ -14,7 +15,7 @@ use optima_3d_spatial::optima_3d_vec::O3DVec;
 use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSidePanel, OEguiSlider, OEguiTopBottomPanel, OEguiWidgetTrait};
 use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategory, OVec};
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryPairSelector, ProximityLossFunction, ToParryProximityOutputTrait};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryPairSelector, ProximityLossFunction, SkipReason, ToParryProximityOutputTrait};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_robotics::robot::{FKResult, ORobot, SaveRobot};
 use optima_robotics::robot_set::ORobotSet;
@@ -25,6 +26,8 @@ use crate::{BevySystemSet, OptimaBevyTrait};
 use crate::optima_bevy_utils::storage::BevyAnyHashmap;
 use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsActions;
 use optima_proximity::shape_scene::ShapeSceneTrait;
+use optima_proximity::shapes::OParryShape;
+use optima_universal_hashmap::AHashMapWrapper;
 
 pub struct RoboticsActions;
 impl RoboticsActions {
@@ -326,7 +329,7 @@ impl RoboticsSystems {
                             let state = robot_state_engine.get_robot_state(0);
                             if let Some(state) = state {
                                 let state = OVec::ovec_to_other_ad_type::<T>(state);
-                                let p = robot.0.parry_shape_scene().get_poses(&(&robot.0, &state));
+                                let p = robot.0.parry_shape_scene().get_shape_poses(&(&robot.0, &state));
                                 let s = robot.0.parry_shape_scene().get_shapes();
                                 let skips = robot.0.parry_shape_scene().get_pair_skips();
                                 let a = robot.0.parry_shape_scene().get_pair_average_distances();
@@ -343,7 +346,7 @@ impl RoboticsSystems {
                                     let res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), &p1[0], skips, &(), false, &ParryIntersectGroupArgs::new(p2[0].clone(), false, false));
 
                                     // let fr = ParryDistanceGroupSequenceFilter::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a, &ParryDistanceGroupSequenceFilterArgs::new(vec![], vec![], T::constant(0.6), true, ParryDisMode::ContactDis));
-                                    let res2 = ParryDistanceGroupQry::query(s, s, p.as_ref(), p.as_ref(), &p1[0], skips, a, false, &ParryDistanceGroupArgs::new(p2[0].clone(), ParryDisMode::ContactDis, true, false, T::constant(f64::MIN)));
+                                    let res2 = ParryDistanceGroupQry::query(s, s, p.as_ref(), p.as_ref(), &p1[0], skips, a, false, &ParryDistanceGroupArgs::new(p2[0].clone(), ParryDisMode::ContactDis, true, false, T::constant(f64::MIN), false));
 
                                     let proximity_objective_value = res2.get_proximity_objective_value(T::constant(0.6), T::constant(20.0), ProximityLossFunction::Hinge);
 
@@ -475,7 +478,32 @@ impl RobotStateEngine {
 }
 
 #[derive(Resource)]
-pub struct BevyORobot<T: AD, C: O3DPoseCategory + Send + 'static, L: OLinalgCategory>(pub ORobot<T, C, L>);
+pub struct BevyORobot<T: AD, C: O3DPoseCategory + Send + 'static, L: OLinalgCategory + 'static>(pub ORobot<T, C, L>);
+impl<T: AD, C: O3DPoseCategory + Send + 'static, L: OLinalgCategory + 'static> ShapeSceneTrait<T, C::P<T>> for BevyORobot<T, C, L> {
+    type ShapeType = OParryShape<T, C::P<T>>;
+    type GetPosesInput<'a, V: OVec<T>> = V where Self: 'a;
+    type PairSkipsType = AHashMapWrapper<(u64, u64), Vec<SkipReason>>;
+
+    #[inline(always)]
+    fn get_shapes(&self) -> &Vec<Self::ShapeType> {
+        self.0.parry_shape_scene().get_shapes()
+    }
+
+    #[inline(always)]
+    fn get_shape_poses<'a, V: OVec<T>>(&'a self, input: &Self::GetPosesInput<'a, V>) -> Cow<Vec<C::P<T>>> {
+        self.0.get_shape_poses(input)
+    }
+
+    #[inline(always)]
+    fn get_pair_skips(&self) -> &Self::PairSkipsType {
+        self.0.parry_shape_scene().get_pair_skips()
+    }
+
+    #[inline(always)]
+    fn shape_id_to_shape_str(&self, id: u64) -> String {
+        self.0.parry_shape_scene().shape_id_to_shape_str(id)
+    }
+}
 
 #[derive(Resource)]
 pub struct BevyRobotInterpolator<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(pub I, PhantomData<(T, V)>);

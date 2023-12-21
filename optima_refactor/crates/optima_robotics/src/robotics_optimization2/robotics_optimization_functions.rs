@@ -51,6 +51,7 @@ pub fn robot_ik_goals_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, ik_goal
 
     ik_goals.iter().for_each(|ik_goal| {
         let pose = fk_res.get_link_pose(ik_goal.goal_link_idx).as_ref().expect("error");
+        // let interpolated_ik_goal = pose.interpolate_with_max_translation_and_rotation(&ik_goal.goal_pose, max_translation, max_rotation);
         let dis = pose.dis(&ik_goal.goal_pose);
         out += ik_goal.weight * dis;
     });

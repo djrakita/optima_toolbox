@@ -8,7 +8,7 @@ fn main() {
     let mut r = ORobotDefault::load_from_saved_robot("ur5");
     let s = r.parry_shape_scene().get_shapes();
     let state = vec![0.,0.,2.85,0.,0.,0.];
-    let p = r.parry_shape_scene().get_poses(&(&r, &state));
+    let p = r.parry_shape_scene().get_shape_poses(&(&r, &state));
     let av = r.parry_shape_scene().get_pair_average_distances();
     let res = ParryDistanceWrtAverageGroupQry::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairsSubcomponents, r.parry_shape_scene().get_pair_skips(), &ParryDistanceWrtAverageGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, av, -100000000.0));
     println!("{:?}", res.outputs()[0].data().raw_distance());

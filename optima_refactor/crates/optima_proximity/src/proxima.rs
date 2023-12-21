@@ -106,14 +106,21 @@ impl OPairGroupQryTrait for ParryProximaQry {
                 Some(data) => {
                     let lower_bound_through_loss_and_powf = args.loss_function.loss(data.distance_upper_bound_wrt_average, args.cutoff_distance).powf(args.p_norm);
                     let upper_bound_through_loss_and_powf = args.loss_function.loss(data.distance_lower_bound_wrt_average, args.cutoff_distance).powf(args.p_norm);
+                    let diff = upper_bound_through_loss_and_powf - lower_bound_through_loss_and_powf;
                     proximity_lower_bound_sum += lower_bound_through_loss_and_powf;
                     proximity_upper_bound_sum += upper_bound_through_loss_and_powf;
-                    v.push( (lower_bound_through_loss_and_powf, upper_bound_through_loss_and_powf, &data.displacement_between_a_and_b_k, x.pair_ids(), x.pair_idxs()) );
+                    // &(T, T, T, &P, (u64, u64), &ParryPairIdxs)
+                    let idx = v.binary_search_by(|x: &(T, T, T, &P, (u64, u64), &ParryPairIdxs)| diff.partial_cmp(&x.0).unwrap());
+                    let idx = match idx {
+                        Ok(idx) => { idx }
+                        Err(idx) => { idx }
+                    };
+                    v.insert(idx, (diff, lower_bound_through_loss_and_powf, upper_bound_through_loss_and_powf, &data.displacement_between_a_and_b_k, x.pair_ids(), x.pair_idxs()));
                 }
             }
         });
 
-        v.sort_by(|x, y| { (y.1 - y.0).partial_cmp(&(x.1 - x.0)).expect(&format!("y.1 {:?}, y.0 {:?}, x.1 {:?}, x.0 {:?}", y.1, y.0, x.1, x.0)) });
+        // v.sort_by(|x, y| { y.0.partial_cmp(&x.0).expect(&format!("y.1 {:?}, y.0 {:?}, x.1 {:?}, x.0 {:?}", y.1, y.0, x.1, x.0)) });
 
         let mut proximity_lower_bound_output;
         let mut proximity_upper_bound_output;
@@ -142,11 +149,11 @@ impl OPairGroupQryTrait for ParryProximaQry {
             if terminate { break 'l; }
 
             let curr_entry = &v[num_queries];
-            let lower_bound_through_loss_and_powf = curr_entry.0;
-            let upper_bound_through_loss_and_powf = curr_entry.1;
-            let displacement_between_a_and_b_k = curr_entry.2;
-            let ids = curr_entry.3;
-            let idxs = curr_entry.4;
+            let lower_bound_through_loss_and_powf = curr_entry.1;
+            let upper_bound_through_loss_and_powf = curr_entry.2;
+            let displacement_between_a_and_b_k = curr_entry.3;
+            let ids = curr_entry.4;
+            let idxs = curr_entry.5;
             let poses = match idxs {
                 ParryPairIdxs::Shapes(i, j) => { (&poses_a[*i], &poses_b[*j]) }
                 ParryPairIdxs::ShapeSubcomponents((i, _), (j, _)) => { (&poses_a[*i], &poses_b[*j]) }
@@ -160,6 +167,7 @@ impl OPairGroupQryTrait for ParryProximaQry {
             let distance_wrt_average = data.distance_wrt_average.expect("this should never be none");
             let contact = data.contact().expect("this should never be none");
             let raw_distance = &contact.dist;
+            num_queries += 1;
 
             let ground_truth_through_loss_and_powf = args.loss_function.loss(distance_wrt_average, args.cutoff_distance).powf(args.p_norm);
             proximity_lower_bound_sum -= lower_bound_through_loss_and_powf;
@@ -199,12 +207,10 @@ impl OPairGroupQryTrait for ParryProximaQry {
                 }
             }
             */
-
-            num_queries += 1;
         }
 
         Box::new(ParryProximaGroupOutput {
-            output_proximity_value: proximity_upper_bound_output,
+            output_proximity_value: T::constant(0.01)*proximity_upper_bound_output + T::constant(0.99)*proximity_lower_bound_output,
             maximum_possible_proximity_value_error: max_possible_error,
             aux_data: ParryOutputAuxData { num_queries, duration: start.elapsed() },
         })

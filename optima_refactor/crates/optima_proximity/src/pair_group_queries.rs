@@ -372,9 +372,10 @@ impl OPairGroupQryTrait for ParryDistanceGroupQry {
         };
 
         let (mut outputs, num_queries) = parry_generic_pair_group_query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, &args.parry_shape_rep, pair_skips, args.for_filter, f, termination);
-        println!("{:?}", outputs.len());
 
-        outputs.sort_by(|x, y| x.data.partial_cmp(&y.data).unwrap());
+        if args.sort_outputs {
+            outputs.sort_by(|x, y| x.data.partial_cmp(&y.data).unwrap());
+        }
 
         Box::new(ParryDistanceGroupOutput {
             min_dis_wrt_average: if outputs.len() == 0 { T::constant(100_000_000.0) } else { outputs[0].data.distance_wrt_average },
@@ -394,11 +395,12 @@ pub struct ParryDistanceGroupArgs<T: AD> {
     use_average_distance: bool,
     for_filter: bool,
     #[serde_as(as = "SerdeAD<T>")]
-    termination_distance_threshold: T
+    termination_distance_threshold: T,
+    sort_outputs: bool
 }
 impl<T: AD> ParryDistanceGroupArgs<T> {
-    pub fn new(parry_shape_rep: ParryShapeRep, parry_dis_mode: ParryDisMode, use_average_distance: bool, for_filter: bool, termination_distance_threshold: T) -> Self {
-        Self { parry_shape_rep, parry_dis_mode, use_average_distance, for_filter, termination_distance_threshold }
+    pub fn new(parry_shape_rep: ParryShapeRep, parry_dis_mode: ParryDisMode, use_average_distance: bool, for_filter: bool, termination_distance_threshold: T, sort_outputs: bool) -> Self {
+        Self { parry_shape_rep, parry_dis_mode, use_average_distance, for_filter, termination_distance_threshold, sort_outputs }
     }
 }
 
@@ -877,7 +879,7 @@ impl OPairGroupQryTrait for ParryDistanceGroupFilter {
     type OutputCategory = PairGroupQryOutputCategoryParryFilter;
 
     fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, _freeze: bool, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
-        let qry = OwnedPairGroupQry::<T, ParryDistanceGroupQry>::new(ParryDistanceGroupArgs::new(args.parry_shape_rep.clone(), args.parry_dis_mode.clone(), args.use_average_distance, true, T::constant(f64::MIN)));
+        let qry = OwnedPairGroupQry::<T, ParryDistanceGroupQry>::new(ParryDistanceGroupArgs::new(args.parry_shape_rep.clone(), args.parry_dis_mode.clone(), args.use_average_distance, true, T::constant(f64::MIN), false));
         let f = | output: &Box<ParryDistanceGroupOutput<T>> | -> Vec<ParryPairIdxs> {
             let mut a = vec![];
             output.outputs.iter().for_each(|x| {

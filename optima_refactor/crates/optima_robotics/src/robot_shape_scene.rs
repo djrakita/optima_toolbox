@@ -696,8 +696,8 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
 
         let shapes = &self.shapes;
         for state in non_collision_states {
-            let poses = self.get_poses(&(robot, state));
-            let poses = poses.as_ref();
+            let poses = self.get_shape_poses(&(robot, state));
+            let poses = poses.as_ref().clone();
 
             for shape_rep in &shape_reps {
                 for selector in &selectors {
@@ -734,7 +734,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                     progress_bar.set(count as u64);
 
                     let sample = robot.sample_pseudorandom_state();
-                    let poses = self.get_poses(&(robot, &sample));
+                    let poses = self.get_shape_poses(&(robot, &sample));
                     let poses = poses.as_ref();
 
                     let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), false, &ParryIntersectGroupArgs::new(shape_rep.clone(), false, false));
@@ -781,7 +781,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                     progress_bar.set(count as u64);
 
                     let sample = robot.sample_pseudorandom_state();
-                    let poses = self.get_poses(&(robot, &sample));
+                    let poses = self.get_shape_poses(&(robot, &sample));
                     let poses = poses.as_ref();
 
                     let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), false, &ParryIntersectGroupArgs::new(shape_rep.clone(), false, false));
@@ -820,12 +820,12 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                 let mut progress_bar = get_default_progress_bar(num_samples);
                 for i in 0..num_samples {
                     let state = robot.sample_pseudorandom_state();
-                    let poses = self.get_poses(&(robot, &state));
+                    let poses = self.get_shape_poses(&(robot, &state));
                     let poses = poses.as_ref();
                     progress_bar.message(&format!("shape rep {:?}, selector {:?}: average distance sample {} of {}", shape_rep, selector, i, num_samples));
                     progress_bar.set(i as u64);
 
-                    let res = ParryDistanceGroupQry::query(shapes, shapes, poses, poses, selector, &(), &(), false, &ParryDistanceGroupArgs::new(shape_rep.clone(), ParryDisMode::ContactDis, false, false, T::constant(f64::MIN)));
+                    let res = ParryDistanceGroupQry::query(shapes, shapes, poses, poses, selector, &(), &(), false, &ParryDistanceGroupArgs::new(shape_rep.clone(), ParryDisMode::ContactDis, false, false, T::constant(f64::MIN), false));
                     res.outputs().iter().for_each(|output| {
                         let ids = output.pair_ids();
 
@@ -942,8 +942,8 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ShapeSce
     }
 
     #[inline(always)]
-    fn get_poses<'a, V: OVec<T>>(&self, input: &Self::GetPosesInput<'a, V>) -> Cow<'a, Vec<C::P<T>>> {
-        input.0.get_shape_poses(input.1)
+    fn get_shape_poses<'a, V: OVec<T>>(&'a self, input: &Self::GetPosesInput<'a, V>) -> Cow<Vec<C::P<T>>> {
+        input.0.get_shape_poses_internal(input.1)
     }
 
     #[inline(always)]

@@ -9,7 +9,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeTuple;
 use serde_with::{DeserializeAs, SerializeAs};
-use crate::optima_3d_vec::O3DVec;
+use optima_linalg::OVec;
+use crate::optima_3d_vec::{O3DVec, O3DVecCategoryArr};
 use crate::optima_3d_rotation::{O3DRotation, O3DRotationConstructor, ScaledAxis};
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
@@ -28,6 +29,7 @@ pub trait O3DPose<T: AD> :
 {
     type Category: O3DPoseCategory;
     type RotationType: O3DRotation<T>;
+    type LieAlgebraType : OVec<T>;
 
     fn type_identifier() -> O3DPoseType;
     fn identity() -> Self;
@@ -53,6 +55,33 @@ pub trait O3DPose<T: AD> :
     fn magnitude(&self) -> T;
     fn dis(&self, other: &Self) -> T;
     fn interpolate(&self, to: &Self, t: T) -> Self;
+    fn ln(&self) -> Self::LieAlgebraType;
+    fn exp(lie: &Self::LieAlgebraType) -> Self;
+    #[inline(always)]
+    fn interpolate_with_separate_max_translation_and_rotation(&self, to: &Self, max_translation: T, max_rotation: T) -> Self {
+        let t_disp = to.translation().o3dvec_sub(self.translation()).o3dvec_to_other_generic_category::<T, O3DVecCategoryArr>();
+        let r_disp = self.rotation().displacement(to.rotation()).scaled_axis_of_rotation();
+
+        let t_n = t_disp.norm().max(T::constant(0.0000001));
+        let r_n = r_disp.norm().max(T::constant(0.0000001));
+
+        let binding = t_disp.ovec_scalar_div(&t_n).ovec_scalar_mul(& t_n.min(max_translation) );
+        let t_disp_new = binding.o3dvec_downcast_or_convert::< <Self::RotationType as O3DRotation<T>>::Native3DVecType  >();
+        let r_disp_new = r_disp.ovec_scalar_div(&r_n).ovec_scalar_mul(& r_n.min(max_rotation) );
+
+        let new_translation = self.translation().o3dvec_add(t_disp_new.as_ref());
+        let new_rotation = self.rotation().mul( &Self::RotationType::from_scaled_axis_of_rotation(&r_disp_new) );
+
+        Self::from_translation_and_rotation(&new_translation, &new_rotation)
+    }
+    #[inline(always)]
+    fn interpolate_with_combined_max_translation_and_rotation(&self, to: &Self, max_translation_and_rotation: T) -> Self {
+        let disp = to.displacement(self);
+        let ln = disp.ln();
+        let n = ln.ovec_p_norm(&T::constant(2.0)).max(T::constant(0.000001));
+        let new_ln = ln.ovec_scalar_div(&n).ovec_scalar_mul(&n.min(max_translation_and_rotation));
+        self.mul(&Self::exp(&new_ln))
+    }
     #[inline(always)]
     fn o3dpose_to_constant_ads(&self) -> Self {
         let translation = self.translation().o3dvec_to_constant_ads();
@@ -93,6 +122,7 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
 {
     type Category = O3DPoseCategoryImplicitDualQuaternion;
     type RotationType = UnitQuaternion<T>;
+    type LieAlgebraType = Vector6<T>;
 
     #[inline(always)]
     fn type_identifier() -> O3DPoseType {
@@ -204,6 +234,17 @@ impl<T: AD> O3DPose<T> for ImplicitDualQuaternion<T>
             rotation: orientation,
         }
     }
+
+    #[inline(always)]
+    fn ln(&self) -> Self::LieAlgebraType {
+        generic_pose_ln(&self.translation, &self.rotation)
+    }
+
+    #[inline(always)]
+    fn exp(lie: &Self::LieAlgebraType) -> Self {
+        let (t, r) = generic_pose_exp(&lie);
+        Self::from_translation_and_rotation(&t, &r)
+    }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct O3DPoseCategoryImplicitDualQuaternion;
@@ -214,6 +255,7 @@ impl O3DPoseCategory for O3DPoseCategoryImplicitDualQuaternion {
 impl<T: AD> O3DPose<T> for Isometry3<T> {
     type Category = O3DPoseCategoryIsometry3;
     type RotationType = UnitQuaternion<T>;
+    type LieAlgebraType = Vector6<T>;
 
     fn type_identifier() -> O3DPoseType {
         O3DPoseType::NalgebraIsometry3
@@ -288,6 +330,17 @@ impl<T: AD> O3DPose<T> for Isometry3<T> {
     #[inline(always)]
     fn interpolate(&self, to: &Self, t: T) -> Self {
         self.lerp_slerp(to, t)
+    }
+
+    #[inline(always)]
+    fn ln(&self) -> Self::LieAlgebraType {
+        generic_pose_ln(&self.translation.vector, &self.rotation)
+    }
+
+    #[inline(always)]
+    fn exp(lie: &Self::LieAlgebraType) -> Self {
+        let (t, r) = generic_pose_exp(&lie);
+        Self::from_translation_and_rotation(&t, &r)
     }
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]

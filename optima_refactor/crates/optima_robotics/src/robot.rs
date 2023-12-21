@@ -12,7 +12,8 @@ use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3, O3DPo
 use crate::utils::get_urdf_path_from_chain_name;
 use serde_with::*;
 use optima_3d_mesh::{SaveToSTL, ToTriMesh};
-use optima_3d_spatial::optima_3d_vec::O3DVecCategoryArr;
+use optima_3d_spatial::optima_3d_rotation::O3DRotation;
+use optima_3d_spatial::optima_3d_vec::{O3DVec, O3DVecCategoryArr};
 use optima_console::output::{oprint, PrintColor, PrintMode};
 use optima_console::tab;
 use optima_file::path::{OAssetLocation, OPath, OPathMatchingPattern, OPathMatchingStopCondition, OStemCellPath};
@@ -23,10 +24,11 @@ use crate::robotics_functions::compute_chain_info;
 use crate::robotics_traits::{AsRobotTrait, JointTrait};
 use optima_misc::arr_storage::MutArrTraitRaw;
 use optima_misc::arr_storage::ImmutArrTraitRaw;
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, PairGroupQryOutputCategoryParryFilter, PairGroupQryOutputCategory, ParryFilterOutput, ParryPairSelector, ToParryProximityOutputCategory};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, PairGroupQryOutputCategoryParryFilter, PairGroupQryOutputCategory, ParryFilterOutput, ParryPairSelector, ToParryProximityOutputCategory, SkipReason};
 use optima_proximity::shape_scene::ShapeSceneTrait;
-use optima_proximity::shapes::ShapeCategoryOParryShape;
+use optima_proximity::shapes::{OParryShape, ShapeCategoryOParryShape};
 use optima_sampling::SimpleSampler;
+use optima_universal_hashmap::AHashMapWrapper;
 use crate::robot_shape_scene::{ORobotParryShapeScene};
 use crate::robotics_optimization2::robotics_optimization_functions::{AxisDirection, LookAtTarget};
 use crate::robotics_optimization2::robotics_optimization_ik::{DifferentiableBlockIKObjective, DifferentiableFunctionClassIKObjective, DifferentiableFunctionIKObjective, IKGoal, IKGoalVecTrait};
@@ -405,7 +407,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
         }
     }
     */
-    pub fn get_shape_poses<V: OVec<T>>(&self, state: &V) -> Cow<Vec<C::P<T>>> {
+    pub (crate) fn get_shape_poses_internal<V: OVec<T>>(&self, state: &V) -> Cow<Vec<C::P<T>>> {
         let fk_res = self.forward_kinematics(state, None);
 
         self.get_shape_poses_from_fk_res(&fk_res)
@@ -432,7 +434,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
         where Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector>,
     {
         let shapes = self.parry_shape_scene.get_shapes();
-        let p = self.get_shape_poses(state);
+        let p = self.get_shape_poses_internal(state);
         let pair_skips = self.parry_shape_scene.get_pair_skips();
         let pair_average_distances = self.parry_shape_scene.get_pair_average_distances();
 
@@ -559,6 +561,26 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
         // self.parry_shape_scene.add_non_collision_states_pair_skips(&self, &vec![]);
 
         self.set_non_collision_states_internal(save_robot);
+    }
+    #[inline]
+    pub fn get_ik_goal<V: OVec<T>>(&self, state: &V, link_idx: usize, ik_goal_mode: IKGoalMode<T, C>) -> C::P<T> {
+        let fk_res = self.forward_kinematics(state, None);
+        let pose = fk_res.get_link_pose(link_idx).as_ref().expect("error");
+        return match ik_goal_mode {
+            IKGoalMode::Absolute => { pose.clone() }
+            IKGoalMode::LocalRelativeCombined { offset } => { pose.mul(&offset) }
+            IKGoalMode::GlobalRelativeCombined { offset } => { offset.mul(pose) }
+            IKGoalMode::LocalRelativeSeparate { offset } => {
+                let new_t = pose.translation().o3dvec_add(offset.translation());
+                let new_r = pose.rotation().mul(offset.rotation());
+                C::P::from_translation_and_rotation(&new_t, &new_r)
+            }
+            IKGoalMode::GlobalRelativeSeparate { offset } => {
+                let new_t = pose.translation().o3dvec_add(offset.translation());
+                let new_r = offset.rotation().mul(pose.rotation());
+                C::P::from_translation_and_rotation(&new_t, &new_r)
+            }
+        }
     }
     /*
     pub fn spawn_ik_differentiable_block<E: DerivativeMethodTrait>(&self, derivative_method_data: E::DerivativeMethodData) -> DifferentiableBlock<IKObjective<C, L>, E> {
@@ -1013,6 +1035,32 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> Debug for ORobot<T
         Ok(())
     }
 }
+impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ShapeSceneTrait<T, C::P<T>> for ORobot<T, C, L> {
+    type ShapeType = OParryShape<T, C::P<T>>;
+    type GetPosesInput<'a, V: OVec<T>> = V where Self: 'a;
+    type PairSkipsType = AHashMapWrapper<(u64, u64), Vec<SkipReason>>;
+
+    #[inline(always)]
+    fn get_shapes(&self) -> &Vec<Self::ShapeType> {
+        self.parry_shape_scene.get_shapes()
+    }
+
+    #[inline(always)]
+    fn get_shape_poses<'a, V: OVec<T>>(&'a self, input: &Self::GetPosesInput<'a, V>) -> Cow<Vec<C::P<T>>> {
+        self.get_shape_poses_internal(input)
+    }
+
+    #[inline(always)]
+    fn get_pair_skips(&self) -> &Self::PairSkipsType {
+        self.parry_shape_scene.get_pair_skips()
+    }
+
+    #[inline(always)]
+    fn shape_id_to_shape_str(&self, id: u64) -> String {
+        self.parry_shape_scene.shape_id_to_shape_str(id)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum RobotType {
     Robot,
@@ -1039,5 +1087,13 @@ impl<T: AD, P: O3DPose<T>> FKResult<T, P> {
 pub enum SaveRobot<'a> {
     Save(Option<&'a str>),
     DoNotSave
+}
+
+pub enum IKGoalMode<T: AD, C: O3DPoseCategory> {
+    Absolute,
+    LocalRelativeCombined { offset: C::P<T> },
+    GlobalRelativeCombined { offset: C::P<T> },
+    LocalRelativeSeparate { offset: C::P<T> },
+    GlobalRelativeSeparate { offset: C::P<T> }
 }
 

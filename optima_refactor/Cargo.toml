@@ -28,7 +28,8 @@ members = [
     "crates/optima_sampling",
     "crates/optima_interpolation",
     "crates/optima_proximity",
-    "crates/optima_universal_hashmap"
+    "crates/optima_universal_hashmap",
+    "crates/optima_unity_wrappers"
 ]
 
 [dependencies]

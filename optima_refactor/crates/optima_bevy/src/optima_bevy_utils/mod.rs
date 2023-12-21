@@ -6,3 +6,4 @@ pub mod lights;
 pub mod viewport_visuals;
 pub mod transform_widget;
 pub mod storage;
+pub mod shape_scene;
