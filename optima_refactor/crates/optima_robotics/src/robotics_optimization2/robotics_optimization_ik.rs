@@ -98,7 +98,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> w
                 Some(selector) => {
                     robot_self_proximity_objective(&self.robot, &fk_res, &self.distance_query, selector, self.dis_filter_cutoff, T::constant(15.0), ProximityLossFunction::Hinge, freeze)
                 }
-            };
+            }.powi(2);
             // println!("{:?}", tmp);
             let tmp = self.collision_avoidance_weight * loss.loss(tmp);
             // println!("...{:?}", tmp);

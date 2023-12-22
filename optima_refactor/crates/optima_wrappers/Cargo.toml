@@ -1,0 +1,15 @@
+[package]
+name = "optima_unity_wrappers"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ad_trait = { git = "https://github.com/djrakita/ad_trait" }
+optima_robotics = { path = "../optima_robotics" }
+optima_3d_spatial = { path = "../optima_3d_spatial" }
+optima_linalg = { path = "../optima_linalg" }
+optima_proximity = { path = "../optima_proximity" }
+optima_optimization2 = { path = "../optima_optimization2" }
+
