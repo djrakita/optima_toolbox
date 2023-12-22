@@ -27,5 +27,6 @@ serde_json = { version="*" }
 serde_with = { version="3.2.0" }
 optimization_engine = { version = "0.7.7" }
 ahash = { version="0.8.6", features=["serde"] }
-parry_ad = { package = "parry3d-f64", path = "/Users/djrakita/Documents/parry_ad/crates/parry3d-f64" }
+parry_ad = { package = "parry3d-f64", git="https://github.com/djrakita/parry_ad" }
+# parry_ad = { package = "parry3d-f64", path = "/Users/djrakita/Documents/parry_ad/crates/parry3d-f64" }
 num-traits = "0.2.17"
