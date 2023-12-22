@@ -110,16 +110,19 @@ impl OPairGroupQryTrait for ParryProximaQry {
                     proximity_lower_bound_sum += lower_bound_through_loss_and_powf;
                     proximity_upper_bound_sum += upper_bound_through_loss_and_powf;
                     // &(T, T, T, &P, (u64, u64), &ParryPairIdxs)
-                    let idx = v.binary_search_by(|x: &(T, T, T, &P, (u64, u64), &ParryPairIdxs)| diff.partial_cmp(&x.0).unwrap());
-                    let idx = match idx {
-                        Ok(idx) => { idx }
-                        Err(idx) => { idx }
-                    };
-                    v.insert(idx, (diff, lower_bound_through_loss_and_powf, upper_bound_through_loss_and_powf, &data.displacement_between_a_and_b_k, x.pair_ids(), x.pair_idxs()));
+                    // let idx = v.binary_search_by(|x: &(T, T, T, &P, (u64, u64), &ParryPairIdxs)| diff.partial_cmp(&x.0).expect(&format!("{:?}, {:?}", diff, x.0)));
+                    // let idx = match idx {
+                    //     Ok(idx) => { idx }
+                    //     Err(idx) => { idx }
+                    // };
+                    // v.insert(idx, (diff, lower_bound_through_loss_and_powf, upper_bound_through_loss_and_powf, &data.displacement_between_a_and_b_k, x.pair_ids(), x.pair_idxs()));
+                    v.push((diff, lower_bound_through_loss_and_powf, upper_bound_through_loss_and_powf, &data.displacement_between_a_and_b_k, x.pair_ids(), x.pair_idxs()));
                 }
             }
         });
 
+        let mut indices = (0..v.len()).collect::<Vec<_>>();
+        indices.sort_by(|x, y| v[*x].0.partial_cmp(&v[*y].0).unwrap());
         // v.sort_by(|x, y| { y.0.partial_cmp(&x.0).expect(&format!("y.1 {:?}, y.0 {:?}, x.1 {:?}, x.0 {:?}", y.1, y.0, x.1, x.0)) });
 
         let mut proximity_lower_bound_output;
@@ -128,6 +131,7 @@ impl OPairGroupQryTrait for ParryProximaQry {
 
         let mut num_queries = 0;
 
+        let mut idx = indices.len();
         'l: loop {
             proximity_lower_bound_output = proximity_lower_bound_sum.powf(args.p_norm.recip());
             proximity_upper_bound_output = proximity_upper_bound_sum.powf(args.p_norm.recip());
@@ -135,6 +139,8 @@ impl OPairGroupQryTrait for ParryProximaQry {
             max_possible_error = (proximity_upper_bound_output - proximity_lower_bound_output).abs();
 
             if num_queries >= v.len() { break 'l; }
+            if idx == 0 { break 'l; }
+            idx -= 1;
 
             let mut terminate = false;
             match &args.termination {
@@ -142,13 +148,13 @@ impl OPairGroupQryTrait for ParryProximaQry {
                     if start.elapsed() > *t { terminate = true; }
                 }
                 ProximaTermination::MaxError(e) => {
-                    if max_possible_error.to_constant() < * e { terminate = true; }
+                    if max_possible_error.to_constant() < *e { terminate = true; }
                 }
             }
 
             if terminate { break 'l; }
 
-            let curr_entry = &v[num_queries];
+            let curr_entry = &v[idx];
             let lower_bound_through_loss_and_powf = curr_entry.1;
             let upper_bound_through_loss_and_powf = curr_entry.2;
             let displacement_between_a_and_b_k = curr_entry.3;
@@ -186,27 +192,27 @@ impl OPairGroupQryTrait for ParryProximaQry {
             block.displacement_between_a_and_b_j_staging = displacement_between_a_and_b_k.o3dpose_downcast_or_convert::<Isometry3<T>>().as_ref().o3dpose_to_constant_ads();
 
             /*
-            match block {
-                None => {
-                    binding.hashmap.insert(ids, ProximaGenericBlock {
-                        pose_a_j: poses.0.o3dpose_downcast_or_convert::<Isometry3<T>>().as_ref().clone(),
-                        pose_b_j: poses.1.o3dpose_downcast_or_convert::<Isometry3<T>>().as_ref().clone(),
-                        closest_point_a_j: contact.point1.o3dvec_downcast_or_convert::<Vector3<T>>().as_ref().clone(),
-                        closest_point_b_j: contact.point2.o3dvec_downcast_or_convert::<Vector3<T>>().as_ref().clone(),
-                        raw_distance_j: *raw_distance,
-                        displacement_between_a_and_b_j: displacement_between_a_and_b_k.o3dpose_downcast_or_convert::<Isometry3<T>>().as_ref().clone(),
-                    });
-                }
-                Some(block) => {
-                    block.displacement_between_a_and_b_j = displacement_between_a_and_b_k.o3dpose_downcast_or_convert::<Isometry3<T>>().as_ref().clone();
-                    block.raw_distance_j = *raw_distance;
-                    block.closest_point_a_j = contact.point1.o3dvec_downcast_or_convert::<Vector3<T>>().as_ref().clone();
-                    block.closest_point_b_j = contact.point2.o3dvec_downcast_or_convert::<Vector3<T>>().as_ref().clone();
-                    block.pose_a_j = poses.0.o3dpose_downcast_or_convert::<Isometry3<T>>().as_ref().clone();
-                    block.pose_b_j = poses.1.o3dpose_downcast_or_convert::<Isometry3<T>>().as_ref().clone();
-                }
+        match block {
+            None => {
+                binding.hashmap.insert(ids, ProximaGenericBlock {
+                    pose_a_j: poses.0.o3dpose_downcast_or_convert::<Isometry3<T>>().as_ref().clone(),
+                    pose_b_j: poses.1.o3dpose_downcast_or_convert::<Isometry3<T>>().as_ref().clone(),
+                    closest_point_a_j: contact.point1.o3dvec_downcast_or_convert::<Vector3<T>>().as_ref().clone(),
+                    closest_point_b_j: contact.point2.o3dvec_downcast_or_convert::<Vector3<T>>().as_ref().clone(),
+                    raw_distance_j: *raw_distance,
+                    displacement_between_a_and_b_j: displacement_between_a_and_b_k.o3dpose_downcast_or_convert::<Isometry3<T>>().as_ref().clone(),
+                });
             }
-            */
+            Some(block) => {
+                block.displacement_between_a_and_b_j = displacement_between_a_and_b_k.o3dpose_downcast_or_convert::<Isometry3<T>>().as_ref().clone();
+                block.raw_distance_j = *raw_distance;
+                block.closest_point_a_j = contact.point1.o3dvec_downcast_or_convert::<Vector3<T>>().as_ref().clone();
+                block.closest_point_b_j = contact.point2.o3dvec_downcast_or_convert::<Vector3<T>>().as_ref().clone();
+                block.pose_a_j = poses.0.o3dpose_downcast_or_convert::<Isometry3<T>>().as_ref().clone();
+                block.pose_b_j = poses.1.o3dpose_downcast_or_convert::<Isometry3<T>>().as_ref().clone();
+            }
+        }
+        */
         }
 
         Box::new(ParryProximaGroupOutput {

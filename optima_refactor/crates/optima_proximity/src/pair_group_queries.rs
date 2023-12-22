@@ -201,6 +201,14 @@ pub enum ParryPairSelector {
     HalfPairsSubcomponents,
     PairsByIdxs(Vec<ParryPairIdxs>)
 }
+impl ParryPairSelector {
+    pub fn len(&self) -> usize {
+        match self {
+            ParryPairSelector::PairsByIdxs(v) => { v.len() }
+            _ => { usize::MAX }
+        }
+    }
+}
 
 pub struct ParryPairGroupOutputWrapper<O> {
     data: O,
@@ -889,10 +897,11 @@ impl OPairGroupQryTrait for ParryDistanceGroupFilter {
         let f = | output: &Box<ParryDistanceGroupOutput<T>> | -> Vec<ParryPairIdxs> {
             let mut a = vec![];
             output.outputs.iter().for_each(|x| {
-                if x.data.raw_distance < args.distance_threshold {
+                if x.data.distance() < args.distance_threshold {
                     a.push(x.pair_idxs.clone());
                 }
             });
+            // println!("{:?}, {:?}", output.outputs.len(), a.len());
             a
         };
 

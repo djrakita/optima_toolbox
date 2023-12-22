@@ -226,6 +226,7 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceUpperBoun
     type Args<'a> = ParryProximaDistanceUpperBoundArgs<'a, T, P, <P::RotationType as O3DRotation<T>>::Native3DVecType>;
     type Output = ParryProximaDistanceUpperBoundOutput<T>;
 
+    #[inline(always)]
     fn query<'a>(_shape_a: &Self::ShapeTypeA, _shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
         let start = Instant::now();
         // let shapes = get_shapes_from_parry_qry_shape_type_and_parry_shape_rep(shape_a, shape_b, &args.0, &args.1);
@@ -291,6 +292,7 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceLowerBoun
     type Args<'a> = ParryProximaDistanceLowerBoundArgs<'a, T, P>;
     type Output = ParryProximaDistanceLowerBoundOutput<T, P>;
 
+    #[inline(always)]
     fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
         let start = Instant::now();
         let shapes = get_shapes_from_parry_qry_shape_type_and_parry_shape_rep(shape_a, shape_b, &args.parry_qry_shape_type, &args.parry_shape_rep);
@@ -337,6 +339,7 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceBoundsQry
     type Args<'a> = ParryProximaDistanceBoundsArgs<'a, T, P, <P::RotationType as O3DRotation<T>>::Native3DVecType>;
     type Output = ParryProximaDistanceBoundsOutputOption<T, P>;
 
+    #[inline(always)]
     fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
         let start = Instant::now();
 
