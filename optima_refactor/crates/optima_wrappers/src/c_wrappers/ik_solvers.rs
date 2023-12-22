@@ -11,6 +11,8 @@ use optima_proximity::proxima::{OwnedParryProximaAsProximityQry, PairGroupQryArg
 use optima_robotics::robot::ORobotDefault;
 use optima_robotics::robotics_optimization2::robotics_optimization_ik::DifferentiableBlockIKObjective;
 
+type FAD = adfn<8>;
+
 #[no_mangle]
 pub unsafe extern "C" fn get_default_robot(robot_name: *const c_char) -> *const ORobotDefault {
     let c_str = std::ffi::CStr::from_ptr(robot_name);
@@ -20,7 +22,7 @@ pub unsafe extern "C" fn get_default_robot(robot_name: *const c_char) -> *const 
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn get_default_ik_differentiable_block<'a>(robot: *const ORobotDefault, goal_link_idx: *const c_int, init_state: *const c_double, joint_state_length: c_int) -> *const DifferentiableBlockIKObjective<'a, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, ParryDistanceGroupSequenceFilter, ParryProximaAsProximityQry, ForwardADMulti2<adfn<8>>> {
+pub unsafe extern "C" fn get_default_ik_differentiable_block<'a>(robot: *const ORobotDefault, goal_link_idx: *const c_int, init_state: *const c_double, joint_state_length: c_int) -> *const DifferentiableBlockIKObjective<'a, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, ParryDistanceGroupSequenceFilter, ParryProximaAsProximityQry, ForwardADMulti2<FAD>> {
     let x_slice: &[c_double] = std::slice::from_raw_parts(init_state, joint_state_length as usize);
     let x = x_slice.to_vec();
     let goal_link_idx = goal_link_idx as usize;
@@ -28,7 +30,7 @@ pub unsafe extern "C" fn get_default_ik_differentiable_block<'a>(robot: *const O
     let fq = OwnedParryDistanceGroupSequenceFilter::new(ParryDistanceGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB, ParryShapeRep::Full], vec![], 0.6, true, ParryDisMode::ContactDis));
     let q = OwnedParryProximaAsProximityQry::new(PairGroupQryArgsParryProxima::new(ParryShapeRep::Full, true, false, ProximaTermination::MaxError(0.15), ProximityLossFunction::Hinge, 15.0, 0.6));
     // let q = OwnedParryDistanceAsProximityGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, true, false, -1000.0, false));
-    let db = robot.as_ref().unwrap().get_ik_differentiable_block(ForwardADMulti2::<adfn<8>>::new(), fq, q, None, &x, vec![goal_link_idx], 0.09, 0.6, 1.0, 0.1, 1.0, 0.3, 0.1);
+    let db = robot.as_ref().unwrap().get_ik_differentiable_block(ForwardADMulti2::<FAD>::new(), fq, q, None, &x, vec![goal_link_idx], 0.09, 0.6, 1.0, 0.1, 1.0, 0.3, 0.1);
 
     Box::into_raw(Box::new(db))
 }
@@ -41,12 +43,12 @@ pub unsafe extern "C" fn get_default_ik_optimizer(robot: *const ORobotDefault) -
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn update_ik_differentiable_block(differentiable_block: *const DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, ParryDistanceGroupSequenceFilter, ParryProximaAsProximityQry, ForwardADMulti2<adfn<8>>>) {
+pub unsafe extern "C" fn update_ik_differentiable_block(differentiable_block: *const DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, ParryDistanceGroupSequenceFilter, ParryProximaAsProximityQry, ForwardADMulti2<FAD>>) {
     todo!()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn ik_optimize(init_condition: *const c_double, joint_state_length: c_int, differentiable_block: *const DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, ParryDistanceGroupSequenceFilter, ParryProximaAsProximityQry, ForwardADMulti2<adfn<8>>>, optimizer: *const SimpleOpEnOptimizer) -> IKOptResult {
+pub unsafe extern "C" fn ik_optimize(init_condition: *const c_double, joint_state_length: c_int, differentiable_block: *const DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, ParryDistanceGroupSequenceFilter, ParryProximaAsProximityQry, ForwardADMulti2<FAD>>, optimizer: *const SimpleOpEnOptimizer) -> IKOptResult {
     let x_slice: &[c_double] = std::slice::from_raw_parts(init_condition, joint_state_length as usize);
     let x = x_slice.to_vec();
     let o = optimizer.as_ref().unwrap();
