@@ -12,4 +12,5 @@ optima_3d_spatial = { path = "../optima_3d_spatial" }
 optima_linalg = { path = "../optima_linalg" }
 optima_proximity = { path = "../optima_proximity" }
 optima_optimization2 = { path = "../optima_optimization2" }
+nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 
