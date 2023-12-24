@@ -10,7 +10,7 @@ use optima_proximity::pair_group_queries::{OwnedParryDistanceGroupSequenceFilter
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_proximity::proxima::{OwnedParryProximaAsProximityQry, PairGroupQryArgsParryProxima, ParryProximaAsProximityQry, ProximaTermination};
 use optima_robotics::robot::ORobotDefault;
-use optima_robotics::robotics_optimization2::robotics_optimization_ik::{DifferentiableBlockIKObjective, DifferentiableBlockIKObjectiveTrait, IKGoalUpdateMode};
+use optima_robotics::robotics_optimization::robotics_optimization_ik::{DifferentiableBlockIKObjective, DifferentiableBlockIKObjectiveTrait, IKGoalUpdateMode};
 
 type FAD = adfn<8>;
 

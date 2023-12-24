@@ -116,6 +116,11 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync + AsAny  {
 
         out
     }
+    #[inline(always)]
+    fn ovec_split_into_sub_vecs_owned(&self, len_of_subvec: usize) -> Vec<Self> {
+        let sub_vecs = self.ovec_split_into_sub_vecs(len_of_subvec);
+        sub_vecs.iter().map(|x| Self::ovec_from_slice(x)).collect()
+    }
     fn len(&self) -> usize;
     #[inline(always)]
     fn to_constant_vec(&self) -> Vec<f64> {
@@ -159,6 +164,18 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync + AsAny  {
         }
 
         return true;
+    }
+}
+
+pub trait VecOfOVecTrait<T: AD, V: OVec<T>> {
+    fn concatenate_all(&self) -> Vec<T>;
+}
+impl<T: AD, V: OVec<T>> VecOfOVecTrait<T, V> for Vec<V>  {
+    #[inline]
+    fn concatenate_all(&self) -> Vec<T> {
+        let mut out = vec![];
+        self.iter().for_each(|x| { x.ovec_as_slice().iter().for_each(|y| out.push(*y)) });
+        Vec::<T>::ovec_from_slice(&out)
     }
 }
 

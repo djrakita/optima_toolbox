@@ -4,7 +4,7 @@ use std::marker::PhantomData;
 use ad_trait::AD;
 use optima_linalg::OVec;
 
-pub trait InterpolatorTrait<T: AD, V: OVec<T>> : Clone {
+pub trait InterpolatorTraitLite<T: AD, V: OVec<T>> {
     fn interpolate(&self, t: T) -> V;
     fn max_t(&self) -> T;
     fn interpolate_on_range(&self, range_start: T, range_stop: T, t: T) -> V {
@@ -18,6 +18,19 @@ pub trait InterpolatorTrait<T: AD, V: OVec<T>> : Clone {
         let ratio = self.max_t() * u;
         return self.interpolate(ratio);
     }
+}
+impl<T: AD, V: OVec<T>, U: InterpolatorTraitLite<T, V>> InterpolatorTraitLite<T, V> for Box<U> {
+    fn interpolate(&self, t: T) -> V {
+        self.as_ref().interpolate(t)
+    }
+
+    #[inline(always)]
+    fn max_t(&self) -> T {
+        self.as_ref().max_t()
+    }
+}
+
+pub trait InterpolatorTrait<T: AD, V: OVec<T>> : Clone + InterpolatorTraitLite<T, V> {
     fn to_arclength_parameterized_interpolator(&self, num_arclength_markers: usize) -> ArclengthParameterizedInterpolator<T, V, Self> {
         ArclengthParameterizedInterpolator::new(self.clone(), num_arclength_markers)
     }
@@ -25,6 +38,7 @@ pub trait InterpolatorTrait<T: AD, V: OVec<T>> : Clone {
         TimedInterpolator::new(self.clone(), max_time)
     }
 }
+impl<T: AD, V: OVec<T>, U: InterpolatorTraitLite<T, V> + Clone> InterpolatorTrait<T, V> for U { }
 
 #[derive(Clone)]
 pub struct ArclengthParameterizedInterpolator<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> {
@@ -66,7 +80,7 @@ impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> ArclengthParameterizedInterp
         Self { interpolator, arclength_markers, total_arclength: accumulated_distance, phantom_data: PhantomData::default() }
     }
 }
-impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> InterpolatorTrait<T, V> for ArclengthParameterizedInterpolator<T, V, I> {
+impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> InterpolatorTraitLite<T, V> for ArclengthParameterizedInterpolator<T, V, I> {
     fn interpolate(&self, s: T) -> V {
         assert!( T::zero() <= s && s <= T::one() );
 
@@ -119,7 +133,7 @@ impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> TimedInterpolator<T, V, I> {
         Self { interpolator, max_time, phantom_data: PhantomData::default() }
     }
 }
-impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> InterpolatorTrait<T, V> for TimedInterpolator<T, V, I> {
+impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> InterpolatorTraitLite<T, V> for TimedInterpolator<T, V, I> {
     fn interpolate(&self, t: T) -> V {
         self.interpolator.interpolate_on_range(T::zero(), self.max_time, t)
     }
@@ -160,7 +174,7 @@ impl<T: AD, V: OVec<T>, SI: InterpolatorTrait<T, V>, TI: InterpolatorTrait<T, V>
 }
 */
 
-pub fn get_range<T: AD>(range_start: T, range_stop: T, step_size: T) -> Vec<T> {
+pub fn get_interpolation_range<T: AD>(range_start: T, range_stop: T, step_size: T) -> Vec<T> {
     let mut out_range = Vec::new();
     out_range.push(range_start);
     let mut last_added_val = range_start;
@@ -174,7 +188,22 @@ pub fn get_range<T: AD>(range_start: T, range_stop: T, step_size: T) -> Vec<T> {
         out_range.push(last_added_val);
     }
 
-    out_range.push(range_stop);
+    // out_range.push(range_stop);
 
     out_range
+}
+
+pub fn get_interpolation_range_num_steps<T: AD>(range_start: T, range_stop: T, num_steps: usize) -> Vec<T> {
+    let step_size = (range_stop - range_start) / T::constant(num_steps as f64 - 1.0);
+    get_interpolation_range(range_start, range_stop, step_size)
+}
+
+pub fn linearly_interpolate_points<T: AD, V: OVec<T>>(start_point: V, end_point: V, num_points: usize) -> Vec<V> {
+    let mut out = vec![];
+    let range = get_interpolation_range_num_steps(T::zero(), T::one(), num_points);
+    for t in &range {
+        let p = start_point.ovec_scalar_mul(&(T::one() - *t)).ovec_add( &end_point.ovec_scalar_mul(t) );
+        out.push( p );
+    }
+    out
 }

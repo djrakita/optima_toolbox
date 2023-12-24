@@ -1,5 +1,5 @@
 use ad_trait::AD;
-use optima_interpolation::get_range;
+use optima_interpolation::get_interpolation_range;
 use optima_linalg::OVec;
 use optima_sampling::SimpleSampler;
 
@@ -78,7 +78,7 @@ pub fn get_points_around_circle<T: AD, V: OVec<T>>(center_point: &V, rotation_ax
     let local_y = basis[2].clone();
 
     let step_size = T::constant(2.0*std::f64::consts::PI / (num_samples as f64));
-    let range = get_range(T::zero(), T::constant(2.0*std::f64::consts::PI), step_size);
+    let range = get_interpolation_range(T::zero(), T::constant(2.0*std::f64::consts::PI), step_size);
 
     let mut out_points = vec![];
 

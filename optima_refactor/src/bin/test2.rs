@@ -11,9 +11,9 @@ use optima_proximity::pair_group_queries::{OwnedEmptyParryFilter, OwnedEmptyToPr
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_proximity::proxima::{OwnedParryProximaAsProximityQry, PairGroupQryArgsParryProxima, ProximaTermination};
 use optima_robotics::robot::ORobotDefault;
-use optima_robotics::robotics_optimization2::robotics_optimization_functions::{AxisDirection, LookAtTarget};
-use optima_robotics::robotics_optimization2::robotics_optimization_ik::IKGoalUpdateMode;
-use optima_robotics::robotics_optimization2::robotics_optimization_look_at::DifferentiableBlockLookAtTrait;
+use optima_robotics::robotics_optimization::robotics_optimization_functions::{AxisDirection, LookAtTarget};
+use optima_robotics::robotics_optimization::robotics_optimization_ik::IKGoalUpdateMode;
+use optima_robotics::robotics_optimization::robotics_optimization_look_at::DifferentiableBlockLookAtTrait;
 
 fn main() {
     //robot.save_robot(Some("xarm7_bimanual_viewpoint"));

@@ -662,7 +662,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                         convex_shape_subcomponents_trimesh.push(x.clone());
                     });
 
-                    let shape = OParryShape::new_convex_shape_from_mesh_paths(convex_hull_file_path.clone(), C::P::identity(), Some(convex_shape_subcomponents_trimesh));
+                    let shape = OParryShape::new_default_convex_shape_from_mesh_paths(convex_hull_file_path.clone(), C::P::identity(), Some(convex_shape_subcomponents_trimesh));
 
                     id_to_string.hashmap.insert(shape.base_shape().base_shape().id(), format!("convex shape for link {} ({})", link.link_idx, link.name));
                     id_to_string.hashmap.insert(shape.base_shape().obb().id(), format!("obb for link {} ({})", link.link_idx, link.name));

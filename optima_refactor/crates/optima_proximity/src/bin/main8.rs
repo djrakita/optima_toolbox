@@ -11,10 +11,10 @@ fn main() {
 
     let q2 = OwnedParryDistanceGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, false, false, f64::MIN));
 
-    let s1 = OParryShape::new(Cuboid::new(Vector3::new(0.5,1.,0.1)), Isometry3::identity());
-    let s2 = OParryShape::new(Cuboid::new(Vector3::new(0.5,1.,0.1)), Isometry3::identity());
-    let s3 = OParryShape::new(Cuboid::new(Vector3::new(0.5,1.,0.1)), Isometry3::identity());
-    let s4 = OParryShape::new(Cuboid::new(Vector3::new(0.5,1.,0.1)), Isometry3::identity());
+    let s1 = OParryShape::new_default(Cuboid::new(Vector3::new(0.5, 1., 0.1)), Isometry3::identity());
+    let s2 = OParryShape::new_default(Cuboid::new(Vector3::new(0.5, 1., 0.1)), Isometry3::identity());
+    let s3 = OParryShape::new_default(Cuboid::new(Vector3::new(0.5, 1., 0.1)), Isometry3::identity());
+    let s4 = OParryShape::new_default(Cuboid::new(Vector3::new(0.5, 1., 0.1)), Isometry3::identity());
 
     let shapes = vec![s1, s2, s3, s4];
 

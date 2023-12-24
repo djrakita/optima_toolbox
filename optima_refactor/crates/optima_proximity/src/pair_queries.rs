@@ -296,8 +296,8 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceLowerBoun
     fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
         let start = Instant::now();
         let shapes = get_shapes_from_parry_qry_shape_type_and_parry_shape_rep(shape_a, shape_b, &args.parry_qry_shape_type, &args.parry_shape_rep);
-        let a_f = shapes.0.max_dis_from_origin_to_point_on_shape;
-        let b_f = shapes.1.max_dis_from_origin_to_point_on_shape;
+        let a_f = shapes.0.max_dis_from_origin_to_point_on_shape.expect("error: max dis from origin to point was not computed for this parry shape");
+        let b_f = shapes.1.max_dis_from_origin_to_point_on_shape.expect("error: max dis from origin to point was not computed for this parry shape");
         let max_f = a_f.max(b_f);
         let max_f2 = T::constant(2.0) * max_f * max_f;
 
@@ -471,8 +471,8 @@ pub (crate) fn parry_shape_lower_and_upper_bound<T: AD, P: O3DPose<T>>(shape_a: 
             let dis = shape_b.base_shape().distance(shape_b.base_shape(), pose_a, pose_b, &(parry_dis_mode.clone(), parry_shape_rep.clone(), Some(average_dis)));
             let upper_bound = match parry_shape_rep {
                 ParryShapeRep::Full => { dis.raw_distance }
-                ParryShapeRep::OBB => { dis.raw_distance  + shape_a.base_shape.obb_max_dis_error + shape_b.base_shape.obb_max_dis_error }
-                ParryShapeRep::BoundingSphere => { dis.raw_distance  + shape_a.base_shape.bounding_sphere_max_dis_error + shape_b.base_shape.bounding_sphere_max_dis_error }
+                ParryShapeRep::OBB => { dis.raw_distance  + shape_a.base_shape.obb_max_dis_error.expect("error: max dis error was not compute") + shape_b.base_shape.obb_max_dis_error.expect("error: max dis error was not compute") }
+                ParryShapeRep::BoundingSphere => { dis.raw_distance  + shape_a.base_shape.bounding_sphere_max_dis_error.expect("error: max dis error was not compute") + shape_b.base_shape.bounding_sphere_max_dis_error.expect("error: max dis error was not compute") }
             };
             ParryDistanceBoundsOutput {
                 distance_lower_bound_wrt_average: dis.raw_distance / average_dis,
@@ -518,8 +518,8 @@ pub (crate) fn parry_shape_lower_and_upper_bound<T: AD, P: O3DPose<T>>(shape_a: 
             let dis = shape_a_.distance(shape_b_, pose_a, pose_b, &(parry_dis_mode.clone(), parry_shape_rep.clone(), Some(average_dis)));
             let upper_bound = match parry_shape_rep {
                 ParryShapeRep::Full => { dis.raw_distance }
-                ParryShapeRep::OBB => { dis.raw_distance + shape_a.base_shape.obb_max_dis_error + shape_b.base_shape.obb_max_dis_error }
-                ParryShapeRep::BoundingSphere => { dis.raw_distance + shape_a.base_shape.bounding_sphere_max_dis_error + shape_b.base_shape.bounding_sphere_max_dis_error }
+                ParryShapeRep::OBB => { dis.raw_distance + shape_a.base_shape.obb_max_dis_error.expect("error: max dis error was not compute") + shape_b.base_shape.obb_max_dis_error.expect("error: max dis error was not compute") }
+                ParryShapeRep::BoundingSphere => { dis.raw_distance + shape_a.base_shape.bounding_sphere_max_dis_error.expect("error: max dis error was not compute") + shape_b.base_shape.bounding_sphere_max_dis_error.expect("error: max dis error was not compute") }
             };
             ParryDistanceBoundsOutput {
                 distance_lower_bound_wrt_average: dis.raw_distance / average_dis,

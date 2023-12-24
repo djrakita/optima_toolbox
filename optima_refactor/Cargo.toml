@@ -22,7 +22,6 @@ members = [
     "crates/optima_3d_mesh",
     "crates/optima_network",
     "crates/optima_optimization",
-    "crates/optima_optimization2",
     "crates/optima_bevy",
     "crates/optima_geometry",
     "crates/optima_sampling",
@@ -43,8 +42,7 @@ optima_misc = { path = "crates/optima_misc" }
 optima_linalg = { path = "crates/optima_linalg" }
 optima_3d_mesh = { path = "crates/optima_3d_mesh" }
 optima_network = { path = "crates/optima_network" }
-optima_optimization = { path = "crates/optima_optimization" }
-optima_optimization2 = { path = "crates/optima_optimization2" }
+optima_optimization2 = { path = "crates/optima_optimization" }
 optima_bevy = { path = "crates/optima_bevy" }
 optima_geometry = { path = "crates/optima_geometry" }
 optima_sampling = { path = "crates/optima_sampling" }

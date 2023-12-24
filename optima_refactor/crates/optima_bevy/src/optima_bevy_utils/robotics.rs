@@ -18,8 +18,6 @@ use optima_linalg::{OLinalgCategory, OVec};
 use optima_proximity::pair_group_queries::{OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryPairSelector, ProximityLossFunction, SkipReason, ToParryProximityOutputTrait};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_robotics::robot::{FKResult, ORobot, SaveRobot};
-use optima_robotics::robot_set::ORobotSet;
-use optima_robotics::robotics_traits::AsRobotTrait;
 use crate::optima_bevy_utils::file::get_asset_path_str_from_ostemcellpath;
 use crate::optima_bevy_utils::transform::TransformUtils;
 use crate::{BevySystemSet, OptimaBevyTrait};
@@ -420,13 +418,21 @@ impl RoboticsSystems {
 
 pub trait BevyRoboticsTrait<T: AD> {
     fn bevy_display(&self);
+    fn bevy_get_display_app(&self) -> App;
     fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(&self, interpolator: &I);
+    fn bevy_get_motion_playback_app<V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(&self, interpolator: &I) -> App;
     fn bevy_self_collision_visualization(&mut self);
+    fn bevy_get_self_collision_visualization_app(&mut self) -> App;
 }
 
 impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> BevyRoboticsTrait<T> for ORobot<T, C, L> {
     fn bevy_display(&self) {
-        App::new()
+        self.bevy_get_display_app().run();
+    }
+
+    fn bevy_get_display_app(&self) -> App {
+        let mut app = App::new();
+        app
             .optima_bevy_base()
             .optima_bevy_robotics_base(self.clone())
             .optima_bevy_pan_orbit_camera()
@@ -434,12 +440,17 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> BevyRobo
             .optima_bevy_spawn_robot::<T, C, L>()
             .optima_bevy_robotics_scene_visuals_starter()
             .optima_bevy_egui()
-            .add_systems(Update, RoboticsSystems::system_robot_main_info_panel_egui::<T, C, L>.before(BevySystemSet::Camera))
-            .run();
+            .add_systems(Update, RoboticsSystems::system_robot_main_info_panel_egui::<T, C, L>.before(BevySystemSet::Camera));
+        app
     }
 
     fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(&self, interpolator: &I) {
-        App::new()
+        self.bevy_get_motion_playback_app(interpolator).run();
+    }
+
+    fn bevy_get_motion_playback_app<V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(&self, interpolator: &I) -> App {
+        let mut app = App::new();
+        app
             .optima_bevy_base()
             .optima_bevy_robotics_base(self.clone())
             .optima_bevy_pan_orbit_camera()
@@ -448,13 +459,18 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> BevyRobo
             .optima_bevy_robotics_scene_visuals_starter()
             .optima_bevy_egui()
             .insert_resource(BevyRobotInterpolator(interpolator.clone(), PhantomData::default()))
-            .add_systems(Update, RoboticsSystems::system_robot_motion_interpolator::<T, V, I>.before(BevySystemSet::Camera))
-            .run();
+            .add_systems(Update, RoboticsSystems::system_robot_motion_interpolator::<T, V, I>.before(BevySystemSet::Camera));
+        app
     }
 
     fn bevy_self_collision_visualization(&mut self) {
+        self.bevy_get_self_collision_visualization_app().run();
+    }
+
+    fn bevy_get_self_collision_visualization_app(&mut self) -> App {
         assert!(self.has_been_preprocessed(), "robot must be preprocessed first.");
-        App::new()
+        let mut app = App::new();
+        app
             .optima_bevy_base()
             .optima_bevy_robotics_base(self.clone())
             .optima_bevy_pan_orbit_camera()
@@ -462,23 +478,36 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> BevyRobo
             .optima_bevy_spawn_robot::<T, C, L>()
             .optima_bevy_robotics_scene_visuals_starter()
             .optima_bevy_egui()
-            .add_systems(Update, RoboticsSystems::system_robot_self_collision_vis::<T, C, L>.before(BevySystemSet::Camera))
-            .run();
+            .add_systems(Update, RoboticsSystems::system_robot_self_collision_vis::<T, C, L>.before(BevySystemSet::Camera));
+        app
     }
 }
+
+/*
 impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> BevyRoboticsTrait<T> for ORobotSet<T, C, L> {
     fn bevy_display(&self) {
         self.as_robot().bevy_display();
+    }
+
+    fn get_bevy_display_app(&self) -> App {
+        self.as_robot().get_bevy_display_app()
     }
 
     fn bevy_motion_playback<V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(&self, interpolator: &I) {
         self.as_robot().bevy_motion_playback(interpolator);
     }
 
+    fn get_bevy_motion_playback_app<V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(&self, interpolator: &I) -> App {
+        todo!()
+    }
+
     fn bevy_self_collision_visualization(&mut self) {
         panic!("not handled for RobotSet");
     }
+
+    fn get_bevy_self_collision_visualization_app(&mut self) -> App { panic!("not handled for RobotSet"); }
 }
+*/
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 

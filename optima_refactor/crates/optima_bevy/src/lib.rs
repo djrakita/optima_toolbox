@@ -4,19 +4,21 @@ use bevy::prelude::*;
 use bevy_egui::EguiPlugin;
 use bevy_mod_picking::debug::{DebugPickingMode};
 use bevy_mod_picking::DefaultPickingPlugins;
-use bevy_prototype_debug_lines::DebugLinesPlugin;
+use bevy_prototype_debug_lines::{DebugLinesPlugin};
 use bevy_stl::StlPlugin;
 use bevy_transform_gizmo::TransformGizmoPlugin;
 use optima_3d_spatial::optima_3d_pose::{O3DPoseCategory};
 use optima_bevy_egui::{OEguiEngineWrapper};
-use optima_linalg::OLinalgCategory;
+use optima_interpolation::{InterpolatorTrait};
+use optima_linalg::{OLinalgCategory, OVec};
 use optima_robotics::robotics_traits::AsRobotTrait;
 use optima_universal_hashmap::AnyHashmap;
 use crate::optima_bevy_utils::camera::CameraSystems;
 use crate::optima_bevy_utils::lights::LightSystems;
 use crate::optima_bevy_utils::robotics::{BevyORobot, RoboticsSystems, RobotStateEngine};
 use crate::optima_bevy_utils::storage::BevyAnyHashmap;
-use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsSystems;
+use crate::optima_bevy_utils::transform::TransformUtils;
+use crate::optima_bevy_utils::viewport_visuals::{ViewportVisualsActions, ViewportVisualsSystems};
 
 pub mod scripts;
 pub mod optima_bevy_utils;
@@ -30,6 +32,7 @@ pub trait OptimaBevyTrait {
     fn optima_bevy_spawn_robot<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static>(&mut self) -> &mut Self;
     fn optima_bevy_robotics_scene_visuals_starter(&mut self) -> &mut Self;
     fn optima_bevy_egui(&mut self) -> &mut Self;
+    fn optima_bevy_draw_3d_curve<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V> + 'static + Sync + Send>(&mut self, curve: I, num_points: usize, width_in_mm: f32, num_points_per_circle: usize, num_concentric_circles: usize) -> &mut Self;
 }
 impl OptimaBevyTrait for App {
     fn optima_bevy_starter_scene(&mut self) -> &mut Self {
@@ -112,6 +115,33 @@ impl OptimaBevyTrait for App {
             .add_plugins(EguiPlugin)
             .insert_resource(OEguiEngineWrapper::new())
             .add_systems(Last, |egui_engine: Res<OEguiEngineWrapper>| { egui_engine.get_mutex_guard().reset_on_frame() });
+
+        self
+    }
+    fn optima_bevy_draw_3d_curve<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V> + 'static + Sync + Send>(&mut self, curve: I, num_points: usize, width_in_mm: f32, num_points_per_circle: usize, num_concentric_circles: usize) -> &mut Self {
+        // mut lines: ResMut<DebugLines>
+        self.add_systems(Update, move |mut gizmos: Gizmos| {
+            let mut curr_val = 0.0;
+            let stride_length = 1.0 / (num_points as f64);
+            let mut t_vals = vec![];
+            while curr_val <= 1.0 { t_vals.push(curr_val); curr_val += stride_length; }
+            for i in 0..t_vals.len() - 1 {
+                let curr_t = t_vals[i];
+                let next_t = t_vals[i+1];
+                let curr_point = curve.interpolate_normalized(T::constant(curr_t));
+                let next_point = curve.interpolate_normalized(T::constant(next_t));
+                assert_eq!(curr_point.len(), 3);
+
+                let curr_point = TransformUtils::util_convert_z_up_ovec_to_z_up_vec3(&curr_point);
+                let next_point = TransformUtils::util_convert_z_up_ovec_to_z_up_vec3(&next_point);
+
+                // ViewportVisualsActions::action_draw_gpu_line_optima_space(&mut lines, curr_point, next_point, Color::rgb(0.,0.5, 1.0), width_in_mm, num_points_per_circle, num_concentric_circles, 0.0);
+
+                ViewportVisualsActions::action_draw_gpu_line_optima_space_gizmo(&mut gizmos, curr_point, next_point, Color::rgb(0.0, 0.5, 1.0), width_in_mm, num_points_per_circle, num_concentric_circles);
+
+                curr_val += stride_length;
+            }
+        });
 
         self
     }

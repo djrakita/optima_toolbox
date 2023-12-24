@@ -1,46 +1,28 @@
-pub mod optimization_engine;
+pub mod open;
+pub mod argmin;
 pub mod loss_functions;
+
 use std::any::Any;
 use ad_trait::AD;
-use ad_trait::differentiable_block::{DifferentiableBlock, DifferentiableBlockArgPrepTrait};
-use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFunctionTrait};
+use ad_trait::differentiable_block::{DifferentiableBlock, DifferentiableBlockZero};
+use ad_trait::differentiable_function::{DerivativeAlwaysZero, DerivativeMethodTrait, DifferentiableFunctionClass};
 
-pub trait GenericOptimizerTrait {
-    type DataType : AD;
-    type ArgsType;
-    type OutputType : Any + OptimizerOutputTrait<DataType = Self::DataType>;
+pub trait DiffBlockOptimizerTrait {
+    type OutputType : Any + OptimizerOutputTrait<DataType = f64>;
 
-    fn optimize(args: &Self::ArgsType) -> Self::OutputType;
-}
+    fn optimize<'a, DC1, E1, DC2, E2, DC3, E3>(&self, initial_condition: &[f64], objective_function: &DifferentiableBlock<'a, DC1, E1>, equality_constraint_function: &DifferentiableBlock<'a, DC2, E2>, inequality_constraint_function: &DifferentiableBlock<'a, DC3, E3>) -> Self::OutputType
+        where DC1: DifferentiableFunctionClass,
+              DC2: DifferentiableFunctionClass,
+              DC3: DifferentiableFunctionClass,
+              E1: DerivativeMethodTrait,
+              E2: DerivativeMethodTrait,
+              E3: DerivativeMethodTrait;
 
-pub trait DiffBlockUnconstrainedOptimizerTrait {
-    type DataType : AD;
-    type ArgsType;
-    type OutputType : Any + OptimizerOutputTrait<DataType = Self::DataType>;
-
-    fn diff_block_unconstrained_optimize<'a, D, E, AP>(objective_function: &DifferentiableBlock<'a, D, E, AP>, init_condition: &[f64], args: &Self::ArgsType) -> Self::OutputType
-        where D: DifferentiableFunctionTrait,
-              E: DerivativeMethodTrait,
-              AP: DifferentiableBlockArgPrepTrait<'a, D, E>;
-}
-
-pub struct OwnedGenericOptimizer<O: GenericOptimizerTrait> {
-    args: O::ArgsType
-}
-impl<O: GenericOptimizerTrait> OwnedGenericOptimizer<O> where O: GenericOptimizerTrait {
-    pub fn new(args: O::ArgsType) -> Self {
-        Self { args }
-    }
-    pub fn optimize(&self) -> O::OutputType {
-        O::optimize(&self.args)
-    }
-    #[inline(always)]
-    pub fn args_ref(&self) -> &O::ArgsType {
-        &self.args
-    }
-    #[inline(always)]
-    pub fn args_mut(&mut self) -> &mut O::ArgsType {
-        &mut self.args
+    fn optimize_unconstrained<'a, DC1, E1>(&self, initial_condition: &[f64], objective_function: &DifferentiableBlock<'a, DC1, E1>) -> Self::OutputType
+        where DC1: DifferentiableFunctionClass, E1: DerivativeMethodTrait
+    {
+        let c = DifferentiableBlockZero::new_zero(DerivativeAlwaysZero, objective_function.num_inputs(), objective_function.num_outputs());
+        self.optimize(initial_condition, objective_function, &c, &c)
     }
 }
 

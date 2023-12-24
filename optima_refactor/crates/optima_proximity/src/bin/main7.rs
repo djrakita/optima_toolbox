@@ -8,8 +8,8 @@ use optima_proximity::shape_queries::{ContactOutputTrait, DistanceBoundsOutputTr
 use optima_proximity::shapes::OParryShape;
 
 fn main() {
-    let shape_a = OParryShape::new(Cuboid::new(Vector3::new(1.,1.,1.)), Isometry3::identity());
-    let shape_b = OParryShape::new(Cuboid::new(Vector3::new(1.,1.,1.)), Isometry3::identity());
+    let shape_a = OParryShape::new_default(Cuboid::new(Vector3::new(1., 1., 1.)), Isometry3::identity());
+    let shape_b = OParryShape::new_default(Cuboid::new(Vector3::new(1., 1., 1.)), Isometry3::identity());
 
     let pose_a = Isometry3::from_constructors(&[0.,0.,0.], &[0.,0.,0.]);
     let pose_b = Isometry3::from_constructors(&[5.,0.,0.], &[1.,2.,3.]);

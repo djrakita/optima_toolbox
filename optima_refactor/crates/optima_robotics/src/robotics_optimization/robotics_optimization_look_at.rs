@@ -1,16 +1,16 @@
 use std::marker::PhantomData;
 use std::sync::RwLock;
 use ad_trait::AD;
-use ad_trait::differentiable_block::DifferentiableBlock2;
-use ad_trait::differentiable_function::{DerivativeMethodTrait2, DifferentiableFunctionClass, DifferentiableFunctionTrait2};
+use ad_trait::differentiable_block::DifferentiableBlock;
+use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFunctionClass, DifferentiableFunctionTrait};
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
 use optima_3d_spatial::optima_3d_vec::O3DVecCategoryArr;
 use optima_linalg::{OLinalgCategory, OVec, OVecCategoryVec};
-use optima_optimization::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
+use optima_optimization2::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
 use optima_proximity::pair_group_queries::{OPairGroupQryTrait, PairGroupQryOutputCategoryParryFilter, ParryPairSelector, ToParryProximityOutputCategory};
 use optima_proximity::shapes::ShapeCategoryOParryShape;
-use crate::robotics_optimization2::robotics_optimization_functions::{AxisDirection, LookAtTarget, robot_link_look_at_objective, robot_link_look_at_roll_prevention_objective};
-use crate::robotics_optimization2::robotics_optimization_ik::{DifferentiableFunctionIKObjective, IKGoalRwLockVecTrait, IKGoalUpdateMode, IKPrevStatesRwLockTrait};
+use crate::robotics_optimization::robotics_optimization_functions::{AxisDirection, LookAtTarget, robot_link_look_at_objective, robot_link_look_at_roll_prevention_objective};
+use crate::robotics_optimization::robotics_optimization_ik::{DifferentiableFunctionIKObjective, IKGoalRwLockVecTrait, IKGoalUpdateMode, IKPrevStatesRwLockTrait};
 
 pub struct DifferentiableFunctionClassLookAt<C, L, FQ, Q>(PhantomData<(C, L, FQ, Q)>)
     where
@@ -51,7 +51,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q> where 
         Self { ik_objective, looker_link, looker_forward_axis, looker_side_axis, look_at_target: RwLock::new(look_at_target), look_at_weight, roll_prevention_weight }
     }
 }
-impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q>
+impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait<'a, T> for DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q>
     where T: AD,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
@@ -78,14 +78,14 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait2<'a, T> for DifferentiableF
     }
 }
 
-pub type DifferentiableBlockLookAt<'a, E, C, L, FQ, Q> = DifferentiableBlock2<'a, DifferentiableFunctionClassLookAt<C, L, FQ, Q>, E>;
+pub type DifferentiableBlockLookAt<'a, E, C, L, FQ, Q> = DifferentiableBlock<'a, DifferentiableFunctionClassLookAt<C, L, FQ, Q>, E>;
 pub trait DifferentiableBlockLookAtTrait<'a, C: O3DPoseCategory> {
     fn update_look_at_target(&self, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>);
     fn update_ik_pose(&self, idx: usize, pose: C::P<f64>, update_mode: IKGoalUpdateMode);
     fn update_prev_states(&self, state: Vec<f64>);
 }
 impl<'a, E, C, L, FQ, Q> DifferentiableBlockLookAtTrait<'a, C> for DifferentiableBlockLookAt<'a, E, C, L, FQ, Q>
-    where E: DerivativeMethodTrait2,
+    where E: DerivativeMethodTrait,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
           FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,

@@ -1,6 +1,6 @@
 use std::sync::Mutex;
-use ad_trait::differentiable_block::DifferentiableBlock2;
-use ad_trait::differentiable_function::{DerivativeMethodTrait2, DifferentiableFunctionClass};
+use ad_trait::differentiable_block::DifferentiableBlock;
+use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFunctionClass};
 use optimization_engine::core::SolverStatus;
 use optimization_engine::panoc::{PANOCCache, PANOCOptimizer};
 use optimization_engine::{constraints, Optimizer, Problem, SolverError};
@@ -23,12 +23,12 @@ impl SimpleOpEnOptimizer {
 impl DiffBlockOptimizerTrait for SimpleOpEnOptimizer {
     type OutputType = Box<SimpleOpEnEngineOptimizerOutput>;
 
-    fn optimize<'a, DC1, E1, DC2, E2, DC3, E3>(&self, initial_condition: &[f64], objective_function: &DifferentiableBlock2<'a, DC1, E1>, _equality_constraint_function: &DifferentiableBlock2<'a, DC2, E2>, _inequality_constraint_function: &DifferentiableBlock2<'a, DC3, E3>) -> Self::OutputType where DC1: DifferentiableFunctionClass, DC2: DifferentiableFunctionClass, DC3: DifferentiableFunctionClass, E1: DerivativeMethodTrait2, E2: DerivativeMethodTrait2, E3: DerivativeMethodTrait2 {
+    fn optimize<'a, DC1, E1, DC2, E2, DC3, E3>(&self, initial_condition: &[f64], objective_function: &DifferentiableBlock<'a, DC1, E1>, _equality_constraint_function: &DifferentiableBlock<'a, DC2, E2>, _inequality_constraint_function: &DifferentiableBlock<'a, DC3, E3>) -> Self::OutputType where DC1: DifferentiableFunctionClass, DC2: DifferentiableFunctionClass, DC3: DifferentiableFunctionClass, E1: DerivativeMethodTrait, E2: DerivativeMethodTrait, E3: DerivativeMethodTrait {
         simple_open_optimize(objective_function, initial_condition, &self.lower_bounds, &self.upper_bounds, &self.panoc_cache)
     }
 }
 
-fn simple_open_optimize<'a, DC, E>(objective_function: &DifferentiableBlock2<'a, DC, E>, init_condition: &[f64], lower_bounds: &Vec<f64>, upper_bounds: &Vec<f64>, cache: &Mutex<PANOCCache>) -> Box<SimpleOpEnEngineOptimizerOutput> where DC: DifferentiableFunctionClass, E: DerivativeMethodTrait2 {
+fn simple_open_optimize<'a, DC, E>(objective_function: &DifferentiableBlock<'a, DC, E>, init_condition: &[f64], lower_bounds: &Vec<f64>, upper_bounds: &Vec<f64>, cache: &Mutex<PANOCCache>) -> Box<SimpleOpEnEngineOptimizerOutput> where DC: DifferentiableFunctionClass, E: DerivativeMethodTrait {
     let df = |u: &[f64], grad: &mut [f64]| -> Result<(), SolverError> {
         let res = objective_function.derivative(u);
         let grad_as_slice = res.1.as_slice();

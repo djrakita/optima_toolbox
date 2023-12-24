@@ -12,7 +12,7 @@ use optima_proximity::pair_group_queries::{EmptyParryFilter, OwnedEmptyParryFilt
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_proximity::proxima::{OwnedParryProximaAsProximityQry, PairGroupQryArgsParryProxima, ProximaTermination};
 use optima_robotics::robot::{ORobotDefault};
-use optima_robotics::robotics_optimization2::robotics_optimization_ik::{DifferentiableBlockIKObjectiveTrait, IKGoalUpdateMode};
+use optima_robotics::robotics_optimization::robotics_optimization_ik::{DifferentiableBlockIKObjectiveTrait, IKGoalUpdateMode};
 
 fn main() {
     let mut r = ORobotDefault::load_from_saved_robot("xarm7_with_gripper_and_rail_8dof");

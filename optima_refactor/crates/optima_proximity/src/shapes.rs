@@ -138,13 +138,16 @@ pub struct OParryShape<T: AD, P: O3DPose<T>> {
     pub (crate) convex_subcomponents: Vec<OParryShpGenericHierarchy<T, P>>
 }
 impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
-    pub fn new<S: Shape<T>>(shape: S, offset: P) -> Self {
-        Self::new_with_path_option(shape, offset, None)
+    pub fn new<S: Shape<T>>(shape: S, offset: P, compute_max_dis_from_origin_to_point_on_shape: bool, compute_bounding_shape_errors: bool) -> Self {
+        Self::new_with_path_option(shape, offset, None, compute_max_dis_from_origin_to_point_on_shape, compute_bounding_shape_errors)
     }
-    pub fn new_with_path_option<S: Shape<T>>(shape: S, offset: P, path: Option<OStemCellPath>) -> Self {
+    pub fn new_default<S: Shape<T>>(shape: S, offset: P) -> Self {
+        Self::new(shape, offset, true, true)
+    }
+    pub fn new_with_path_option<S: Shape<T>>(shape: S, offset: P, path: Option<OStemCellPath>, compute_max_dis_from_origin_to_point_on_shape: bool, compute_bounding_shape_errors: bool) -> Self {
         let is_convex = shape.is_convex();
 
-        let base_shape = OParryShpGenericHierarchy::new(shape, offset, path);
+        let base_shape = OParryShpGenericHierarchy::new(shape, offset, path, compute_max_dis_from_origin_to_point_on_shape, compute_bounding_shape_errors);
 
         if is_convex {
             Self {
@@ -152,14 +155,17 @@ impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
                 convex_subcomponents: vec![base_shape.clone()],
             }
         } else {
-            let convex_subcomponents = calculate_convex_subcomponent_shapes(base_shape.base_shape.shape(), 8);
+            let convex_subcomponents = calculate_convex_subcomponent_shapes(base_shape.base_shape.shape(), 8, compute_max_dis_from_origin_to_point_on_shape, compute_bounding_shape_errors);
             Self {
                 base_shape,
                 convex_subcomponents
             }
         }
     }
-    pub fn new_convex_shape_from_mesh_paths(trimesh_path: OStemCellPath, offset: P, convex_subcomponents_paths: Option<Vec<OStemCellPath>>) -> Self {
+    pub fn new_default_with_path_option<S: Shape<T>>(shape: S, offset: P, path: Option<OStemCellPath>) -> Self {
+        Self::new_with_path_option(shape, offset, path, true, true)
+    }
+    pub fn new_convex_shape_from_mesh_paths(trimesh_path: OStemCellPath, offset: P, convex_subcomponents_paths: Option<Vec<OStemCellPath>>, compute_max_dis_from_origin_to_point_on_shape: bool, compute_bounding_shape_errors: bool) -> Self {
         let trimesh = OTriMesh::try_to_get_trimesh_from_path(&trimesh_path).expect("error");
 
         let points = trimesh.points_to_point3s::<T>();
@@ -170,7 +176,7 @@ impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
 
         match &convex_subcomponents_paths {
             None => {
-                Self::new_with_path_option(convex_polyhedron, offset, Some(trimesh_path.clone()))
+                Self::new_default_with_path_option(convex_polyhedron, offset, Some(trimesh_path.clone()))
             }
             Some(convex_subcomponents) => {
                 // let convex_polyhedron = ConvexPolyhedron::from_convex_hull(&trimesh.to_convex_hull().points_to_point3s()).expect("error");
@@ -181,17 +187,20 @@ impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
                     let trimesh = OTriMesh::try_to_get_trimesh_from_path(x).expect("error");
                     let points = trimesh.points_to_point3s::<T>();
                     let convex_polyhedron_subcomponent = ConvexPolyhedron::from_convex_hull(&points).expect("error");
-                    s.push(OParryShpGenericHierarchy::new(convex_polyhedron_subcomponent, offset.clone(), Some(x.clone())));
+                    s.push(OParryShpGenericHierarchy::new(convex_polyhedron_subcomponent, offset.clone(), Some(x.clone()), compute_max_dis_from_origin_to_point_on_shape, compute_bounding_shape_errors));
                 });
 
                 Self {
-                    base_shape: OParryShpGenericHierarchy::new(convex_polyhedron, offset, Some(trimesh_path.clone())),
+                    base_shape: OParryShpGenericHierarchy::new(convex_polyhedron, offset, Some(trimesh_path.clone()), compute_max_dis_from_origin_to_point_on_shape, compute_bounding_shape_errors),
                     convex_subcomponents: s,
                 }
             }
         }
     }
-    pub fn new_convex_shape_from_trimesh(trimesh: OTriMesh, offset: P, convex_subcomponents: Option<Vec<OTriMesh>>) -> Self {
+    pub fn new_default_convex_shape_from_mesh_paths(trimesh_path: OStemCellPath, offset: P, convex_subcomponents_paths: Option<Vec<OStemCellPath>>) -> Self {
+        Self::new_convex_shape_from_mesh_paths(trimesh_path, offset, convex_subcomponents_paths, true, true)
+    }
+    pub fn new_convex_shape_from_trimesh(trimesh: OTriMesh, offset: P, convex_subcomponents: Option<Vec<OTriMesh>>, compute_max_dis_from_origin_to_point_on_shape: bool, compute_bounding_shape_errors: bool) -> Self {
         let points = trimesh.points_to_point3s::<T>();
         // let indices = trimesh.indices_as_u32s();
 
@@ -199,25 +208,28 @@ impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
 
         match &convex_subcomponents {
             None => {
-                Self::new_with_path_option(t, offset, None)
+                Self::new_default_with_path_option(t, offset, None)
             }
             Some(convex_subcomponents) => {
                 let convex_polyhedron = ConvexPolyhedron::from_convex_hull(&trimesh.to_convex_hull().points_to_point3s()).expect("error");
 
-               let mut s = vec![];
+                let mut s = vec![];
 
                 convex_subcomponents.iter().for_each(|x| {
                     let points = x.points_to_point3s::<T>();
                     let convex_polyhedron = ConvexPolyhedron::from_convex_hull(&points).expect("error");
-                    s.push(OParryShpGenericHierarchy::new(convex_polyhedron, offset.clone(), None));
+                    s.push(OParryShpGenericHierarchy::new(convex_polyhedron, offset.clone(), None, compute_max_dis_from_origin_to_point_on_shape, compute_bounding_shape_errors));
                 });
 
                 Self {
-                    base_shape: OParryShpGenericHierarchy::new(convex_polyhedron, offset, None),
+                    base_shape: OParryShpGenericHierarchy::new(convex_polyhedron, offset, None, compute_max_dis_from_origin_to_point_on_shape, compute_bounding_shape_errors),
                     convex_subcomponents: s,
                 }
             }
         }
+    }
+    pub fn new_default_convex_shape_from_trimesh(trimesh: OTriMesh, offset: P, convex_subcomponents: Option<Vec<OTriMesh>>) -> Self {
+        Self::new_convex_shape_from_trimesh(trimesh, offset, convex_subcomponents, true, true)
     }
     #[inline(always)]
     pub fn base_shape(&self) -> &OParryShpGenericHierarchy<T, P> {
@@ -401,23 +413,31 @@ pub struct OParryShpGenericHierarchy<T: AD, P: O3DPose<T>> {
     pub (crate) base_shape: OParryShpGeneric<T, P>,
     #[serde(deserialize_with="OParryShpGeneric::<T, P>::deserialize")]
     pub (crate) bounding_sphere: OParryShpGeneric<T, P>,
-    #[serde_as(as = "SerdeAD<T>")]
-    pub (crate) bounding_sphere_max_dis_error: T,
+    #[serde_as(as = "Option::<SerdeAD<T>>")]
+    pub (crate) bounding_sphere_max_dis_error: Option<T>,
     #[serde(deserialize_with="OParryShpGeneric::<T, P>::deserialize")]
     pub (crate) obb: OParryShpGeneric<T, P>,
-    #[serde_as(as = "SerdeAD<T>")]
-    pub (crate) obb_max_dis_error: T
+    #[serde_as(as = "Option::<SerdeAD<T>>")]
+    pub (crate) obb_max_dis_error: Option<T>
 }
 impl<T: AD, P: O3DPose<T>> OParryShpGenericHierarchy<T, P> {
-    pub (crate) fn new<S: Shape<T>>(shape: S, offset: P, path: Option<OStemCellPath>) -> Self {
-        Self::new_from_box(Box::new(shape), offset, path)
+    pub (crate) fn new<S: Shape<T>>(shape: S, offset: P, path: Option<OStemCellPath>, compute_max_dis_from_origin_to_point_on_shape: bool, compute_bounding_shape_errors: bool) -> Self {
+        Self::new_from_box(Box::new(shape), offset, path, compute_max_dis_from_origin_to_point_on_shape, compute_bounding_shape_errors)
     }
-    pub (crate) fn new_from_box<S: Shape<T>>(shape: Box<S>, offset: P, path: Option<OStemCellPath>) -> Self {
-        let base_shape = OParryShpGeneric::new_from_box(shape, offset.clone(), path);
-        let bounding_sphere = get_bounding_sphere_from_shape(base_shape.shape(), &offset);
-        let bounding_sphere_max_dis_error = calculate_max_dis_error_between_shape_and_bounding_shape(base_shape.shape(), bounding_sphere.shape());
-        let obb = get_obb_from_shape(base_shape.shape(), &offset);
-        let obb_max_dis_error = calculate_max_dis_error_between_shape_and_bounding_shape(base_shape.shape(), obb.shape());
+    pub (crate) fn new_from_box<S: Shape<T>>(shape: Box<S>, offset: P, path: Option<OStemCellPath>, compute_max_dis_from_origin_to_point_on_shape: bool, compute_bounding_shape_errors: bool) -> Self {
+        let base_shape = OParryShpGeneric::new_from_box(shape, offset.clone(), path, compute_max_dis_from_origin_to_point_on_shape);
+        let bounding_sphere = get_bounding_sphere_from_shape(base_shape.shape(), &offset, compute_max_dis_from_origin_to_point_on_shape);
+        let bounding_sphere_max_dis_error = if compute_bounding_shape_errors {
+            Some(calculate_max_dis_error_between_shape_and_bounding_shape(base_shape.shape(), bounding_sphere.shape()))
+        } else {
+            None
+        };
+        let obb = get_obb_from_shape(base_shape.shape(), &offset, compute_max_dis_from_origin_to_point_on_shape);
+        let obb_max_dis_error = if compute_bounding_shape_errors {
+            Some(calculate_max_dis_error_between_shape_and_bounding_shape(base_shape.shape(), obb.shape()))
+        } else {
+            None
+        };
 
         Self {
             base_shape,
@@ -436,16 +456,8 @@ impl<T: AD, P: O3DPose<T>> OParryShpGenericHierarchy<T, P> {
         &self.bounding_sphere
     }
     #[inline(always)]
-    pub fn bounding_sphere_max_dis_error(&self) -> &T {
-        &self.bounding_sphere_max_dis_error
-    }
-    #[inline(always)]
     pub fn obb(&self) -> &OParryShpGeneric<T, P> {
         &self.obb
-    }
-    #[inline(always)]
-    pub fn obb_max_dis_error(&self) -> &T {
-        &self.obb_max_dis_error
     }
     pub fn resample_ids(&mut self) -> Vec<(u64, u64)> {
         let mut out = vec![];
@@ -463,6 +475,14 @@ impl<T: AD, P: O3DPose<T>> OParryShpGenericHierarchy<T, P> {
             ParryShapeRep::OBB => { self.obb.id }
             ParryShapeRep::BoundingSphere => { self.bounding_sphere.id }
         }
+    }
+    #[inline(always)]
+    pub fn bounding_sphere_max_dis_error(&self) -> &Option<T> {
+        &self.bounding_sphere_max_dis_error
+    }
+    #[inline(always)]
+    pub fn obb_max_dis_error(&self) -> &Option<T> {
+        &self.obb_max_dis_error
     }
 }
 impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P,OParryShpGenericHierarchy<T, P>> for OParryShpGenericHierarchy<T, P> {
@@ -510,15 +530,19 @@ pub struct OParryShpGeneric<T: AD, P: O3DPose<T>> {
     pub (crate) shape: BoxedShape<T>,
     #[serde_as(as = "SerdeO3DPose<T, P>")]
     pub (crate) offset: P,
-    #[serde_as(as = "SerdeAD<T>")]
-    pub (crate) max_dis_from_origin_to_point_on_shape: T
+    #[serde_as(as = "Option::<SerdeAD<T>>")]
+    pub (crate) max_dis_from_origin_to_point_on_shape: Option<T>
 }
 impl<T: AD, P: O3DPose<T>> OParryShpGeneric<T, P> {
-    pub fn new<S: Shape<T>>(shape: S, offset: P, path: Option<OStemCellPath>) -> Self {
-        Self::new_from_box(Box::new(shape), offset, path)
+    pub fn new<S: Shape<T>>(shape: S, offset: P, path: Option<OStemCellPath>, compute_max_dis_from_origin_to_point_on_shape: bool) -> Self {
+        Self::new_from_box(Box::new(shape), offset, path, compute_max_dis_from_origin_to_point_on_shape)
     }
-    pub (crate) fn new_from_box<S: Shape<T>>(shape: Box<S>, offset: P, path: Option<OStemCellPath>) -> Self {
-        let max_dis_from_origin_to_point_on_shape = calculate_max_dis_from_origin_to_point_on_shape(&shape);
+    pub (crate) fn new_from_box<S: Shape<T>>(shape: Box<S>, offset: P, path: Option<OStemCellPath>, compute_max_dis_from_origin_to_point_on_shape: bool) -> Self {
+        let max_dis_from_origin_to_point_on_shape = if compute_max_dis_from_origin_to_point_on_shape {
+            Some(calculate_max_dis_from_origin_to_point_on_shape(&shape))
+        } else {
+            None
+        };
         Self {
             id: SimpleSampler::uniform_sample_u64((u64::MIN, u64::MAX), None),
             shape: BoxedShape {shape, path},
@@ -550,8 +574,8 @@ impl<T: AD, P: O3DPose<T>> OParryShpGeneric<T, P> {
         out
     }
     #[inline(always)]
-    pub fn max_dis_from_origin_to_point_on_shape(&self) -> T {
-        self.max_dis_from_origin_to_point_on_shape
+    pub fn max_dis_from_origin_to_point_on_shape(&self) -> &Option<T> {
+        &self.max_dis_from_origin_to_point_on_shape
     }
 }
 impl<T: AD, P: O3DPose<T>> Clone for OParryShpGeneric<T, P> {
@@ -884,7 +908,7 @@ pub fn boxed_shape_custom_serialize<S, T: AD>(value: &BoxedShape<T>, serializer:
 }
 */
 
-pub (crate) fn get_bounding_sphere_from_shape<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(shape: &Box<S>, offset: &P) -> OParryShpGeneric<T, P> {
+pub (crate) fn get_bounding_sphere_from_shape<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(shape: &Box<S>, offset: &P, compute_max_dis_from_origin_to_point_on_shape: bool) -> OParryShpGeneric<T, P> {
     // let bounding_sphere = shape.compute_local_bounding_sphere();
     // println!("{:?}", bounding_sphere.center);
     // let offset = offset.mul(&P::from_constructors(&bounding_sphere.center, &[T::zero();3]));
@@ -908,9 +932,9 @@ pub (crate) fn get_bounding_sphere_from_shape<T: AD, S: Shape<T> + ?Sized, P: O3
     let offset = offset.mul(&P::from_constructors(&center, &[T::zero();3]));
     let sphere = Ball::new(radius);
 
-    OParryShpGeneric::new(sphere, offset, None)
+    OParryShpGeneric::new(sphere, offset, None, compute_max_dis_from_origin_to_point_on_shape)
 }
-pub (crate) fn get_obb_from_shape<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(shape: &Box<S>, offset: &P) -> OParryShpGeneric<T, P> {
+pub (crate) fn get_obb_from_shape<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(shape: &Box<S>, offset: &P, compute_max_dis_from_origin_to_point_on_shape: bool) -> OParryShpGeneric<T, P> {
     let aabb = shape.compute_local_aabb();
     let mins = aabb.mins;
     let maxs = aabb.maxs;
@@ -920,7 +944,7 @@ pub (crate) fn get_obb_from_shape<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(sh
     let half_y = (maxs[1] - mins[1]) * T::constant(0.5);
     let half_z = (maxs[2] - mins[2]) * T::constant(0.5);
     let cuboid = Cuboid::new(Vector3::new(half_x, half_y, half_z));
-    OParryShpGeneric::new(cuboid, offset, None)
+    OParryShpGeneric::new(cuboid, offset, None, compute_max_dis_from_origin_to_point_on_shape)
 }
 pub (crate) fn calculate_max_dis_error_between_shape_and_bounding_shape<T: AD, S1: Shape<T> + ?Sized, S2: Shape<T> + ?Sized>(shape: &Box<S1>, bounding_shape: &Box<S2>) -> T {
     let ts = shape.as_typed_shape();
@@ -994,7 +1018,7 @@ fn get_vertices_and_indices_from_typed_shape<T: AD>(ts: &TypedShape<T>, subdiv: 
     (vertices, indices)
 }
 
-pub (crate) fn calculate_convex_subcomponent_shapes<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(shape: &Box<S>, max_convex_hulls: u32) -> Vec<OParryShpGenericHierarchy<T, P>> {
+pub (crate) fn calculate_convex_subcomponent_shapes<T: AD, S: Shape<T> + ?Sized, P: O3DPose<T>>(shape: &Box<S>, max_convex_hulls: u32, compute_max_dis_from_origin_to_point_on_shape: bool, compute_bounding_shape_errors: bool) -> Vec<OParryShpGenericHierarchy<T, P>> {
     let ts = shape.as_typed_shape();
 
     let subdiv = 50;
@@ -1021,7 +1045,7 @@ pub (crate) fn calculate_convex_subcomponent_shapes<T: AD, S: Shape<T> + ?Sized,
 
     convex_hulls.iter().for_each(|(points, _)| {
         let convex_polyhedron = ConvexPolyhedron::from_convex_hull(points).expect("error");
-        out.push(OParryShpGenericHierarchy::new(convex_polyhedron, P::identity(), None));
+        out.push(OParryShpGenericHierarchy::new(convex_polyhedron, P::identity(), None, compute_max_dis_from_origin_to_point_on_shape, compute_bounding_shape_errors));
     });
 
     out

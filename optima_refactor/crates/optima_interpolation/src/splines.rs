@@ -1,6 +1,155 @@
 use ad_trait::AD;
 use optima_linalg::OVec;
-use crate::InterpolatorTrait;
+use crate::{InterpolatorTrait, InterpolatorTraitLite, linearly_interpolate_points};
+
+/*
+#[derive(Clone, Debug)]
+pub enum SplineConstructor<T: AD> {
+    Linear,
+    Quadratic,
+    HermiteCubic,
+    NaturalCubic,
+    CardinalCubic {w: T},
+    BezierCubic,
+    BSpline {k: usize}
+}
+impl<T: AD> SplineConstructor<T> {
+    pub fn construct<V: OVec<T>>(&self, control_points: Vec<V>) -> Box<dyn InterpolatorTraitLite<T, V>> {
+        return match self {
+            SplineConstructor::Linear => { Box::new(InterpolatingSpline::new(control_points, InterpolatingSplineType::Linear)) }
+            SplineConstructor::Quadratic => { Box::new(InterpolatingSpline::new(control_points, InterpolatingSplineType::Quadratic)) }
+            SplineConstructor::HermiteCubic => { Box::new(InterpolatingSpline::new(control_points, InterpolatingSplineType::HermiteCubic)) }
+            SplineConstructor::NaturalCubic => { Box::new(InterpolatingSpline::new(control_points, InterpolatingSplineType::NaturalCubic)) }
+            SplineConstructor::CardinalCubic { w } => { Box::new(InterpolatingSpline::new(control_points, InterpolatingSplineType::CardinalCubic {w: *w})) }
+            SplineConstructor::BezierCubic => { Box::new(InterpolatingSpline::new(control_points, InterpolatingSplineType::BezierCubic)) }
+            SplineConstructor::BSpline { k } => { Box::new(BSpline::new(control_points, *k)) }
+        }
+    }
+    pub fn get_default_initial_condition<V: OVec<T>>(&self, start_point: V, end_point: V, num_points: usize) -> Vec<V> {
+        match self {
+            SplineConstructor::Linear => {
+                linearly_interpolate_points(start_point, end_point, num_points)
+            }
+            SplineConstructor::Quadratic => {
+                linearly_interpolate_points(start_point, end_point, num_points)
+            }
+            SplineConstructor::HermiteCubic => { todo!() }
+            SplineConstructor::NaturalCubic => { todo!() }
+            SplineConstructor::CardinalCubic { .. } => { todo!() }
+            SplineConstructor::BezierCubic => { todo!() }
+            SplineConstructor::BSpline { .. } => {
+                linearly_interpolate_points(start_point, end_point, num_points)
+            }
+        }
+    }
+}
+*/
+
+pub trait SplineConstructorTrait {
+    type SplineType<T: AD, V: OVec<T>> : InterpolatorTrait<T, V>;
+
+    fn construct<T: AD, V: OVec<T>>(&self, control_points: Vec<V>) -> Self::SplineType<T, V>;
+    fn get_default_initial_condition<T: AD, V: OVec<T>>(&self, start_point: V, end_point: V, num_points: usize) -> Vec<V>;
+}
+
+pub struct SplineConstructorLinear;
+impl SplineConstructorTrait for SplineConstructorLinear {
+    type SplineType<T: AD, V: OVec<T>> = InterpolatingSpline<T, V>;
+
+    fn construct<T: AD, V: OVec<T>>(&self, control_points: Vec<V>) -> Self::SplineType<T, V> {
+        InterpolatingSpline::new(control_points, InterpolatingSplineType::Linear)
+    }
+
+    fn get_default_initial_condition<T: AD, V: OVec<T>>(&self, start_point: V, end_point: V, num_points: usize) -> Vec<V> {
+        linearly_interpolate_points(start_point, end_point, num_points)
+    }
+}
+
+pub struct SplineConstructorQuadratic;
+impl SplineConstructorTrait for SplineConstructorQuadratic {
+    type SplineType<T: AD, V: OVec<T>> = InterpolatingSpline<T, V>;
+
+    fn construct<T: AD, V: OVec<T>>(&self, control_points: Vec<V>) -> Self::SplineType<T, V> {
+        InterpolatingSpline::new(control_points, InterpolatingSplineType::Quadratic)
+    }
+
+    fn get_default_initial_condition<T: AD, V: OVec<T>>(&self, start_point: V, end_point: V, num_points: usize) -> Vec<V> {
+        linearly_interpolate_points(start_point, end_point, num_points)
+    }
+}
+
+pub struct SplineConstructorHermiteCubic;
+impl SplineConstructorTrait for SplineConstructorHermiteCubic {
+    type SplineType<T: AD, V: OVec<T>> = InterpolatingSpline<T, V>;
+
+    fn construct<T: AD, V: OVec<T>>(&self, control_points: Vec<V>) -> Self::SplineType<T, V> {
+        InterpolatingSpline::new(control_points, InterpolatingSplineType::HermiteCubic)
+    }
+
+    fn get_default_initial_condition<T: AD, V: OVec<T>>(&self, _start_point: V, _end_point: V, _num_points: usize) -> Vec<V> {
+        todo!()
+    }
+}
+
+pub struct SplineConstructorNaturalCubic;
+impl SplineConstructorTrait for SplineConstructorNaturalCubic {
+    type SplineType<T: AD, V: OVec<T>> = InterpolatingSpline<T, V>;
+
+    fn construct<T: AD, V: OVec<T>>(&self, control_points: Vec<V>) -> Self::SplineType<T, V> {
+        InterpolatingSpline::new(control_points, InterpolatingSplineType::NaturalCubic)
+    }
+
+    fn get_default_initial_condition<T: AD, V: OVec<T>>(&self, _start_point: V, _end_point: V, _num_points: usize) -> Vec<V> {
+        todo!()
+    }
+}
+
+pub struct SplineConstructorCardinalCubic { w: f64 }
+impl SplineConstructorCardinalCubic {
+    pub fn new(w: f64) -> Self {
+        Self { w }
+    }
+}
+
+impl SplineConstructorTrait for SplineConstructorCardinalCubic {
+    type SplineType<T: AD, V: OVec<T>> = InterpolatingSpline<T, V>;
+
+    fn construct<T: AD, V: OVec<T>>(&self, control_points: Vec<V>) -> Self::SplineType<T, V> {
+        InterpolatingSpline::new(control_points, InterpolatingSplineType::CardinalCubic { w: T::constant(self.w) })
+    }
+
+    fn get_default_initial_condition<T: AD, V: OVec<T>>(&self, _start_point: V, _end_point: V, _num_points: usize) -> Vec<V> {
+        todo!()
+    }
+}
+
+pub struct SplineConstructorBezierCubic;
+impl SplineConstructorTrait for SplineConstructorBezierCubic {
+    type SplineType<T: AD, V: OVec<T>> = InterpolatingSpline<T, V>;
+
+    fn construct<T: AD, V: OVec<T>>(&self, control_points: Vec<V>) -> Self::SplineType<T, V> {
+        InterpolatingSpline::new(control_points, InterpolatingSplineType::BezierCubic)
+    }
+
+    fn get_default_initial_condition<T: AD, V: OVec<T>>(&self, _start_point: V, _end_point: V, _num_points: usize) -> Vec<V> {
+        todo!()
+    }
+}
+
+pub struct SplineConstructorBSpline { k: usize }
+impl SplineConstructorTrait for SplineConstructorBSpline {
+    type SplineType<T: AD, V: OVec<T>> = BSpline<T, V>;
+
+    fn construct<T: AD, V: OVec<T>>(&self, control_points: Vec<V>) -> Self::SplineType<T, V> {
+        BSpline::new(control_points, self.k)
+    }
+
+    fn get_default_initial_condition<T: AD, V: OVec<T>>(&self, start_point: V, end_point: V, num_points: usize) -> Vec<V> {
+        linearly_interpolate_points(start_point, end_point, num_points)
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #[derive(Clone, Debug)]
 pub struct InterpolatingSpline<T: AD, V: OVec<T>> {
@@ -198,7 +347,7 @@ impl<T: AD, V: OVec<T>> InterpolatingSpline<T, V> {
         return T::constant(self.num_spline_segments as f64);
     }
 }
-impl<T: AD, V: OVec<T>> InterpolatorTrait<T, V> for InterpolatingSpline<T, V> {
+impl<T: AD, V: OVec<T>> InterpolatorTraitLite<T, V> for InterpolatingSpline<T, V> {
     fn interpolate(&self, t: T) -> V {
         self.interpolating_spline_interpolate(t)
     }
@@ -330,7 +479,7 @@ impl<T: AD, V: OVec<T>> BSpline<T, V> {
         return T::constant(self.control_points.len() as f64 - 1.0);
     }
 }
-impl<T: AD, V: OVec<T>> InterpolatorTrait<T, V> for BSpline<T, V> {
+impl<T: AD, V: OVec<T>> InterpolatorTraitLite<T, V> for BSpline<T, V> {
     #[inline]
     fn interpolate(&self, t: T) -> V {
         self.bspline_interpolate(t)

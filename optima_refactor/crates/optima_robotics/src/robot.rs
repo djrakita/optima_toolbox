@@ -5,8 +5,8 @@ use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::rc::Rc;
 use ad_trait::*;
-use ad_trait::differentiable_block::DifferentiableBlock2;
-use ad_trait::differentiable_function::{DerivativeMethodTrait2};
+use ad_trait::differentiable_block::DifferentiableBlock;
+use ad_trait::differentiable_function::DerivativeMethodTrait;
 use serde::{Serialize, Deserialize};
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3, O3DPoseCategory};
 use crate::utils::get_urdf_path_from_chain_name;
@@ -30,9 +30,9 @@ use optima_proximity::shapes::{OParryShape, ShapeCategoryOParryShape};
 use optima_sampling::SimpleSampler;
 use optima_universal_hashmap::AHashMapWrapper;
 use crate::robot_shape_scene::{ORobotParryShapeScene};
-use crate::robotics_optimization2::robotics_optimization_functions::{AxisDirection, LookAtTarget};
-use crate::robotics_optimization2::robotics_optimization_ik::{DifferentiableBlockIKObjective, DifferentiableFunctionClassIKObjective, DifferentiableFunctionIKObjective, IKGoal, IKGoalVecTrait};
-use crate::robotics_optimization2::robotics_optimization_look_at::{DifferentiableFunctionClassLookAt, DifferentiableFunctionLookAt};
+use crate::robotics_optimization::robotics_optimization_functions::{AxisDirection, LookAtTarget};
+use crate::robotics_optimization::robotics_optimization_ik::{DifferentiableBlockIKObjective, DifferentiableFunctionClassIKObjective, DifferentiableFunctionIKObjective, IKGoal, IKGoalVecTrait};
+use crate::robotics_optimization::robotics_optimization_look_at::{DifferentiableFunctionClassLookAt, DifferentiableFunctionLookAt};
 
 pub type ORobotDefault = ORobot<f64, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>;
 #[serde_as]
@@ -966,8 +966,8 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ORobot<T, C, L> {
     }
 }
 impl<C: O3DPoseCategory, L: OLinalgCategory> ORobot<f64, C, L> {
-    pub fn get_ik_differentiable_block<'a, E, FQ, Q>(&'a self, derivative_method: E, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, constant_selector: Option<ParryPairSelector>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64) -> DifferentiableBlock2<'a, DifferentiableFunctionClassIKObjective<C, L, FQ, Q>, E>
-        where E: DerivativeMethodTrait2,
+    pub fn get_ik_differentiable_block<'a, E, FQ, Q>(&'a self, derivative_method: E, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, constant_selector: Option<ParryPairSelector>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64) -> DifferentiableBlock<'a, DifferentiableFunctionClassIKObjective<C, L, FQ, Q>, E>
+        where E: DerivativeMethodTrait,
               FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,
               Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
 
@@ -979,8 +979,8 @@ impl<C: O3DPoseCategory, L: OLinalgCategory> ORobot<f64, C, L> {
 
         DifferentiableBlockIKObjective::new(derivative_method, f1, f2)
     }
-    pub fn get_look_at_differentiable_block<'a, E, FQ, Q>(&'a self, derivative_method: E, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, constant_selector: Option<ParryPairSelector>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64, look_at_weight: f64, roll_prevention_weight: f64) -> DifferentiableBlock2<'a, DifferentiableFunctionClassLookAt<C, L, FQ, Q>, E>
-        where E: DerivativeMethodTrait2,
+    pub fn get_look_at_differentiable_block<'a, E, FQ, Q>(&'a self, derivative_method: E, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, constant_selector: Option<ParryPairSelector>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64, look_at_weight: f64, roll_prevention_weight: f64) -> DifferentiableBlock<'a, DifferentiableFunctionClassLookAt<C, L, FQ, Q>, E>
+        where E: DerivativeMethodTrait,
               FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>,
               Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
         let last_proximity_filter_state: Rc<RefCell<Option<Vec<f64>>>> = Rc::new(RefCell::new(None));
@@ -989,7 +989,7 @@ impl<C: O3DPoseCategory, L: OLinalgCategory> ORobot<f64, C, L> {
         let f2 = self.get_look_at_objective_function(Cow::Owned(self.to_new_ad_type::<E::T>()), filter_query.clone(), distance_query.clone(), constant_selector.clone(), init_state, ik_goal_link_idxs.clone(), looker_link, looker_forward_axis.clone(), looker_side_axis.clone(), look_at_target.clone(), linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, look_at_weight, roll_prevention_weight, last_proximity_filter_state.clone(), filter_output.clone());
         let f1 = self.get_look_at_objective_function(Cow::Borrowed(self), filter_query, distance_query, constant_selector, init_state, ik_goal_link_idxs, looker_link, looker_forward_axis.clone(), looker_side_axis.clone(), look_at_target.clone(), linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, look_at_weight, roll_prevention_weight, last_proximity_filter_state.clone(), filter_output.clone());
 
-        DifferentiableBlock2::new(derivative_method, f1, f2)
+        DifferentiableBlock::new(derivative_method, f1, f2)
     }
 }
 /// Objective Functions

@@ -9,7 +9,7 @@ use optima_optimization2::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
 use optima_optimization2::open::SimpleOpEnOptimizer;
 use optima_proximity::pair_group_queries::{OwnedEmptyParryFilter, OwnedEmptyToProximityQry};
 use optima_robotics::robot::{IKGoalMode, ORobotDefault};
-use optima_robotics::robotics_optimization2::robotics_optimization_ik::{DifferentiableBlockIKObjectiveTrait, IKGoalUpdateMode};
+use optima_robotics::robotics_optimization::robotics_optimization_ik::{DifferentiableBlockIKObjectiveTrait, IKGoalUpdateMode};
 
 fn main() {
     let r = ORobotDefault::load_from_saved_robot("ur5");
