@@ -4,7 +4,6 @@ use as_any::AsAny;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
-use optima_linalg::OVec;
 use crate::pair_group_queries::PairSkipsTrait;
 use crate::shapes::OParryShape;
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
@@ -12,11 +11,11 @@ use optima_file::traits::{FromJsonString, ToJsonString};
 
 pub trait ShapeSceneTrait<T: AD, P: O3DPose<T>> {
     type ShapeType : AsAny;
-    type GetPosesInput<'a, V: OVec<T>> where Self: 'a;
+    type GetPosesInput<'a> : Clone where Self: 'a;
     type PairSkipsType: PairSkipsTrait;
 
     fn get_shapes(&self) -> &Vec<Self::ShapeType>;
-    fn get_shape_poses<'a, V: OVec<T>>(&'a self, input: &Self::GetPosesInput<'a, V>) -> Cow<Vec<P>>;
+    fn get_shape_poses<'a>(&'a self, input: &Self::GetPosesInput<'a>) -> Cow<Vec<P>>;
     fn get_pair_skips(&self) -> &Self::PairSkipsType;
     fn shape_id_to_shape_str(&self, id: u64) -> String;
 }
@@ -49,14 +48,14 @@ impl<T: AD, P: O3DPose<T>> OParryGenericShapeScene<T, P> {
 }
 impl<T: AD, P: O3DPose<T>> ShapeSceneTrait<T, P> for OParryGenericShapeScene<T, P> {
     type ShapeType = OParryShape<T, P>;
-    type GetPosesInput<'a, V: OVec<T>> = ();
+    type GetPosesInput<'a> = ();
     type PairSkipsType = ();
 
     fn get_shapes(&self) -> &Vec<Self::ShapeType> {
         &self.shapes
     }
 
-    fn get_shape_poses<'a, V: OVec<T>>(&'a self, _input: &Self::GetPosesInput<'a, V>) -> Cow<Vec<P>> {
+    fn get_shape_poses<'a>(&'a self, _input: &Self::GetPosesInput<'a>) -> Cow<Vec<P>> {
         Cow::Borrowed(&self.poses)
     }
 

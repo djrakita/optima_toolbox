@@ -7,18 +7,22 @@ use bevy_mod_picking::DefaultPickingPlugins;
 use bevy_prototype_debug_lines::{DebugLinesPlugin};
 use bevy_stl::StlPlugin;
 use bevy_transform_gizmo::TransformGizmoPlugin;
-use optima_3d_spatial::optima_3d_pose::{O3DPoseCategory};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
 use optima_bevy_egui::{OEguiEngineWrapper};
 use optima_interpolation::{InterpolatorTrait};
 use optima_linalg::{OLinalgCategory, OVec};
+use optima_proximity::shape_scene::{OParryGenericShapeScene, ShapeSceneTrait};
+use optima_proximity::shapes::OParryShape;
+use optima_robotics::robot::ORobot;
 use optima_robotics::robotics_traits::AsRobotTrait;
 use optima_universal_hashmap::AnyHashmap;
 use crate::optima_bevy_utils::camera::CameraSystems;
 use crate::optima_bevy_utils::lights::LightSystems;
 use crate::optima_bevy_utils::robotics::{BevyORobot, RoboticsSystems, RobotStateEngine};
+use crate::optima_bevy_utils::shape_scene::{ShapeSceneActions, ShapeSceneType};
 use crate::optima_bevy_utils::storage::BevyAnyHashmap;
 use crate::optima_bevy_utils::transform::TransformUtils;
-use crate::optima_bevy_utils::viewport_visuals::{ViewportVisualsActions, ViewportVisualsSystems};
+use crate::optima_bevy_utils::viewport_visuals::{BevyDrawShape, ViewportVisualsActions, ViewportVisualsSystems};
 
 pub mod scripts;
 pub mod optima_bevy_utils;
@@ -33,6 +37,9 @@ pub trait OptimaBevyTrait {
     fn optima_bevy_robotics_scene_visuals_starter(&mut self) -> &mut Self;
     fn optima_bevy_egui(&mut self) -> &mut Self;
     fn optima_bevy_draw_3d_curve<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V> + 'static + Sync + Send>(&mut self, curve: I, num_points: usize, width_in_mm: f32, num_points_per_circle: usize, num_concentric_circles: usize) -> &mut Self;
+    fn optima_bevy_draw_shape<T: AD, P: O3DPose<T>>(&mut self, shape: BevyDrawShape<T>, pose: P) -> &mut Self;
+    fn optima_bevy_spawn_robot_shape_scene<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, V: OVec<T>>(&mut self, robot: ORobot<T, C, L>, state: V) -> &mut Self;
+    fn optima_bevy_spawn_generic_shape_scene<T: AD, P: O3DPose<T>>(&mut self, scene: OParryGenericShapeScene<T, P>) -> &mut Self;
 }
 impl OptimaBevyTrait for App {
     fn optima_bevy_starter_scene(&mut self) -> &mut Self {
@@ -78,9 +85,9 @@ impl OptimaBevyTrait for App {
 
         self
     }
-    fn optima_bevy_robotics_base<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, A: AsRobotTrait<T, C, L>>(&mut self, as_chain: A) -> &mut Self {
+    fn optima_bevy_robotics_base<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, A: AsRobotTrait<T, C, L>>(&mut self, as_robot: A) -> &mut Self {
         self
-            .insert_resource(BevyORobot(as_chain.as_robot().clone()))
+            .insert_resource(BevyORobot(as_robot.as_robot().clone(), 0))
             .insert_resource(RobotStateEngine::new())
             .add_systems(Last, RoboticsSystems::system_robot_state_updater::<T, C, L>);
 
@@ -145,6 +152,29 @@ impl OptimaBevyTrait for App {
 
         self
     }
+    fn optima_bevy_draw_shape<T: AD, P: O3DPose<T>>(&mut self, shape: BevyDrawShape<T>, pose: P) -> &mut Self {
+        self.add_systems(Startup, move |mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>| {
+            ViewportVisualsActions::action_draw_shape(&shape, &pose, &mut commands, &mut meshes, &mut materials);
+        });
+
+        self
+    }
+    fn optima_bevy_spawn_robot_shape_scene<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, V: OVec<T>>(&mut self, robot: ORobot<T, C, L>, state: V) -> &mut Self {
+        self.add_systems(Startup, move |mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>| {
+            ShapeSceneActions::action_spawn_shape_scene(&robot, state.ovec_as_slice(), ShapeSceneType::Robot, &mut commands, &asset_server, &mut meshes, &mut materials);
+        });
+
+        self
+    }
+
+    fn optima_bevy_spawn_generic_shape_scene<T: AD, P: O3DPose<T>>(&mut self, scene: OParryGenericShapeScene<T, P>) -> &mut Self {
+        self.add_systems(Startup, move |mut commands: Commands, asset_server: Res<AssetServer>, mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>| {
+            ShapeSceneActions::action_spawn_shape_scene(&scene, (), ShapeSceneType::Environment, &mut commands, &asset_server, &mut meshes, &mut materials);
+        });
+
+        self
+    }
+
 }
 
 #[derive(Clone, Debug, SystemSet, Hash, PartialEq, Eq)]

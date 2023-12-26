@@ -1,10 +1,13 @@
-use bevy::asset::{Assets};
+use ad_trait::AD;
+use bevy::asset::{Assets, AssetServer};
 use bevy::math::{Mat3, Quat, Vec3};
-use bevy::pbr::PbrBundle;
-use bevy::prelude::{Color, Commands, Entity, Gizmos, Mesh, ResMut, shape, StandardMaterial, Transform};
+use bevy::pbr::{AlphaMode, PbrBundle};
+use bevy::prelude::{Color, Commands, default, Entity, Gizmos, Mesh, Res, ResMut, shape, StandardMaterial, Transform};
 use bevy_prototype_debug_lines::DebugLines;
 use nalgebra::DVector;
+use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_geometry::get_points_around_circle;
+use crate::optima_bevy_utils::transform::TransformUtils;
 
 pub struct ViewportVisualsActions;
 impl ViewportVisualsActions {
@@ -205,6 +208,46 @@ impl ViewportVisualsActions {
             }
         }
     }
+    pub fn action_draw_shape<T: AD, P: O3DPose<T>>(shape: &BevyDrawShape<T>,
+                                                   pose: &P,
+                                                   commands: &mut Commands,
+                                                   meshes: &mut ResMut<Assets<Mesh>>,
+                                                   materials: &mut ResMut<Assets<StandardMaterial>>) {
+        let material = materials.add(StandardMaterial {
+            base_color: Color::Rgba {
+                red: 0.0,
+                green: 0.6,
+                blue: 1.0,
+                alpha: 0.5,
+            },
+            base_color_texture: None,
+            unlit: true,
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        });
+
+        let mesh = match shape {
+            BevyDrawShape::Cube { x_dim, y_dim, z_dim } => {
+                meshes.add(shape::Box::new(x_dim.to_constant() as f32, y_dim.to_constant() as f32, z_dim.to_constant() as f32).into())
+            }
+            BevyDrawShape::Sphere { radius } => {
+                meshes.add(shape::UVSphere {
+                    radius: radius.to_constant() as f32,
+                    sectors: 25,
+                    stacks: 25,
+                }.into())
+            }
+        };
+
+        let transform = TransformUtils::util_convert_3d_pose_to_y_up_bevy_transform(pose);
+
+        commands.spawn(PbrBundle {
+            mesh,
+            material,
+            transform,
+            ..default()
+        });
+    }
 }
 
 pub struct ViewportVisualsSystems;
@@ -213,5 +256,18 @@ impl ViewportVisualsSystems {
                                      mut meshes: ResMut<Assets<Mesh>>,
                                      mut materials: ResMut<Assets<StandardMaterial>>) {
         ViewportVisualsActions::action_draw_robotics_grid(&mut commands, &mut meshes, &mut materials);
+    }
+}
+
+pub enum BevyDrawShape<T: AD> {
+    Sphere { radius: T },
+    Cube { x_dim: T, y_dim: T, z_dim: T }
+}
+impl<T: AD> BevyDrawShape<T> {
+    pub fn new_sphere(radius: T) -> Self {
+        Self::Sphere { radius }
+    }
+    pub fn new_cube(x_dim: T, y_dim: T, z_dim: T) -> Self {
+        Self::Cube { x_dim, y_dim, z_dim }
     }
 }

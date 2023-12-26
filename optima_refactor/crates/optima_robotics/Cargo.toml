@@ -17,8 +17,9 @@ optima_console = { path = "../optima_console" }
 optima_proximity = { path = "../optima_proximity" }
 optima_sampling = { path = "../optima_sampling"}
 optima_universal_hashmap = { path = "../optima_universal_hashmap" }
-optima_optimization2 = { path = "../optima_optimization" }
+optima_optimization = { path = "../optima_optimization" }
 optima_geometry = { path = "../optima_geometry" }
+optima_interpolation = { path = "../optima_interpolation" }
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 urdf-rs = { version="0.7.2" }
 arrayvec = { version="0.7.4", features = ["serde"] }

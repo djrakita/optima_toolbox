@@ -1,7 +1,14 @@
 use bevy::app::App;
 use bevy::prelude::Color;
+use nalgebra::{Isometry3, Vector3};
+use parry_ad::shape::Cuboid;
+use optima_3d_spatial::optima_3d_pose::O3DPose;
+use optima_3d_spatial::optima_3d_rotation::QuatConstructor;
+use optima_bevy::optima_bevy_utils::viewport_visuals::BevyDrawShape;
 use optima_bevy::OptimaBevyTrait;
 use optima_interpolation::splines::{BSpline, InterpolatingSpline, InterpolatingSplineType, SplineConstructorLinear, SplineConstructorTrait};
+use optima_proximity::shape_scene::OParryGenericShapeScene;
+use optima_proximity::shapes::OParryShape;
 
 fn main() {
     let s = vec![ [0.,0.,0.], [1.,1.,1.], [0.5, 0.2, 0.9], [0.2, 0.1, 0.1], [0.4, 0.5, 0.6], [0.1, 0.7, 0.3] ];
@@ -9,8 +16,112 @@ fn main() {
     let spline = BSpline::new(s, 5);
     // let spline = SplineConstructorLinear.construct(s);
 
+    let shapes = vec![
+        OParryShape::new_default(Cuboid::new(Vector3::new(0.029816824170463455 * 0.5,1.4124879353697206 * 0.5,0.7242890356101396 * 0.5)), Isometry3::identity()),
+        OParryShape::new_default(Cuboid::new(Vector3::new(0.5483168931687388 * 0.5,1.4124879353697206 * 0.5,0.029816824170463455 * 0.5)), Isometry3::identity()),
+        OParryShape::new_default(Cuboid::new(Vector3::new(0.5483168931687388 * 0.5,0.029816824170463455 * 0.5,0.6159011632941881 * 0.5)), Isometry3::identity()),
+        OParryShape::new_default(Cuboid::new(Vector3::new(0.5483168931687388 * 0.5,0.029816824170463455 * 0.5,0.6159011632941881 * 0.5)), Isometry3::identity()),
+        OParryShape::new_default(Cuboid::new(Vector3::new(0.5483168931687388 * 0.5,0.029816824170463455 * 0.5,0.6159011632941881 * 0.5)), Isometry3::identity()),
+        OParryShape::new_default(Cuboid::new(Vector3::new(0.5483168931687388 * 0.5,1.4124879353697206 * 0.5,0.029816824170463455 * 0.5)), Isometry3::identity()),
+        OParryShape::new_default(Cuboid::new(Vector3::new(0.3 * 0.5,0.25 * 0.5,0.8 * 0.5)), Isometry3::identity())
+    ];
+
+    let poses = vec![
+        Isometry3::from_constructors(&[1.190814282258407, -0.13550199346642616, 0.3621445178050698], &QuatConstructor {
+            w: 0.9966893968483386,
+            x: 0.0,
+            y: 0.0,
+            z: -0.0813034206543318,
+        }),
+        Isometry3::from_constructors(&[0.9202803453390374, -0.09106954126692335, 0.13820469648641495], &QuatConstructor {
+            w: 0.9966893968483386,
+            x: 0.0,
+            y: 0.0,
+            z: -0.0813034206543318,
+        }),
+        Isometry3::from_constructors(&[0.8058204345600789, -0.7879766159302007, 0.4312468660482773], &QuatConstructor {
+            w: 0.9966893968483386,
+            x: 0.0,
+            y: 0.0,
+            z: -0.0813034206543318,
+        }),
+        Isometry3::from_constructors(&[1.034740256117996, 0.6058375333963542, 0.4312468660482773], &QuatConstructor {
+            w: 0.9966893968483386,
+            x: 0.0,
+            y: 0.0,
+            z: -0.0813034206543318,
+        }),
+        Isometry3::from_constructors(&[0.927160824683477, -0.04917666628928477, 0.4312468660482773], &QuatConstructor {
+            w: 0.9966893968483386,
+            x: 0.0,
+            y: 0.0,
+            z: -0.0813034206543318,
+        }),
+        Isometry3::from_constructors(&[0.927160824683477, -0.09106954126692335, 0.41456459296377046], &QuatConstructor {
+            w: 0.9966893968483386,
+            x: 0.0,
+            y: 0.0,
+            z: -0.0813034206543318,
+        }),
+        Isometry3::from_constructors(&[-0.05, 0.0, -0.4], &QuatConstructor {
+            w: 1.0,
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        }),
+    ];
+
+    let scene = OParryGenericShapeScene::new(shapes, poses);
+
     let mut app = App::new();
     app.optima_bevy_starter_scene();
+    /*
     app.optima_bevy_draw_3d_curve(spline, 100, 10., 5, 2);
+    app.optima_bevy_draw_shape(BevyDrawShape::new_cube(0.029816824170463455,1.4124879353697206,0.7242890356101396), Isometry3::from_constructors(&[1.190814282258407, -0.13550199346642616, 0.3621445178050698], &QuatConstructor {
+        w: 0.9966893968483386,
+        x: 0.0,
+        y: 0.0,
+        z: -0.0813034206543318,
+    }));
+    app.optima_bevy_draw_shape(BevyDrawShape::new_cube(0.5483168931687388,1.4124879353697206,0.029816824170463455), Isometry3::from_constructors(&[0.9202803453390374, -0.09106954126692335, 0.13820469648641495], &QuatConstructor {
+        w: 0.9966893968483386,
+        x: 0.0,
+        y: 0.0,
+        z: -0.0813034206543318,
+    }));
+    app.optima_bevy_draw_shape(BevyDrawShape::new_cube(0.5483168931687388,0.029816824170463455,0.6159011632941881), Isometry3::from_constructors(&[0.8058204345600789, -0.7879766159302007, 0.4312468660482773], &QuatConstructor {
+        w: 0.9966893968483386,
+        x: 0.0,
+        y: 0.0,
+        z: -0.0813034206543318,
+    }));
+    app.optima_bevy_draw_shape(BevyDrawShape::new_cube(0.5483168931687388,0.029816824170463455,0.6159011632941881), Isometry3::from_constructors(&[1.034740256117996, 0.6058375333963542, 0.4312468660482773], &QuatConstructor {
+        w: 0.9966893968483386,
+        x: 0.0,
+        y: 0.0,
+        z: -0.0813034206543318,
+    }));
+    app.optima_bevy_draw_shape(BevyDrawShape::new_cube(0.5483168931687388,0.029816824170463455,0.6159011632941881), Isometry3::from_constructors(&[0.927160824683477, -0.04917666628928477, 0.4312468660482773], &QuatConstructor {
+        w: 0.9966893968483386,
+        x: 0.0,
+        y: 0.0,
+        z: -0.0813034206543318,
+    }));
+    app.optima_bevy_draw_shape(BevyDrawShape::new_cube(0.5483168931687388,1.4124879353697206,0.029816824170463455), Isometry3::from_constructors(&[0.927160824683477, -0.09106954126692335, 0.41456459296377046], &QuatConstructor {
+        w: 0.9966893968483386,
+        x: 0.0,
+        y: 0.0,
+        z: -0.0813034206543318,
+    }));
+    app.optima_bevy_draw_shape(BevyDrawShape::new_cube(0.3,0.25,0.8), Isometry3::from_constructors(&[-0.05, 0.0, -0.4], &QuatConstructor {
+        w: 1.0,
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    }));
+    */
+    app.optima_bevy_spawn_generic_shape_scene(scene.clone());
+    app.optima_bevy_draw_shape(BevyDrawShape::Sphere { radius: 0.01 }, Isometry3::from_constructors(&[0.6539468661968684, 0.2720397734086678, 0.3551723678894053], &[0.,0.,0.]));
+
     app.run();
 }

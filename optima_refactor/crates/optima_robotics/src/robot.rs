@@ -1052,7 +1052,7 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> Debug for ORobot<T
 }
 impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ShapeSceneTrait<T, C::P<T>> for ORobot<T, C, L> {
     type ShapeType = OParryShape<T, C::P<T>>;
-    type GetPosesInput<'a, V: OVec<T>> = V where Self: 'a;
+    type GetPosesInput<'a> = &'a [T] where Self: 'a;
     type PairSkipsType = AHashMapWrapper<(u64, u64), Vec<SkipReason>>;
 
     #[inline(always)]
@@ -1061,8 +1061,8 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ShapeSceneTrait<T,
     }
 
     #[inline(always)]
-    fn get_shape_poses<'a, V: OVec<T>>(&'a self, input: &Self::GetPosesInput<'a, V>) -> Cow<Vec<C::P<T>>> {
-        self.get_shape_poses_internal(input)
+    fn get_shape_poses<'a>(&'a self, input: &Self::GetPosesInput<'a>) -> Cow<Vec<C::P<T>>> {
+        self.get_shape_poses_internal(&input.to_vec())
     }
 
     #[inline(always)]

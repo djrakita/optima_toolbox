@@ -415,3 +415,15 @@ impl<T, TargetRotationType> O3DRotationConstructor<T, TargetRotationType> for Un
     }
 }
 
+pub struct QuatConstructor<T: AD>{pub w: T, pub x: T, pub y: T, pub z: T}
+impl<T, TargetRotationType> O3DRotationConstructor<T, TargetRotationType> for QuatConstructor<T>
+    where T: AD,
+          TargetRotationType: O3DRotation<T> {
+    fn construct(&self) -> TargetRotationType {
+        let quaternion = Quaternion::new(self.w, self.x, self.y, self.z);
+        let unit_quaternion = UnitQuaternion::from_quaternion(quaternion);
+        let axis = unit_quaternion.scaled_axis();
+        TargetRotationType::from_scaled_axis_of_rotation(&axis)
+    }
+}
+

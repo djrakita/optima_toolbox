@@ -18,7 +18,7 @@ use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
 use ad_trait::SerdeAD;
 use serde_with::*;
 use optima_file::traits::{FromJsonString, ToJsonString};
-use optima_optimization2::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
+use optima_optimization::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
 
 pub struct DifferentiableFunctionClassIKObjective<C, L, FQ, Q>(PhantomData<(C, L, FQ, Q)>)
     where C: O3DPoseCategory + 'static,

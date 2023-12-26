@@ -6,7 +6,7 @@ use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFun
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
 use optima_3d_spatial::optima_3d_vec::O3DVecCategoryArr;
 use optima_linalg::{OLinalgCategory, OVec, OVecCategoryVec};
-use optima_optimization2::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
+use optima_optimization::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
 use optima_proximity::pair_group_queries::{OPairGroupQryTrait, PairGroupQryOutputCategoryParryFilter, ParryPairSelector, ToParryProximityOutputCategory};
 use optima_proximity::shapes::ShapeCategoryOParryShape;
 use crate::robotics_optimization::robotics_optimization_functions::{AxisDirection, LookAtTarget, robot_link_look_at_objective, robot_link_look_at_roll_prevention_objective};

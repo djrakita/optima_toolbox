@@ -537,10 +537,10 @@ impl RobotStateEngine {
 }
 
 #[derive(Resource)]
-pub struct BevyORobot<T: AD, C: O3DPoseCategory + Send + 'static, L: OLinalgCategory + 'static>(pub ORobot<T, C, L>);
+pub struct BevyORobot<T: AD, C: O3DPoseCategory + Send + 'static, L: OLinalgCategory + 'static>(pub ORobot<T, C, L>, pub usize);
 impl<T: AD, C: O3DPoseCategory + Send + 'static, L: OLinalgCategory + 'static> ShapeSceneTrait<T, C::P<T>> for BevyORobot<T, C, L> {
     type ShapeType = OParryShape<T, C::P<T>>;
-    type GetPosesInput<'a, V: OVec<T>> = V where Self: 'a;
+    type GetPosesInput<'a> = &'a [T] where Self: 'a;
     type PairSkipsType = AHashMapWrapper<(u64, u64), Vec<SkipReason>>;
 
     #[inline(always)]
@@ -549,7 +549,7 @@ impl<T: AD, C: O3DPoseCategory + Send + 'static, L: OLinalgCategory + 'static> S
     }
 
     #[inline(always)]
-    fn get_shape_poses<'a, V: OVec<T>>(&'a self, input: &Self::GetPosesInput<'a, V>) -> Cow<Vec<C::P<T>>> {
+    fn get_shape_poses<'a>(&'a self, input: &Self::GetPosesInput<'a>) -> Cow<Vec<C::P<T>>> {
         self.0.get_shape_poses(input)
     }
 

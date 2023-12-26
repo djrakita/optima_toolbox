@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use ad_trait::AD;
 use bevy::asset::AssetServer;
 use bevy::pbr::{AlphaMode, PbrBundle};
-use bevy::prelude::{Assets, Color, Commands, Component, Mesh, Res, ResMut, Resource, shape, StandardMaterial};
+use bevy::prelude::{Assets, Color, Commands, Component, Mesh, Res, ResMut, Resource, shape, StandardMaterial, Visibility};
 use bevy::utils::default;
 use parry_ad::shape::TypedShape;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
@@ -14,15 +14,15 @@ use crate::optima_bevy_utils::transform::TransformUtils;
 
 pub struct ShapeSceneActions;
 impl ShapeSceneActions {
-    pub fn action_spawn_shape_scene<'a, T: AD, P: O3DPose<T>, V: OVec<T>, S: ShapeSceneTrait<T, P, ShapeType=OParryShape<T, P>>>(scene: &'a S,
-                                                                                                                                 input: &S::GetPosesInput<'a, V>,
-                                                                                                                                 scene_type: ShapeSceneType,
-                                                                                                                                 commands: &mut Commands,
-                                                                                                                                 asset_server: &Res<AssetServer>,
-                                                                                                                                 meshes: &mut ResMut<Assets<Mesh>>,
-                                                                                                                                 materials: &mut ResMut<Assets<StandardMaterial>>) {
+    pub fn action_spawn_shape_scene<'a, T: AD, P: O3DPose<T>, S: ShapeSceneTrait<T, P, ShapeType=OParryShape<T, P>>>(scene: &'a S,
+                                                                                                                     input: S::GetPosesInput<'a>,
+                                                                                                                     scene_type: ShapeSceneType,
+                                                                                                                     commands: &mut Commands,
+                                                                                                                     asset_server: &Res<AssetServer>,
+                                                                                                                     meshes: &mut ResMut<Assets<Mesh>>,
+                                                                                                                     materials: &mut ResMut<Assets<StandardMaterial>>) {
         let shapes = scene.get_shapes();
-        let poses = scene.get_shape_poses(input);
+        let poses = scene.get_shape_poses(&input);
 
         for (i, parry_shape) in shapes.iter().enumerate() {
             let pose = &poses.as_ref()[i];
@@ -32,9 +32,9 @@ impl ShapeSceneActions {
             let obb = base_shape.obb();
             let full = base_shape.base_shape();
 
-            Self::action_spawn_parry_shape_generic(&bounding_sphere, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::BoundingSphere, i), commands, asset_server, meshes, materials);
-            Self::action_spawn_parry_shape_generic(&obb, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::OBB, i), commands, asset_server, meshes, materials);
-            Self::action_spawn_parry_shape_generic(&full, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::ConvexShape, i), commands, asset_server, meshes, materials);
+            Self::action_spawn_parry_shape_generic(&bounding_sphere, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::BoundingSphere, i), Visibility::Hidden, commands, asset_server, meshes, materials);
+            Self::action_spawn_parry_shape_generic(&obb, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::OBB, i), Visibility::Hidden, commands, asset_server, meshes, materials);
+            Self::action_spawn_parry_shape_generic(&full, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::ConvexShape, i), Visibility::Hidden, commands, asset_server, meshes, materials);
 
             let convex_subcomponents = parry_shape.convex_subcomponents();
             for convex_subcomponent in convex_subcomponents {
@@ -42,9 +42,9 @@ impl ShapeSceneActions {
                 let obb = convex_subcomponent.obb();
                 let full = convex_subcomponent.base_shape();
 
-                Self::action_spawn_parry_shape_generic(&bounding_sphere, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::SubcomponentsBoundingSphere, i), commands, asset_server, meshes, materials);
-                Self::action_spawn_parry_shape_generic(&obb, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::SubcomponentsOBB, i), commands, asset_server, meshes, materials);
-                Self::action_spawn_parry_shape_generic(&full, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::SubcomponentsConvexShape, i), commands, asset_server, meshes, materials);
+                Self::action_spawn_parry_shape_generic(&bounding_sphere, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::SubcomponentsBoundingSphere, i), Visibility::Hidden, commands, asset_server, meshes, materials);
+                Self::action_spawn_parry_shape_generic(&obb, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::SubcomponentsOBB, i), Visibility::Hidden, commands, asset_server, meshes, materials);
+                Self::action_spawn_parry_shape_generic(&full, pose, ParryShapeSceneMeshLabel::new(scene_type, ShapeType::SubcomponentsConvexShape, i), Visibility::Visible, commands, asset_server, meshes, materials);
             }
         }
     }
@@ -52,6 +52,7 @@ impl ShapeSceneActions {
     fn action_spawn_parry_shape_generic<T: AD, P: O3DPose<T>>(shape: &OParryShpGeneric<T, P>,
                                                               pose: &P,
                                                               label: ParryShapeSceneMeshLabel,
+                                                              initial_visibility: Visibility,
                                                               commands: &mut Commands,
                                                               asset_server: &Res<AssetServer>,
                                                               meshes: &mut ResMut<Assets<Mesh>>,
@@ -61,7 +62,7 @@ impl ShapeSceneActions {
                 red: 0.0,
                 green: 0.6,
                 blue: 1.0,
-                alpha: 0.2,
+                alpha: 0.5,
             },
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -102,6 +103,7 @@ impl ShapeSceneActions {
             mesh,
             material,
             transform,
+            visibility: initial_visibility,
             ..default()
         }).insert(label);
     }
@@ -142,15 +144,15 @@ impl ShapeSceneSystems {
 pub struct BevyOParryGenericShapeScene<T: AD, C: O3DPoseCategory>(pub OParryGenericShapeScene<T, C::P<T>>);
 impl<T: AD, C: O3DPoseCategory> ShapeSceneTrait<T, C::P<T>> for BevyOParryGenericShapeScene<T, C> {
     type ShapeType = OParryShape<T, C::P<T>>;
-    type GetPosesInput<'a, V: OVec<T>> = () where Self: 'a;
+    type GetPosesInput<'a> = () where Self: 'a;
     type PairSkipsType = ();
 
     fn get_shapes(&self) -> &Vec<Self::ShapeType> {
         self.0.get_shapes()
     }
 
-    fn get_shape_poses<'a, V: OVec<T>>(&'a self, input: &Self::GetPosesInput<'a, V>) -> Cow<Vec<C::P<T>>> {
-        self.0.get_shape_poses::<V>(input)
+    fn get_shape_poses<'a>(&'a self, input: &Self::GetPosesInput<'a>) -> Cow<Vec<C::P<T>>> {
+        self.0.get_shape_poses(input)
     }
 
     fn get_pair_skips(&self) -> &Self::PairSkipsType {

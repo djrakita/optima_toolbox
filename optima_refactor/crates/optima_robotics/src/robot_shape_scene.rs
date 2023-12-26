@@ -696,7 +696,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
 
         let shapes = &self.shapes;
         for state in non_collision_states {
-            let poses = self.get_shape_poses(&(robot, state));
+            let poses = self.get_shape_poses(&(robot, state.ovec_as_slice()));
             let poses = poses.as_ref().clone();
 
             for shape_rep in &shape_reps {
@@ -720,7 +720,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
         let selectors = vec![ParryPairSelector::HalfPairs, ParryPairSelector::HalfPairsSubcomponents];
 
         let shapes = &self.shapes;
-        let poses = self.get_shape_poses(&(robot, &close_proximity_state));
+        let poses = self.get_shape_poses(&(robot, close_proximity_state.ovec_as_slice()));
         let poses = poses.as_ref().clone();
 
         for shape_rep in &shape_reps {
@@ -960,7 +960,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
 }
 impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ShapeSceneTrait<T, C::P<T>> for ORobotParryShapeScene<T, C, L> {
     type ShapeType = OParryShape<T, C::P<T>>;
-    type GetPosesInput<'a, V: OVec<T>> = (&'a ORobot<T, C, L>, &'a V);
+    type GetPosesInput<'a> = (&'a ORobot<T, C, L>, &'a [T]);
     type PairSkipsType = AHashMapWrapper<(u64, u64), Vec<SkipReason>>;
 
     #[inline(always)]
@@ -969,8 +969,8 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ShapeSce
     }
 
     #[inline(always)]
-    fn get_shape_poses<'a, V: OVec<T>>(&'a self, input: &Self::GetPosesInput<'a, V>) -> Cow<Vec<C::P<T>>> {
-        input.0.get_shape_poses_internal(input.1)
+    fn get_shape_poses<'a>(&'a self, input: &Self::GetPosesInput<'a>) -> Cow<Vec<C::P<T>>> {
+        input.0.get_shape_poses_internal(&input.1.to_vec())
     }
 
     #[inline(always)]
