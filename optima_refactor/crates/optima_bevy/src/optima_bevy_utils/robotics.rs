@@ -32,8 +32,8 @@ impl RoboticsActions {
     pub fn action_spawn_robot_as_stl_meshes<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static>(robot: &ORobot<T, C, L>,
                                                                                                      fk_res: &FKResult<T, C::P<T>>,
                                                                                                      commands: &mut Commands,
-                                                                                                     asset_server: &AssetServer,
-                                                                                                     materials: &mut Assets<StandardMaterial>,
+                                                                                                     asset_server: &Res<AssetServer>,
+                                                                                                     materials: &mut ResMut<Assets<StandardMaterial>>,
                                                                                                      robot_instance_idx: usize) {
         robot.links().iter().enumerate().for_each(|(link_idx, link)| {
             if link.is_present_in_model() {
@@ -228,7 +228,7 @@ impl RoboticsSystems {
         let robot = &robot.0;
         let num_dofs = robot.num_dofs();
         let fk_res = robot.forward_kinematics(&vec![T::zero(); num_dofs], None);
-        RoboticsActions::action_spawn_robot_as_stl_meshes(robot, &fk_res, &mut commands, &*asset_server, &mut *materials, 0);
+        RoboticsActions::action_spawn_robot_as_stl_meshes(robot, &fk_res, &mut commands, &asset_server, &mut materials, 0);
     }
     pub fn system_robot_state_updater<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static>(robot: Res<BevyORobot<T, C, L>>,
                                                                                                          mut robot_state_engine: ResMut<RobotStateEngine>,
@@ -327,7 +327,8 @@ impl RoboticsSystems {
                             let state = robot_state_engine.get_robot_state(0);
                             if let Some(state) = state {
                                 let state = OVec::ovec_to_other_ad_type::<T>(state);
-                                let p = robot.0.parry_shape_scene().get_shape_poses(&(&robot.0, &state));
+                                // let p = robot.0.parry_shape_scene().get_shape_poses(&(&robot.0, &state));
+                                let p = robot.0.get_shape_poses(&state);
                                 let s = robot.0.parry_shape_scene().get_shapes();
                                 let skips = robot.0.parry_shape_scene().get_pair_skips();
                                 let a = robot.0.parry_shape_scene().get_pair_average_distances();
@@ -540,7 +541,7 @@ impl RobotStateEngine {
 pub struct BevyORobot<T: AD, C: O3DPoseCategory + Send + 'static, L: OLinalgCategory + 'static>(pub ORobot<T, C, L>, pub usize);
 impl<T: AD, C: O3DPoseCategory + Send + 'static, L: OLinalgCategory + 'static> ShapeSceneTrait<T, C::P<T>> for BevyORobot<T, C, L> {
     type ShapeType = OParryShape<T, C::P<T>>;
-    type GetPosesInput<'a> = &'a [T] where Self: 'a;
+    type GetPosesInput = Vec<T>;
     type PairSkipsType = AHashMapWrapper<(u64, u64), Vec<SkipReason>>;
 
     #[inline(always)]
@@ -549,8 +550,12 @@ impl<T: AD, C: O3DPoseCategory + Send + 'static, L: OLinalgCategory + 'static> S
     }
 
     #[inline(always)]
-    fn get_shape_poses<'a>(&'a self, input: &Self::GetPosesInput<'a>) -> Cow<Vec<C::P<T>>> {
+    fn get_shape_poses<'a>(&'a self, input: &'a Self::GetPosesInput) -> Cow<'a, Vec<C::P<T>>> {
         self.0.get_shape_poses(input)
+    }
+
+    fn sample_pseudorandom_input(&self) -> Self::GetPosesInput {
+        self.0.sample_pseudorandom_state()
     }
 
     #[inline(always)]

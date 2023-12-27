@@ -11,6 +11,7 @@ use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry
 use optima_proximity::shape_scene::{OParryGenericShapeScene, ShapeSceneTrait};
 use optima_proximity::shapes::{OParryShape, ShapeCategoryOParryShape};
 
+#[allow(dead_code)]
 pub struct DifferentiableFunctionPathOpt<'a, T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory>>
 {
     spline_constructor: S,

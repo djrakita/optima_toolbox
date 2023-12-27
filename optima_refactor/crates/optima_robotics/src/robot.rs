@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::rc::Rc;
+use std::sync::Arc;
 use ad_trait::*;
 use ad_trait::differentiable_block::DifferentiableBlock;
 use ad_trait::differentiable_function::DerivativeMethodTrait;
@@ -509,7 +510,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
             Some(s) => { s }
         };
         let mut parry_shape_scene = self.parry_shape_scene.clone();
-        parry_shape_scene.preprocess_shape_average_distances(self, num_samples);
+        parry_shape_scene.preprocess_shape_average_distances(Arc::new(self.clone()), num_samples);
 
         self.parry_shape_scene = parry_shape_scene;
 
@@ -522,7 +523,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
     }
     pub fn parry_shape_scene_compute_always_collision_pairs(&mut self, save: SaveRobot) {
         let mut parry_shape_scene = self.parry_shape_scene.clone();
-        parry_shape_scene.preprocess_always_in_collision_states_pair_skips(self, 5000);
+        parry_shape_scene.preprocess_always_in_collision_states_pair_skips(Arc::new(self.clone()), 5000);
 
         self.parry_shape_scene = parry_shape_scene;
 
@@ -535,7 +536,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
     }
     pub fn parry_shape_scene_compute_never_collision_pairs(&mut self, save: SaveRobot) {
         let mut parry_shape_scene = self.parry_shape_scene.clone();
-        parry_shape_scene.preprocess_never_in_collision_states_pair_skips(self, 5000);
+        parry_shape_scene.preprocess_never_in_collision_states_pair_skips(Arc::new(self.clone()), 5000);
 
         self.parry_shape_scene = parry_shape_scene;
 
@@ -557,8 +558,8 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
         }
     }
     pub fn add_close_proximity_state<V: OVec<T>>(&mut self, state: V, threshold: T, save_robot: SaveRobot) {
-        let r = self.clone();
-        self.parry_shape_scene.add_close_proximity_states_pair_skips(&r, state.clone(), threshold );
+        let r = Arc::new(self.clone());
+        self.parry_shape_scene.add_close_proximity_states_pair_skips(r.clone(), state.clone(), threshold );
         match save_robot {
             SaveRobot::Save(s) => { self.save_robot(s) }
             SaveRobot::DoNotSave => {}
@@ -672,7 +673,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
     */
     fn set_non_collision_states_internal(&mut self, save_robot: SaveRobot) {
         let mut parry_shape_scene = self.parry_shape_scene.clone();
-        parry_shape_scene.preprocess_non_collision_states_pair_skips(self, &self.non_collision_states);
+        parry_shape_scene.preprocess_non_collision_states_pair_skips(Arc::new(self.clone()), &self.non_collision_states);
 
         self.parry_shape_scene = parry_shape_scene;
 
@@ -957,10 +958,11 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ORobot<T, C, L> {
         let mut parry_shape_scene = ORobotParryShapeScene::new(self);
 
         // parry_shape_scene.add_non_collision_states_pair_skips::<Vec<T>>(self, &self.non_collision_states);
-        parry_shape_scene.preprocess_non_collision_states_pair_skips(self, &self.non_collision_states);
-        parry_shape_scene.preprocess_always_in_collision_states_pair_skips(self, 5000);
-        parry_shape_scene.preprocess_never_in_collision_states_pair_skips(self, 5000);
-        parry_shape_scene.preprocess_shape_average_distances(self, 1000);
+        let r = Arc::new(self.clone());
+        parry_shape_scene.preprocess_non_collision_states_pair_skips(r.clone(), &self.non_collision_states);
+        parry_shape_scene.preprocess_always_in_collision_states_pair_skips(r.clone(), 5000);
+        parry_shape_scene.preprocess_never_in_collision_states_pair_skips(r.clone(), 5000);
+        parry_shape_scene.preprocess_shape_average_distances(r.clone(), 1000);
 
         self.parry_shape_scene = parry_shape_scene;
     }
@@ -1052,7 +1054,7 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> Debug for ORobot<T
 }
 impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ShapeSceneTrait<T, C::P<T>> for ORobot<T, C, L> {
     type ShapeType = OParryShape<T, C::P<T>>;
-    type GetPosesInput<'a> = &'a [T] where Self: 'a;
+    type GetPosesInput = Vec<T>;
     type PairSkipsType = AHashMapWrapper<(u64, u64), Vec<SkipReason>>;
 
     #[inline(always)]
@@ -1061,8 +1063,12 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ShapeSceneTrait<T,
     }
 
     #[inline(always)]
-    fn get_shape_poses<'a>(&'a self, input: &Self::GetPosesInput<'a>) -> Cow<Vec<C::P<T>>> {
-        self.get_shape_poses_internal(&input.to_vec())
+    fn get_shape_poses(&self, input: &Self::GetPosesInput) -> Cow<Vec<C::P<T>>> {
+        self.get_shape_poses_internal(input)
+    }
+
+    fn sample_pseudorandom_input(&self) -> Self::GetPosesInput {
+        self.sample_pseudorandom_state()
     }
 
     #[inline(always)]

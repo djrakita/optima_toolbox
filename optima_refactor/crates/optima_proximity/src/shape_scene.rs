@@ -11,11 +11,12 @@ use optima_file::traits::{FromJsonString, ToJsonString};
 
 pub trait ShapeSceneTrait<T: AD, P: O3DPose<T>> {
     type ShapeType : AsAny;
-    type GetPosesInput<'a> : Clone where Self: 'a;
+    type GetPosesInput : Clone;
     type PairSkipsType: PairSkipsTrait;
 
     fn get_shapes(&self) -> &Vec<Self::ShapeType>;
-    fn get_shape_poses<'a>(&'a self, input: &Self::GetPosesInput<'a>) -> Cow<Vec<P>>;
+    fn get_shape_poses<'a>(&'a self, input: &'a Self::GetPosesInput) -> Cow<'a, Vec<P>>;
+    fn sample_pseudorandom_input(&self) -> Self::GetPosesInput;
     fn get_pair_skips(&self) -> &Self::PairSkipsType;
     fn shape_id_to_shape_str(&self, id: u64) -> String;
 }
@@ -48,15 +49,19 @@ impl<T: AD, P: O3DPose<T>> OParryGenericShapeScene<T, P> {
 }
 impl<T: AD, P: O3DPose<T>> ShapeSceneTrait<T, P> for OParryGenericShapeScene<T, P> {
     type ShapeType = OParryShape<T, P>;
-    type GetPosesInput<'a> = ();
+    type GetPosesInput = ();
     type PairSkipsType = ();
 
     fn get_shapes(&self) -> &Vec<Self::ShapeType> {
         &self.shapes
     }
 
-    fn get_shape_poses<'a>(&'a self, _input: &Self::GetPosesInput<'a>) -> Cow<Vec<P>> {
+    fn get_shape_poses(&self, _input: &Self::GetPosesInput) -> Cow<Vec<P>> {
         Cow::Borrowed(&self.poses)
+    }
+
+    fn sample_pseudorandom_input(&self) -> Self::GetPosesInput {
+        ()
     }
 
     fn get_pair_skips(&self) -> &Self::PairSkipsType {

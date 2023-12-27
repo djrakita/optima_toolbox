@@ -1,1 +1,1 @@
-pub mod c_wrappers;
+pub mod ffi_wrappers;

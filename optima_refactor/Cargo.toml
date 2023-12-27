@@ -49,6 +49,7 @@ optima_sampling = { path = "crates/optima_sampling" }
 optima_interpolation = { path = "crates/optima_interpolation" }
 optima_proximity = { path = "crates/optima_proximity" }
 optima_universal_hashmap = { path = "crates/optima_universal_hashmap" }
+optima_wrappers = { path = "crates/optima_wrappers" }
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 
 [features]

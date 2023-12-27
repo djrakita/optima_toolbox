@@ -9,6 +9,7 @@ use optima_bevy::OptimaBevyTrait;
 use optima_interpolation::splines::{BSpline, InterpolatingSpline, InterpolatingSplineType, SplineConstructorLinear, SplineConstructorTrait};
 use optima_proximity::shape_scene::OParryGenericShapeScene;
 use optima_proximity::shapes::OParryShape;
+use optima_robotics::robot::ORobotDefault;
 
 fn main() {
     let s = vec![ [0.,0.,0.], [1.,1.,1.], [0.5, 0.2, 0.9], [0.2, 0.1, 0.1], [0.4, 0.5, 0.6], [0.1, 0.7, 0.3] ];
@@ -72,6 +73,7 @@ fn main() {
     ];
 
     let scene = OParryGenericShapeScene::new(shapes, poses);
+    let robot = ORobotDefault::from_urdf("panda");
 
     let mut app = App::new();
     app.optima_bevy_starter_scene();
@@ -121,6 +123,7 @@ fn main() {
     }));
     */
     app.optima_bevy_spawn_generic_shape_scene(scene.clone());
+    app.optima_bevy_spawn_robot_in_pose(robot.clone(), vec![1.3835341759012247, 0.644993809355163, -1.231244289043802, -1.599375351855726, -2.708679434572325, 2.9128314876962325, -2.173304133837488, 0.0], 0);
     app.optima_bevy_draw_shape(BevyDrawShape::Sphere { radius: 0.01 }, Isometry3::from_constructors(&[0.6539468661968684, 0.2720397734086678, 0.3551723678894053], &[0.,0.,0.]));
 
     app.run();

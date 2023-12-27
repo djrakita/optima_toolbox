@@ -15,7 +15,7 @@ use crate::optima_bevy_utils::transform::TransformUtils;
 pub struct ShapeSceneActions;
 impl ShapeSceneActions {
     pub fn action_spawn_shape_scene<'a, T: AD, P: O3DPose<T>, S: ShapeSceneTrait<T, P, ShapeType=OParryShape<T, P>>>(scene: &'a S,
-                                                                                                                     input: S::GetPosesInput<'a>,
+                                                                                                                     input: S::GetPosesInput,
                                                                                                                      scene_type: ShapeSceneType,
                                                                                                                      commands: &mut Commands,
                                                                                                                      asset_server: &Res<AssetServer>,
@@ -144,15 +144,19 @@ impl ShapeSceneSystems {
 pub struct BevyOParryGenericShapeScene<T: AD, C: O3DPoseCategory>(pub OParryGenericShapeScene<T, C::P<T>>);
 impl<T: AD, C: O3DPoseCategory> ShapeSceneTrait<T, C::P<T>> for BevyOParryGenericShapeScene<T, C> {
     type ShapeType = OParryShape<T, C::P<T>>;
-    type GetPosesInput<'a> = () where Self: 'a;
+    type GetPosesInput = ();
     type PairSkipsType = ();
 
     fn get_shapes(&self) -> &Vec<Self::ShapeType> {
         self.0.get_shapes()
     }
 
-    fn get_shape_poses<'a>(&'a self, input: &Self::GetPosesInput<'a>) -> Cow<Vec<C::P<T>>> {
+    fn get_shape_poses<'a>(&'a self, input: &'a Self::GetPosesInput) -> Cow<'a, Vec<C::P<T>>> {
         self.0.get_shape_poses(input)
+    }
+
+    fn sample_pseudorandom_input(&self) -> Self::GetPosesInput {
+        ()
     }
 
     fn get_pair_skips(&self) -> &Self::PairSkipsType {
