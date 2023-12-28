@@ -28,7 +28,7 @@ pub struct ParryIntersectQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryIntersectQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = (ParryQryShapeType, ParryShapeRep);
+    type Args<'a> = (ParryQryShapeType, ParryShapeRep, ParryShapeRep);
     type Output = ParryIntersectOutput;
 
     fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
@@ -71,7 +71,7 @@ pub struct ParryDistanceQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = (ParryDisMode, ParryQryShapeType, ParryShapeRep, Option<T>);
+    type Args<'a> = (ParryDisMode, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryDistanceOutput<T>;
 
     fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
@@ -104,7 +104,7 @@ pub struct ParryContactQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryContactQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = (T, ParryQryShapeType, ParryShapeRep, Option<T>);
+    type Args<'a> = (T, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryContactOutput<T>;
 
     fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
@@ -139,11 +139,11 @@ pub struct ParryDistanceLowerBoundQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceLowerBoundQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = (ParryDisMode, ParryQryShapeType, ParryShapeRep, Option<T>);
+    type Args<'a> = (ParryDisMode, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryDistanceLowerBoundOutput<T>;
 
     fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
-        let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, args.3);
+        let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, &args.3, args.4);
         ParryDistanceLowerBoundOutput {
             distance_lower_bound_wrt_average: res.distance_lower_bound_wrt_average,
             raw_distance_lower_bound: res.raw_distance_lower_bound,
@@ -175,11 +175,11 @@ pub struct ParryDistanceUpperBoundQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceUpperBoundQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = (ParryDisMode, ParryQryShapeType, ParryShapeRep, Option<T>);
+    type Args<'a> = (ParryDisMode, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryDistanceUpperBoundOutput<T>;
 
     fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
-        let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, args.3);
+        let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, &args.3, args.4);
         ParryDistanceUpperBoundOutput {
             distance_upper_bound_wrt_average: res.distance_upper_bound_wrt_average,
             raw_distance_upper_bound: res.raw_distance_upper_bound,
@@ -211,11 +211,11 @@ pub struct ParryDistanceBoundsQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceBoundsQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = (ParryDisMode, ParryQryShapeType, ParryShapeRep, Option<T>);
+    type Args<'a> = (ParryDisMode, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryDistanceBoundsOutput<T>;
 
     fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
-        parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, args.3)
+        parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, &args.3, args.4)
     }
 }
 
@@ -459,7 +459,7 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceBoundsWrtAverage
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub (crate) fn parry_shape_lower_and_upper_bound<T: AD, P: O3DPose<T>>(shape_a: &OParryShape<T, P>, shape_b: &OParryShape<T, P>, pose_a: &P, pose_b: &P, parry_dis_mode: &ParryDisMode, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep: &ParryShapeRep, average_dis: Option<T>) -> ParryDistanceBoundsOutput<T> {
+pub (crate) fn parry_shape_lower_and_upper_bound<T: AD, P: O3DPose<T>>(shape_a: &OParryShape<T, P>, shape_b: &OParryShape<T, P>, pose_a: &P, pose_b: &P, parry_dis_mode: &ParryDisMode, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep1: &ParryShapeRep, parry_shape_rep2: &ParryShapeRep, average_dis: Option<T>) -> ParryDistanceBoundsOutput<T> {
     let start = Instant::now();
     let average_dis = match average_dis {
         None => { T::one() }
@@ -468,8 +468,8 @@ pub (crate) fn parry_shape_lower_and_upper_bound<T: AD, P: O3DPose<T>>(shape_a: 
 
     return match parry_qry_shape_type {
         ParryQryShapeType::Standard => {
-            let dis = shape_b.base_shape().distance(shape_b.base_shape(), pose_a, pose_b, &(parry_dis_mode.clone(), parry_shape_rep.clone(), Some(average_dis)));
-            let upper_bound = match parry_shape_rep {
+            let dis = shape_b.base_shape().distance(shape_b.base_shape(), pose_a, pose_b, &(parry_dis_mode.clone(), parry_shape_rep1.clone(), parry_shape_rep2.clone(), Some(average_dis)));
+            let upper_bound = match parry_shape_rep1 {
                 ParryShapeRep::Full => { dis.raw_distance }
                 ParryShapeRep::OBB => { dis.raw_distance  + shape_a.base_shape.obb_max_dis_error.expect("error: max dis error was not compute") + shape_b.base_shape.obb_max_dis_error.expect("error: max dis error was not compute") }
                 ParryShapeRep::BoundingSphere => { dis.raw_distance  + shape_a.base_shape.bounding_sphere_max_dis_error.expect("error: max dis error was not compute") + shape_b.base_shape.bounding_sphere_max_dis_error.expect("error: max dis error was not compute") }
@@ -515,8 +515,8 @@ pub (crate) fn parry_shape_lower_and_upper_bound<T: AD, P: O3DPose<T>>(shape_a: 
             let shape_a_ = shape_a.convex_subcomponents.get(*shape_a_subcomponent_idx).expect("idx error");
             let shape_b_ = shape_b.convex_subcomponents.get(*shape_b_subcomponent_idx).expect("idx error");
 
-            let dis = shape_a_.distance(shape_b_, pose_a, pose_b, &(parry_dis_mode.clone(), parry_shape_rep.clone(), Some(average_dis)));
-            let upper_bound = match parry_shape_rep {
+            let dis = shape_a_.distance(shape_b_, pose_a, pose_b, &(parry_dis_mode.clone(), parry_shape_rep1.clone(), parry_shape_rep2.clone(), Some(average_dis)));
+            let upper_bound = match parry_shape_rep1 {
                 ParryShapeRep::Full => { dis.raw_distance }
                 ParryShapeRep::OBB => { dis.raw_distance + shape_a.base_shape.obb_max_dis_error.expect("error: max dis error was not compute") + shape_b.base_shape.obb_max_dis_error.expect("error: max dis error was not compute") }
                 ParryShapeRep::BoundingSphere => { dis.raw_distance + shape_a.base_shape.bounding_sphere_max_dis_error.expect("error: max dis error was not compute") + shape_b.base_shape.bounding_sphere_max_dis_error.expect("error: max dis error was not compute") }

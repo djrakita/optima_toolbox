@@ -11,7 +11,7 @@ use serde::ser::SerializeTuple;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{SeqAccess, Visitor};
 use optima_3d_mesh::{OTriMesh};
-use optima_3d_spatial::optima_3d_pose::{O3DPose};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
 use optima_3d_spatial::optima_3d_vec::{O3DVec};
 use optima_linalg::OVec;
 use optima_sampling::SimpleSampler;
@@ -19,6 +19,7 @@ use serde_with::*;
 use ad_trait::SerdeAD;
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
 use optima_file::path::OStemCellPath;
+use optima_file::traits::{FromJsonString, ToJsonString};
 use crate::pair_queries::{ParryContactOutput, ParryDisMode, ParryDistanceOutput, ParryIntersectOutput, ParryOutputAuxData, ParryQryShapeType, ParryShapeRep};
 use crate::shape_queries::{OShpQryContactTrait, OShpQryDistanceTrait, OShpQryIntersectTrait};
 
@@ -254,15 +255,25 @@ impl<T: AD, P: O3DPose<T>> OParryShape<T, P> {
 
         out
     }
+    #[inline]
+    pub fn to_other_ad_type<T1: AD>(&self) -> OParryShape<T1, <P::Category as O3DPoseCategory>::P<T1>> {
+        let json_str = self.to_json_string();
+        OParryShape::<T1, <P::Category as O3DPoseCategory>::P<T1>>::from_json_string(&json_str)
+    }
+    #[inline]
+    pub fn to_other_generic_category<T1: AD, C1: O3DPoseCategory>(&self) -> OParryShape<T1, C1::P<T1>> {
+        let json_str = self.to_json_string();
+        OParryShape::<T1, C1::P<T1>>::from_json_string(&json_str)
+    }
 }
 impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P, OParryShape<T, P>> for OParryShape<T, P> {
-    type Args = (ParryQryShapeType, ParryShapeRep);
+    type Args = (ParryQryShapeType, ParryShapeRep, ParryShapeRep);
     type Output = ParryIntersectOutput;
 
     fn intersect(&self, other: &OParryShape<T, P>, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
 
         return match &args.0 {
-            ParryQryShapeType::Standard => { self.base_shape().intersect(other.base_shape(), pose_a, pose_b, &args.1)  }
+            ParryQryShapeType::Standard => { self.base_shape().intersect(other.base_shape(), pose_a, pose_b, &(args.1.clone(), args.2.clone()))  }
             /*
             ParryQryShapeType::AllConvexSubcomponents => {
                 let start = Instant::now();
@@ -288,18 +299,18 @@ impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P, OParryShape<T, P>> for OP
                 let shape_a = self.convex_subcomponents.get(*shape_a_subcomponent_idx).expect(&format!("idx error: idx {}, {:?}", shape_a_subcomponent_idx, self.convex_subcomponents.len()));
                 let shape_b = other.convex_subcomponents.get(*shape_b_subcomponent_idx).expect(&format!("idx error: idx {}, len {:?}", shape_b_subcomponent_idx, self.convex_subcomponents.len()));
 
-                shape_a.intersect(shape_b, pose_a, pose_b, &args.1)
+                shape_a.intersect(shape_b, pose_a, pose_b, &(args.1.clone(), args.2.clone()))
             }
         }
     }
 }
 impl<T: AD, P: O3DPose<T>> OShpQryDistanceTrait<T, P, OParryShape<T, P>> for OParryShape<T, P> {
-    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, Option<T>);
+    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryDistanceOutput<T>;
 
     fn distance(&self, other: &OParryShape<T, P>, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         match &args.1 {
-            ParryQryShapeType::Standard => { self.base_shape().distance(other.base_shape(), pose_a, pose_b, &(args.0.clone(), args.2.clone(), args.3))  }
+            ParryQryShapeType::Standard => { self.base_shape().distance(other.base_shape(), pose_a, pose_b, &(args.0.clone(), args.2.clone(), args.3.clone(), args.4))  }
             /*
             ParryQryShapeType::AllConvexSubcomponents => {
                 let start = Instant::now();
@@ -322,19 +333,19 @@ impl<T: AD, P: O3DPose<T>> OShpQryDistanceTrait<T, P, OParryShape<T, P>> for OPa
                 let shape_a = self.convex_subcomponents.get(*shape_a_subcomponent_idx).expect("idx error");
                 let shape_b = other.convex_subcomponents.get(*shape_b_subcomponent_idx).expect("idx error");
 
-                shape_a.distance(shape_b, pose_a, pose_b, &(args.0.clone(), args.2.clone(), args.3))
+                shape_a.distance(shape_b, pose_a, pose_b, &(args.0.clone(), args.2.clone(), args.3.clone(), args.4))
             }
         }
     }
 }
 impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P, OParryShape<T, P>> for OParryShape<T, P> {
-    type Args = (T, ParryQryShapeType, ParryShapeRep, Option<T>);
+    type Args = (T, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryContactOutput<T>;
 
     fn contact(&self, other: &OParryShape<T, P>, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         return match &args.1 {
             ParryQryShapeType::Standard => {
-                self.base_shape().contact(other.base_shape(), pose_a, pose_b, &(args.0.clone(), args.2.clone(), args.3))
+                self.base_shape().contact(other.base_shape(), pose_a, pose_b, &(args.0.clone(), args.2.clone(), args.3.clone(), args.4))
             }
             /*
             ParryQryShapeType::AllConvexSubcomponents => {
@@ -360,7 +371,7 @@ impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P, OParryShape<T, P>> for OPar
                 let shape_a = self.convex_subcomponents.get(*shape_a_subcomponent_idx).expect("idx error");
                 let shape_b = other.convex_subcomponents.get(*shape_b_subcomponent_idx).expect("idx error");
 
-                shape_a.contact(shape_b, pose_a, pose_b, &(args.0.clone(), args.2.clone(), args.3))
+                shape_a.contact(shape_b, pose_a, pose_b, &(args.0.clone(), args.2.clone(), args.3.clone(), args.4))
             }
         }
     }
@@ -484,40 +495,104 @@ impl<T: AD, P: O3DPose<T>> OParryShpGenericHierarchy<T, P> {
     pub fn obb_max_dis_error(&self) -> &Option<T> {
         &self.obb_max_dis_error
     }
+    #[inline]
+    pub fn to_other_ad_type<T1: AD>(&self) -> OParryShpGenericHierarchy<T1, <P::Category as O3DPoseCategory>::P<T1>> {
+        let json_str = self.to_json_string();
+        OParryShpGenericHierarchy::<T1, <P::Category as O3DPoseCategory>::P<T1>>::from_json_string(&json_str)
+    }
+    #[inline]
+    pub fn to_other_generic_category<T1: AD, C1: O3DPoseCategory>(&self) -> OParryShpGenericHierarchy<T1, C1::P<T1>> {
+        let json_str = self.to_json_string();
+        OParryShpGenericHierarchy::<T1, C1::P<T1>>::from_json_string(&json_str)
+    }
 }
 impl<T: AD, P: O3DPose<T>> OShpQryIntersectTrait<T, P,OParryShpGenericHierarchy<T, P>> for OParryShpGenericHierarchy<T, P> {
-    type Args = ParryShapeRep;
+    type Args = (ParryShapeRep, ParryShapeRep);
     type Output = ParryIntersectOutput;
 
     fn intersect(&self, other: &OParryShpGenericHierarchy<T, P>, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
-        match args {
-            ParryShapeRep::Full => { self.base_shape.intersect(&other.base_shape, pose_a, pose_b, &()) }
-            ParryShapeRep::OBB => { self.obb.intersect(&other.obb, pose_a, pose_b, &()) }
-            ParryShapeRep::BoundingSphere => { self.bounding_sphere.intersect(&other.bounding_sphere, pose_a, pose_b, &()) }
+        match &args.0 {
+            ParryShapeRep::Full => {
+                match &args.1 {
+                    ParryShapeRep::Full => { self.base_shape.intersect(&other.base_shape, pose_a, pose_b, &()) }
+                    ParryShapeRep::OBB => { self.base_shape.intersect(&other.obb, pose_a, pose_b, &()) }
+                    ParryShapeRep::BoundingSphere => { self.base_shape.intersect(&other.bounding_sphere, pose_a, pose_b, &()) }
+                }
+            }
+            ParryShapeRep::OBB => {
+                match &args.1 {
+                    ParryShapeRep::Full => { self.obb.intersect(&other.base_shape, pose_a, pose_b, &()) }
+                    ParryShapeRep::OBB => { self.obb.intersect(&other.obb, pose_a, pose_b, &()) }
+                    ParryShapeRep::BoundingSphere => { self.obb.intersect(&other.bounding_sphere, pose_a, pose_b, &()) }
+                }
+            }
+            ParryShapeRep::BoundingSphere => {
+                match &args.1 {
+                    ParryShapeRep::Full => { self.bounding_sphere.intersect(&other.base_shape, pose_a, pose_b, &()) }
+                    ParryShapeRep::OBB => { self.bounding_sphere.intersect(&other.obb, pose_a, pose_b, &()) }
+                    ParryShapeRep::BoundingSphere => { self.bounding_sphere.intersect(&other.bounding_sphere, pose_a, pose_b, &()) }
+                }
+            }
         }
     }
 }
 impl<T: AD, P: O3DPose<T>> OShpQryDistanceTrait<T, P,OParryShpGenericHierarchy<T, P>> for OParryShpGenericHierarchy<T, P> {
-    type Args = (ParryDisMode, ParryShapeRep, Option<T>);
+    type Args = (ParryDisMode, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryDistanceOutput<T>;
 
     fn distance(&self, other: &OParryShpGenericHierarchy<T, P>, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         match &args.1 {
-            ParryShapeRep::Full => { self.base_shape.distance(&other.base_shape, pose_a, pose_b, &(args.0.clone(), args.2)) }
-            ParryShapeRep::OBB => { self.obb.distance(&other.obb, pose_a, pose_b, &(args.0.clone(), args.2)) }
-            ParryShapeRep::BoundingSphere => { self.bounding_sphere.distance(&other.bounding_sphere, pose_a, pose_b, &(args.0.clone(), args.2)) }
+            ParryShapeRep::Full => {
+                match &args.2 {
+                    ParryShapeRep::Full => { self.base_shape.distance(&other.base_shape, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                    ParryShapeRep::OBB => { self.base_shape.distance(&other.obb, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                    ParryShapeRep::BoundingSphere => { self.base_shape.distance(&other.bounding_sphere, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                }
+            }
+            ParryShapeRep::OBB => {
+                match &args.1 {
+                    ParryShapeRep::Full => { self.obb.distance(&other.base_shape, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                    ParryShapeRep::OBB => { self.obb.distance(&other.obb, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                    ParryShapeRep::BoundingSphere => { self.obb.distance(&other.bounding_sphere, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                }
+            }
+            ParryShapeRep::BoundingSphere => {
+                match &args.1 {
+                    ParryShapeRep::Full => { self.bounding_sphere.distance(&other.base_shape, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                    ParryShapeRep::OBB => { self.bounding_sphere.distance(&other.obb, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                    ParryShapeRep::BoundingSphere => { self.bounding_sphere.distance(&other.bounding_sphere, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                }
+            }
         }
     }
 }
 impl<T: AD, P: O3DPose<T>> OShpQryContactTrait<T, P,OParryShpGenericHierarchy<T, P>> for OParryShpGenericHierarchy<T, P> {
-    type Args = (T, ParryShapeRep, Option<T>);
+    type Args = (T, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryContactOutput<T>;
 
     fn contact(&self, other: &OParryShpGenericHierarchy<T, P>, pose_a: &P, pose_b: &P, args: &Self::Args) -> ParryContactOutput<T> {
         match &args.1 {
-            ParryShapeRep::Full => { self.base_shape.contact(&other.base_shape, pose_a, pose_b, &(args.0, args.2)) }
-            ParryShapeRep::OBB => { self.obb.contact(&other.obb, pose_a, pose_b, &(args.0, args.2)) }
-            ParryShapeRep::BoundingSphere => { self.bounding_sphere.contact(&other.bounding_sphere, pose_a, pose_b, &(args.0, args.2)) }
+            ParryShapeRep::Full => {
+                match &args.2 {
+                    ParryShapeRep::Full => { self.base_shape.contact(&other.base_shape, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                    ParryShapeRep::OBB => { self.base_shape.contact(&other.obb, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                    ParryShapeRep::BoundingSphere => { self.base_shape.contact(&other.bounding_sphere, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                }
+            }
+            ParryShapeRep::OBB => {
+                match &args.1 {
+                    ParryShapeRep::Full => { self.obb.contact(&other.base_shape, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                    ParryShapeRep::OBB => { self.obb.contact(&other.obb, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                    ParryShapeRep::BoundingSphere => { self.obb.contact(&other.bounding_sphere, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                }
+            }
+            ParryShapeRep::BoundingSphere => {
+                match &args.1 {
+                    ParryShapeRep::Full => { self.bounding_sphere.contact(&other.base_shape, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                    ParryShapeRep::OBB => { self.bounding_sphere.contact(&other.obb, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                    ParryShapeRep::BoundingSphere => { self.bounding_sphere.contact(&other.bounding_sphere, pose_a, pose_b, &(args.0.clone(), args.3)) }
+                }
+            }
         }
     }
 }
@@ -576,6 +651,16 @@ impl<T: AD, P: O3DPose<T>> OParryShpGeneric<T, P> {
     #[inline(always)]
     pub fn max_dis_from_origin_to_point_on_shape(&self) -> &Option<T> {
         &self.max_dis_from_origin_to_point_on_shape
+    }
+    #[inline]
+    pub fn to_other_ad_type<T1: AD>(&self) -> OParryShpGeneric<T1, <P::Category as O3DPoseCategory>::P<T1>> {
+        let json_str = self.to_json_string();
+        OParryShpGeneric::<T1, <P::Category as O3DPoseCategory>::P<T1>>::from_json_string(&json_str)
+    }
+    #[inline]
+    pub fn to_other_generic_category<T1: AD, C1: O3DPoseCategory>(&self) -> OParryShpGeneric<T1, C1::P<T1>> {
+        let json_str = self.to_json_string();
+        OParryShpGeneric::<T1, C1::P<T1>>::from_json_string(&json_str)
     }
 }
 impl<T: AD, P: O3DPose<T>> Clone for OParryShpGeneric<T, P> {
@@ -704,6 +789,11 @@ impl<T: AD> BoxedShape<T> {
     }
     pub fn path(&self) -> &Option<OStemCellPath> {
         &self.path
+    }
+    #[inline]
+    pub fn to_other_ad_type<T1: AD>(&self) -> BoxedShape<T1> {
+        let json_str = self.to_json_string();
+        BoxedShape::<T1>::from_json_string(&json_str)
     }
 }
 impl<T: AD> Clone for BoxedShape<T> {

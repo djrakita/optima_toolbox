@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::RwLock;
 use ad_trait::AD;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
@@ -193,10 +194,10 @@ pub enum LookAtTarget<T: AD, VC: O3DVecCategoryTrait> {
     PhantomData(T)
 }
 impl<T: AD, VC: O3DVecCategoryTrait> LookAtTarget<T, VC> {
-    pub fn to_new_ad_type<T1: AD>(&self) -> LookAtTarget<T1, VC> {
-        self.to_new_generic_type::<T1, VC>()
+    pub fn to_other_ad_type<T1: AD>(&self) -> LookAtTarget<T1, VC> {
+        self.to_other_generic_types::<T1, VC>()
     }
-    pub fn to_new_generic_type<T1: AD, VC1: O3DVecCategoryTrait>(&self) -> LookAtTarget<T1, VC1> {
+    pub fn to_other_generic_types<T1: AD, VC1: O3DVecCategoryTrait>(&self) -> LookAtTarget<T1, VC1> {
         match self {
             LookAtTarget::Absolute(position) => { LookAtTarget::<T1, VC1>::Absolute(position.o3dvec_to_other_generic_category::<T1, VC1>()) }
             LookAtTarget::RobotLink(idx) => { LookAtTarget::RobotLink(*idx) }
@@ -204,3 +205,15 @@ impl<T: AD, VC: O3DVecCategoryTrait> LookAtTarget<T, VC> {
         }
     }
 }
+
+pub trait LookAtTargetRwLockTrait {
+    fn to_other_generic_types<T1: AD, VC1: O3DVecCategoryTrait>(&self) -> RwLock<LookAtTarget<T1, VC1>>;
+}
+impl<T: AD, VC: O3DVecCategoryTrait> LookAtTargetRwLockTrait for RwLock<LookAtTarget<T, VC>> {
+    fn to_other_generic_types<T1: AD, VC1: O3DVecCategoryTrait>(&self) -> RwLock<LookAtTarget<T1, VC1>> {
+        let r = self.read().unwrap();
+        RwLock::new(r.to_other_generic_types::<T1, VC1>())
+    }
+}
+
+

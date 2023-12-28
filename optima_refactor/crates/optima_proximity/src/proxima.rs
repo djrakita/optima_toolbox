@@ -26,8 +26,8 @@ impl OPairGroupQryTrait for ParryProximaQry {
         let start = Instant::now();
         if !freeze { args.proxima_container.transfer_staging_to_current_for_all_blocks(); }
 
-        let f = |shape_a: &OParryShape<T, P>, shape_b: &OParryShape<T, P>, pose_a: &P, pose_b: &P, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep: &ParryShapeRep| -> ParryProximaDistanceBoundsOutputOption<T, P> {
-            let ids = get_parry_ids_from_shape_pair(shape_a, shape_b, parry_qry_shape_type, parry_shape_rep);
+        let f = |shape_a: &OParryShape<T, P>, shape_b: &OParryShape<T, P>, pose_a: &P, pose_b: &P, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep1: &ParryShapeRep, parry_shape_rep2: &ParryShapeRep| -> ParryProximaDistanceBoundsOutputOption<T, P> {
+            let ids = get_parry_ids_from_shape_pair(shape_a, shape_b, parry_qry_shape_type, parry_shape_rep1, parry_shape_rep2);
             let average_distance = match args.use_average_distance {
                 true => { Some(pair_average_distances.average_distance(ids.0, ids.1)) }
                 false => { None }
@@ -43,7 +43,7 @@ impl OPairGroupQryTrait for ParryProximaQry {
                         false => { None }
                     };
                     let displacement_between_a_and_b_j = pose_a.displacement(pose_b);
-                    let c = shape_a.contact(shape_b, pose_a, pose_b, &(T::constant(f64::MAX), parry_qry_shape_type.clone(), parry_shape_rep.clone(), average_distance));
+                    let c = shape_a.contact(shape_b, pose_a, pose_b, &(T::constant(f64::MAX), parry_qry_shape_type.clone(), parry_shape_rep1.clone(), parry_shape_rep2.clone(), average_distance));
                     let contact = c.contact.expect("error");
                     let mut binding = args.proxima_container.blocks.write();
                     let blocks = binding.as_mut().unwrap();
@@ -65,7 +65,7 @@ impl OPairGroupQryTrait for ParryProximaQry {
 
                     ParryProximaDistanceBoundsQry::query(shape_a, shape_b, pose_a, pose_b, &ParryProximaDistanceBoundsArgs {
                         parry_qry_shape_type: parry_qry_shape_type.clone(),
-                        parry_shape_rep: parry_shape_rep.clone(),
+                        parry_shape_rep: parry_shape_rep1.clone(),
                         pose_a_j: pose_a.o3dpose_downcast_or_convert::<P>().as_ref(),
                         pose_b_j: pose_b.o3dpose_downcast_or_convert::<P>().as_ref(),
                         closest_point_a_j: contact.point1.coords.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref(),
@@ -79,7 +79,7 @@ impl OPairGroupQryTrait for ParryProximaQry {
                 Some(block) => {
                     ParryProximaDistanceBoundsQry::query(shape_a, shape_b, pose_a, pose_b, &ParryProximaDistanceBoundsArgs {
                         parry_qry_shape_type: parry_qry_shape_type.clone(),
-                        parry_shape_rep: parry_shape_rep.clone(),
+                        parry_shape_rep: parry_shape_rep1.clone(),
                         pose_a_j: block.pose_a_j.o3dpose_downcast_or_convert::<P>().as_ref(),
                         pose_b_j: block.pose_b_j.o3dpose_downcast_or_convert::<P>().as_ref(),
                         closest_point_a_j: block.closest_point_a_j.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref(),
@@ -95,7 +95,7 @@ impl OPairGroupQryTrait for ParryProximaQry {
 
         let termination = |_o: &ParryProximaDistanceBoundsOutputOption<T, P>| { false };
 
-        let (outputs, _) = parry_generic_pair_group_query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, &args.parry_shape_rep, pair_skips, args.for_filter, f, termination);
+        let (outputs, _) = parry_generic_pair_group_query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, &args.parry_shape_rep1, &args.parry_shape_rep2, pair_skips, args.for_filter, f, termination);
 
         let mut v = vec![];
         let mut proximity_lower_bound_sum = T::zero();
@@ -167,7 +167,7 @@ impl OPairGroupQryTrait for ParryProximaQry {
 
             let selector = ParryPairSelector::PairsByIdxs(vec![idxs.clone()]);
 
-            let res = ParryContactGroupQry::query(shape_group_a, shape_group_b, poses_a, poses_b, &selector, pair_skips, pair_average_distances, false, &ParryContactGroupArgs::new(args.parry_shape_rep.clone(), T::constant(f64::MAX), args.use_average_distance, args.for_filter, T::constant(f64::MIN)));
+            let res = ParryContactGroupQry::query(shape_group_a, shape_group_b, poses_a, poses_b, &selector, pair_skips, pair_average_distances, false, &ParryContactGroupArgs::new(args.parry_shape_rep1.clone(), args.parry_shape_rep2.clone(), T::constant(f64::MAX), args.use_average_distance, args.for_filter, T::constant(f64::MIN)));
             let output = &res.outputs()[0];
             let data = output.data();
             let distance_wrt_average = data.distance_wrt_average.expect("this should never be none");
@@ -284,7 +284,8 @@ pub type OwnedParryProximaAsProximityQry<'a, T> = OwnedPairGroupQry<'a, T, Parry
 pub struct PairGroupQryArgsParryProxima<T: AD> {
     #[serde(deserialize_with = "ProximaGenericContainer::<T, Isometry3::<T>>::deserialize")]
     proxima_container: ProximaGenericContainer<T, Isometry3<T>>,
-    parry_shape_rep: ParryShapeRep,
+    parry_shape_rep1: ParryShapeRep,
+    parry_shape_rep2: ParryShapeRep,
     use_average_distance: bool,
     for_filter: bool,
     termination: ProximaTermination,
@@ -295,10 +296,10 @@ pub struct PairGroupQryArgsParryProxima<T: AD> {
     cutoff_distance: T
 }
 impl<T: AD> PairGroupQryArgsParryProxima<T> {
-    pub fn new(parry_shape_rep: ParryShapeRep, use_average_distance: bool, for_filter: bool, termination: ProximaTermination, loss_function: ProximityLossFunction, p_norm: T, cutoff_distance: T) -> Self {
+    pub fn new(parry_shape_rep1: ParryShapeRep, parry_shape_rep2: ParryShapeRep, use_average_distance: bool, for_filter: bool, termination: ProximaTermination, loss_function: ProximityLossFunction, p_norm: T, cutoff_distance: T) -> Self {
         let proxima_container = ProximaGenericContainer::new();
 
-        Self { proxima_container, parry_shape_rep, use_average_distance, for_filter, termination, loss_function, p_norm, cutoff_distance }
+        Self { proxima_container, parry_shape_rep1, parry_shape_rep2, use_average_distance, for_filter, termination, loss_function, p_norm, cutoff_distance }
     }
 }
 
@@ -328,14 +329,15 @@ impl<T: AD, P: O3DPose<T>> ProximaGenericContainer<T, P> {
                                                                           poses_a: &Vec<P>,
                                                                           poses_b: &Vec<P>,
                                                                           pair_selector: &ParryPairSelector,
-                                                                          parry_shape_rep: &ParryShapeRep,
+                                                                          parry_shape_rep1: &ParryShapeRep,
+                                                                          parry_shape_rep2: &ParryShapeRep,
                                                                           pair_skips: &S,
                                                                           pair_average_distances: &A,
                                                                           for_filter: bool,
                                                                           use_average_distances: bool,
                                                                           cutoff_distance: T) -> Vec<ParryPairGroupOutputWrapper<ParryProximaDistanceBoundsOutputOption<T, P>>> {
-        let f = |shape_a: &OParryShape<T, P>, shape_b: &OParryShape<T, P>, pose_a: &P, pose_b: &P, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep: &ParryShapeRep| -> ParryProximaDistanceBoundsOutputOption<T, P> {
-            let ids = get_parry_ids_from_shape_pair(shape_a, shape_b, parry_qry_shape_type, parry_shape_rep);
+        let f = |shape_a: &OParryShape<T, P>, shape_b: &OParryShape<T, P>, pose_a: &P, pose_b: &P, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep1: &ParryShapeRep, parry_shape_rep2: &ParryShapeRep| -> ParryProximaDistanceBoundsOutputOption<T, P> {
+            let ids = get_parry_ids_from_shape_pair(shape_a, shape_b, parry_qry_shape_type, parry_shape_rep1, parry_shape_rep2);
             let average_distance = match use_average_distances {
                 true => { Some(pair_average_distances.average_distance(ids.0, ids.1)) }
                 false => { None }
@@ -351,7 +353,7 @@ impl<T: AD, P: O3DPose<T>> ProximaGenericContainer<T, P> {
                         false => { None }
                     };
                     let displacement_between_a_and_b_j = pose_a.displacement(pose_b);
-                    let c = shape_a.contact(shape_b, pose_a, pose_b, &(T::constant(f64::MAX), parry_qry_shape_type.clone(), parry_shape_rep.clone(), average_distance));
+                    let c = shape_a.contact(shape_b, pose_a, pose_b, &(T::constant(f64::MAX), parry_qry_shape_type.clone(), parry_shape_rep1.clone(), parry_shape_rep2.clone(), average_distance));
                     let contact = c.contact.expect("error");
                     let mut binding = self.blocks.write();
                     let blocks = binding.as_mut().unwrap();
@@ -373,7 +375,7 @@ impl<T: AD, P: O3DPose<T>> ProximaGenericContainer<T, P> {
 
                     ParryProximaDistanceBoundsQry::query(shape_a, shape_b, pose_a, pose_b, &ParryProximaDistanceBoundsArgs {
                         parry_qry_shape_type: parry_qry_shape_type.clone(),
-                        parry_shape_rep: parry_shape_rep.clone(),
+                        parry_shape_rep: parry_shape_rep1.clone(),
                         pose_a_j: pose_a.o3dpose_downcast_or_convert::<P>().as_ref(),
                         pose_b_j: pose_b.o3dpose_downcast_or_convert::<P>().as_ref(),
                         closest_point_a_j: contact.point1.coords.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref(),
@@ -387,7 +389,7 @@ impl<T: AD, P: O3DPose<T>> ProximaGenericContainer<T, P> {
                 Some(block) => {
                     ParryProximaDistanceBoundsQry::query(shape_a, shape_b, pose_a, pose_b, &ParryProximaDistanceBoundsArgs {
                         parry_qry_shape_type: parry_qry_shape_type.clone(),
-                        parry_shape_rep: parry_shape_rep.clone(),
+                        parry_shape_rep: parry_shape_rep1.clone(),
                         pose_a_j: &block.pose_a_j,
                         pose_b_j: &block.pose_b_j,
                         closest_point_a_j: &block.closest_point_a_j,
@@ -403,7 +405,7 @@ impl<T: AD, P: O3DPose<T>> ProximaGenericContainer<T, P> {
 
         let termination = |_o: &ParryProximaDistanceBoundsOutputOption<T, P>| { false };
 
-        let outputs = parry_generic_pair_group_query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, parry_shape_rep, pair_skips, for_filter, f, termination);
+        let outputs = parry_generic_pair_group_query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, parry_shape_rep1, parry_shape_rep2, pair_skips, for_filter, f, termination);
 
         outputs.0
     }

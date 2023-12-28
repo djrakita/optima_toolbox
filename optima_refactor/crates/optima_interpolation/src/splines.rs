@@ -45,13 +45,14 @@ impl<T: AD> SplineConstructor<T> {
 }
 */
 
-pub trait SplineConstructorTrait {
+pub trait SplineConstructorTrait : Clone + Copy {
     type SplineType<T: AD, V: OVec<T>> : InterpolatorTrait<T, V>;
 
     fn construct<T: AD, V: OVec<T>>(&self, control_points: Vec<V>) -> Self::SplineType<T, V>;
     fn get_default_initial_condition<T: AD, V: OVec<T>>(&self, start_point: V, end_point: V, num_points: usize) -> Vec<V>;
 }
 
+#[derive(Clone, Copy)]
 pub struct SplineConstructorLinear;
 impl SplineConstructorTrait for SplineConstructorLinear {
     type SplineType<T: AD, V: OVec<T>> = InterpolatingSpline<T, V>;
@@ -65,6 +66,7 @@ impl SplineConstructorTrait for SplineConstructorLinear {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct SplineConstructorQuadratic;
 impl SplineConstructorTrait for SplineConstructorQuadratic {
     type SplineType<T: AD, V: OVec<T>> = InterpolatingSpline<T, V>;
@@ -78,6 +80,7 @@ impl SplineConstructorTrait for SplineConstructorQuadratic {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct SplineConstructorHermiteCubic;
 impl SplineConstructorTrait for SplineConstructorHermiteCubic {
     type SplineType<T: AD, V: OVec<T>> = InterpolatingSpline<T, V>;
@@ -91,6 +94,7 @@ impl SplineConstructorTrait for SplineConstructorHermiteCubic {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct SplineConstructorNaturalCubic;
 impl SplineConstructorTrait for SplineConstructorNaturalCubic {
     type SplineType<T: AD, V: OVec<T>> = InterpolatingSpline<T, V>;
@@ -104,13 +108,13 @@ impl SplineConstructorTrait for SplineConstructorNaturalCubic {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct SplineConstructorCardinalCubic { w: f64 }
 impl SplineConstructorCardinalCubic {
     pub fn new(w: f64) -> Self {
         Self { w }
     }
 }
-
 impl SplineConstructorTrait for SplineConstructorCardinalCubic {
     type SplineType<T: AD, V: OVec<T>> = InterpolatingSpline<T, V>;
 
@@ -123,6 +127,7 @@ impl SplineConstructorTrait for SplineConstructorCardinalCubic {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct SplineConstructorBezierCubic;
 impl SplineConstructorTrait for SplineConstructorBezierCubic {
     type SplineType<T: AD, V: OVec<T>> = InterpolatingSpline<T, V>;
@@ -136,7 +141,13 @@ impl SplineConstructorTrait for SplineConstructorBezierCubic {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct SplineConstructorBSpline { k: usize }
+impl SplineConstructorBSpline {
+    pub fn new(k: usize) -> Self {
+        Self { k }
+    }
+}
 impl SplineConstructorTrait for SplineConstructorBSpline {
     type SplineType<T: AD, V: OVec<T>> = BSpline<T, V>;
 

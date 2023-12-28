@@ -4,10 +4,11 @@ use as_any::AsAny;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
-use crate::pair_group_queries::PairSkipsTrait;
+use crate::pair_group_queries::{PairSkipsTrait, SkipReason};
 use crate::shapes::OParryShape;
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
 use optima_file::traits::{FromJsonString, ToJsonString};
+use optima_universal_hashmap::AHashMapWrapper;
 
 pub trait ShapeSceneTrait<T: AD, P: O3DPose<T>> {
     type ShapeType : AsAny;
@@ -31,9 +32,20 @@ pub struct OParryGenericShapeScene<T: AD, P: O3DPose<T>> {
     pair_skips: ()
 }
 impl<T: AD, P: O3DPose<T>> OParryGenericShapeScene<T, P> {
+    pub fn new_empty() -> Self {
+        Self {
+            shapes: vec![],
+            poses: vec![],
+            pair_skips: (),
+        }
+    }
     pub fn new(shapes: Vec<OParryShape<T, P>>, poses: Vec<P>) -> Self {
         assert_eq!(shapes.len(), poses.len());
         Self { shapes, poses, pair_skips: () }
+    }
+    pub fn add_shape(&mut self, shape: OParryShape<T, P>, pose: P) {
+        self.shapes.push(shape);
+        self.poses.push(pose);
     }
     #[inline(always)]
     pub fn update_pose(&mut self, idx: usize, pose: P) {
@@ -71,4 +83,13 @@ impl<T: AD, P: O3DPose<T>> ShapeSceneTrait<T, P> for OParryGenericShapeScene<T, 
     fn shape_id_to_shape_str(&self, _id: u64) -> String {
         "".to_string()
     }
+}
+
+
+pub fn get_shape_skips_for_two_shape_scenes() -> AHashMapWrapper<(u64, u64), Vec<SkipReason>> {
+    todo!()
+}
+
+pub fn get_shape_average_distances_for_two_parry_generic_shape_scenes() {
+    todo!()
 }

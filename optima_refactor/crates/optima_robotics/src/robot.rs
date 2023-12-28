@@ -199,7 +199,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
         let json_str = self.to_json_string();
         ORobot::<T2, C2, L2>::from_json_string(&json_str)
     }
-    pub fn to_new_ad_type<T2: AD>(&self) -> ORobot<T2, C, L> {
+    pub fn to_other_ad_type<T2: AD>(&self) -> ORobot<T2, C, L> {
         self.to_new_generic_types::<T2, C, L>()
     }
     #[inline(always)]
@@ -976,7 +976,7 @@ impl<C: O3DPoseCategory, L: OLinalgCategory> ORobot<f64, C, L> {
         let last_proximity_filter_state: Rc<RefCell<Option<Vec<f64>>>> = Rc::new(RefCell::new(None));
         let filter_output: Rc<RefCell<Option<ParryFilterOutput>>> = Rc::new(RefCell::new(None));
 
-        let f2 = self.get_ik_objective_function(Cow::Owned(self.to_new_ad_type::<E::T>()), filter_query.clone(), distance_query.clone(), constant_selector.clone(), init_state, ik_goal_link_idxs.clone(), linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, last_proximity_filter_state.clone(), filter_output.clone());
+        let f2 = self.get_ik_objective_function(Cow::Owned(self.to_other_ad_type::<E::T>()), filter_query.clone(), distance_query.clone(), constant_selector.clone(), init_state, ik_goal_link_idxs.clone(), linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, last_proximity_filter_state.clone(), filter_output.clone());
         let f1= self.get_ik_objective_function(Cow::Borrowed(self), filter_query, distance_query, constant_selector, init_state, ik_goal_link_idxs, linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, last_proximity_filter_state.clone(), filter_output.clone());
 
         DifferentiableBlockIKObjective::new(derivative_method, f1, f2)
@@ -988,7 +988,7 @@ impl<C: O3DPoseCategory, L: OLinalgCategory> ORobot<f64, C, L> {
         let last_proximity_filter_state: Rc<RefCell<Option<Vec<f64>>>> = Rc::new(RefCell::new(None));
         let filter_output: Rc<RefCell<Option<ParryFilterOutput>>> = Rc::new(RefCell::new(None));
 
-        let f2 = self.get_look_at_objective_function(Cow::Owned(self.to_new_ad_type::<E::T>()), filter_query.clone(), distance_query.clone(), constant_selector.clone(), init_state, ik_goal_link_idxs.clone(), looker_link, looker_forward_axis.clone(), looker_side_axis.clone(), look_at_target.clone(), linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, look_at_weight, roll_prevention_weight, last_proximity_filter_state.clone(), filter_output.clone());
+        let f2 = self.get_look_at_objective_function(Cow::Owned(self.to_other_ad_type::<E::T>()), filter_query.clone(), distance_query.clone(), constant_selector.clone(), init_state, ik_goal_link_idxs.clone(), looker_link, looker_forward_axis.clone(), looker_side_axis.clone(), look_at_target.clone(), linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, look_at_weight, roll_prevention_weight, last_proximity_filter_state.clone(), filter_output.clone());
         let f1 = self.get_look_at_objective_function(Cow::Borrowed(self), filter_query, distance_query, constant_selector, init_state, ik_goal_link_idxs, looker_link, looker_forward_axis.clone(), looker_side_axis.clone(), look_at_target.clone(), linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, look_at_weight, roll_prevention_weight, last_proximity_filter_state.clone(), filter_output.clone());
 
         DifferentiableBlock::new(derivative_method, f1, f2)
@@ -1006,7 +1006,7 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory> ORobot<T, C, L > {
         let mut ik_goals: Vec<IKGoal<T, C::P<T>>> = vec![];
         ik_goal_link_idxs.iter().for_each(|x| { ik_goals.push(IKGoal::new(*x, fk_res.get_link_pose(*x).as_ref().expect("error").clone(), T::constant(1.0))); });
 
-        let f = DifferentiableFunctionIKObjective::new(robot, ik_goals.to_new_generic_types::<T1, C>(), init_state.to_vec().ovec_to_other_ad_type::<T1>(), filter_query.to_new_ad_type::<T1>(), distance_query.to_new_ad_type::<T1>(), constant_selector, T1::constant(dis_filter_cutoff), linf_dis_cutoff, last_proximity_filter_state.clone(), filter_output.clone(), T1::constant(ee_matching_weight), T1::constant(self_collision_avoidance_weight), T1::constant(min_vel_weight), T1::constant(min_acc_weight), T1::constant(min_jerk_weight));
+        let f = DifferentiableFunctionIKObjective::new(robot, ik_goals.to_other_generic_types::<T1, C>(), init_state.to_vec().ovec_to_other_ad_type::<T1>(), filter_query.to_other_ad_type::<T1>(), distance_query.to_other_ad_type::<T1>(), constant_selector, T1::constant(dis_filter_cutoff), linf_dis_cutoff, last_proximity_filter_state.clone(), filter_output.clone(), T1::constant(ee_matching_weight), T1::constant(self_collision_avoidance_weight), T1::constant(min_vel_weight), T1::constant(min_acc_weight), T1::constant(min_jerk_weight));
 
         f
     }
@@ -1016,7 +1016,7 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory> ORobot<T, C, L > {
               Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
         let ik_objective = self.get_ik_objective_function(robot, filter_query, distance_query, constant_selector, init_state, ik_goal_link_idxs, linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, last_proximity_filter_state, filter_output);
 
-        DifferentiableFunctionLookAt::new(ik_objective, looker_link, looker_forward_axis, looker_side_axis, look_at_target.to_new_ad_type::<T1>(), T1::constant(look_at_weight), T1::constant(roll_prevention_weight))
+        DifferentiableFunctionLookAt::new(ik_objective, looker_link, looker_forward_axis, looker_side_axis, look_at_target.to_other_ad_type::<T1>(), T1::constant(look_at_weight), T1::constant(roll_prevention_weight))
     }
 }
 impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> AsRobotTrait<T, C, L> for ORobot<T, C, L> {

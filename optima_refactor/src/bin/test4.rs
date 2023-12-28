@@ -58,8 +58,8 @@ fn main() {
     // let q = OwnedParryDistanceAsProximityGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::OBB, ParryDisMode::ContactDis, true, false, f64::MIN));
 
     let t2 = TestFunction {
-        robot: r.to_new_ad_type::<ADType>(),
-        q: q.to_new_ad_type::<ADType>(),
+        robot: r.to_other_ad_type::<ADType>(),
+        q: q.to_other_ad_type::<ADType>(),
     };
     let t = TestFunction {
         robot: r,

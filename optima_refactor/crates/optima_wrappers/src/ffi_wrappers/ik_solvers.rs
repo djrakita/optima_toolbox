@@ -14,14 +14,6 @@ use optima_robotics::robotics_optimization::robotics_optimization_ik::{Different
 
 type FAD = adfn<8>;
 
-pub unsafe extern "C" fn test() -> *const IKOptResult {
-    let data = vec![1.,2.,3.];
-    Box::into_raw(Box::new(IKOptResult {
-        data: data.as_ptr(),
-        length: 3,
-    }))
-}
-
 #[no_mangle]
 pub unsafe extern "C" fn get_default_robot(robot_name: *const c_char) -> *const ORobotDefault {
     let c_str = std::ffi::CStr::from_ptr(robot_name);
@@ -37,7 +29,7 @@ pub unsafe extern "C" fn get_default_ik_differentiable_block<'a>(robot: *const O
     let goal_link_idx = goal_link_idx as usize;
 
     let fq = OwnedParryDistanceGroupSequenceFilter::new(ParryDistanceGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB, ParryShapeRep::Full], vec![], 0.6, true, ParryDisMode::ContactDis));
-    let q = OwnedParryProximaAsProximityQry::new(PairGroupQryArgsParryProxima::new(ParryShapeRep::Full, true, false, ProximaTermination::MaxError(0.15), ProximityLossFunction::Hinge, 15.0, 0.6));
+    let q = OwnedParryProximaAsProximityQry::new(PairGroupQryArgsParryProxima::new(ParryShapeRep::Full, ParryShapeRep::Full, true, false, ProximaTermination::MaxError(0.15), ProximityLossFunction::Hinge, 15.0, 0.6));
     // let q = OwnedParryDistanceAsProximityGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, true, false, -1000.0, false));
     let db = robot.as_ref().unwrap().get_ik_differentiable_block(ForwardADMulti::<FAD>::new(), fq, q, None, &x, vec![goal_link_idx], 0.09, 0.6, 1.0, 0.1, 1.0, 0.3, 0.1);
 

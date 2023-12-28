@@ -6,7 +6,7 @@ use ad_trait::differentiable_function::{DifferentiableFunctionClass, Differentia
 use parry_ad::shape::Ball;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
 use optima_3d_spatial::optima_3d_vec::O3DVec;
-use optima_interpolation::{InterpolatorTrait, InterpolatorTraitLite};
+use optima_interpolation::{get_interpolation_range_num_steps, InterpolatorTrait, InterpolatorTraitLite};
 use optima_interpolation::splines::SplineConstructorTrait;
 use optima_linalg::OVec;
 use optima_optimization::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
@@ -40,15 +40,40 @@ pub struct DifferentiableFunctionPathOpt<'a, T: AD, C: O3DPoseCategory, S: Splin
     min_jerk_weight: T
 }
 impl<'a, T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory>> DifferentiableFunctionPathOpt<'a, T, C, S, Q> {
-    pub fn new(spline_constructor: S, environment: Cow<'a, OParryGenericShapeScene<T, C::P<T>>>, proximity_qry: OwnedPairGroupQry<'a, T, Q>, num_spheres: usize, start_point: Vec<T>, end_point: Vec<T>, num_arclength_markers: usize, num_points_along_spline_to_sample: usize, sample_ts: Vec<T>, distance_cutoff: T, match_start_and_end_point_weight: T, collision_avoidance_weight: T, min_vel_weight: T, min_accel_weight: T, min_jerk_weight: T) -> Self {
+    pub fn new(spline_constructor: S, environment: Cow<'a, OParryGenericShapeScene<T, C::P<T>>>, proximity_qry: OwnedPairGroupQry<'a, T, Q>, start_point: Vec<T>, end_point: Vec<T>, num_arclength_markers: usize, num_points_along_spline_to_sample: usize, match_start_and_end_point_weight: T, collision_avoidance_weight: T, min_vel_weight: T, min_accel_weight: T, min_jerk_weight: T) -> Self {
         let mut spheres = vec![];
         let dis = start_point.dis(&end_point);
+        let num_spheres = num_points_along_spline_to_sample;
         let sphere_diameter = dis / T::constant(num_spheres as f64);
-        let sphere_radius = sphere_diameter / T::constant(2.0);
+        let sphere_radius = (sphere_diameter / T::constant(2.0)) * T::constant(0.75);
         for _ in 0..num_spheres {
             spheres.push(OParryShape::new(Ball::new(sphere_radius), C::P::identity(), false, false));
         }
+        let sample_ts = get_interpolation_range_num_steps(T::zero(), T::one(), num_spheres);
+        let distance_cutoff = sphere_radius * T::constant(2.5);
+
+        // let proximity_qry = OwnedParryDistanceAsProximityGroupQry::new(ParryDistanceGroupArgs::new(parry_shape_rep, ParryDisMode::ContactDis, false, false, T::constant(-10000.0), false));
+
         Self { spline_constructor, environment, proximity_qry, spheres, start_point, end_point, num_arclength_markers, num_points_along_spline_to_sample, sample_ts, distance_cutoff, match_start_and_end_point_weight, collision_avoidance_weight, min_vel_weight, min_accel_weight, min_jerk_weight }
+    }
+    pub fn to_other_ad_type<T1: AD>(&self) -> DifferentiableFunctionPathOpt<'a, T1, C, S, Q> {
+        DifferentiableFunctionPathOpt {
+            spline_constructor: self.spline_constructor.clone(),
+            environment: Cow::Owned(self.environment.to_other_generic_category::<T1, C>()),
+            proximity_qry: self.proximity_qry.to_other_ad_type::<T1>(),
+            spheres: self.spheres.iter().map(|x| x.to_other_generic_category::<T1, C>() ).collect(),
+            start_point: self.start_point.ovec_to_other_ad_type::<T1>(),
+            end_point: self.end_point.ovec_to_other_ad_type::<T1>(),
+            num_arclength_markers: self.num_arclength_markers,
+            num_points_along_spline_to_sample: self.num_points_along_spline_to_sample,
+            sample_ts: self.sample_ts.ovec_to_other_ad_type::<T1>(),
+            distance_cutoff: self.distance_cutoff.to_other_ad_type::<T1>(),
+            match_start_and_end_point_weight: self.match_start_and_end_point_weight.to_other_ad_type::<T1>(),
+            collision_avoidance_weight: self.collision_avoidance_weight.to_other_ad_type::<T1>(),
+            min_vel_weight: self.min_vel_weight.to_other_ad_type::<T1>(),
+            min_accel_weight: self.min_accel_weight.to_other_ad_type::<T1>(),
+            min_jerk_weight: self.min_jerk_weight.to_other_ad_type::<T1>(),
+        }
     }
 }
 

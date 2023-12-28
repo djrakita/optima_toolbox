@@ -9,7 +9,7 @@ use optima_linalg::{OLinalgCategory, OVec, OVecCategoryVec};
 use optima_optimization::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
 use optima_proximity::pair_group_queries::{OPairGroupQryTrait, PairGroupQryOutputCategoryParryFilter, ParryPairSelector, ToParryProximityOutputCategory};
 use optima_proximity::shapes::ShapeCategoryOParryShape;
-use crate::robotics_optimization::robotics_optimization_functions::{AxisDirection, LookAtTarget, robot_link_look_at_objective, robot_link_look_at_roll_prevention_objective};
+use crate::robotics_optimization::robotics_optimization_functions::{AxisDirection, LookAtTarget, LookAtTargetRwLockTrait, robot_link_look_at_objective, robot_link_look_at_roll_prevention_objective};
 use crate::robotics_optimization::robotics_optimization_ik::{DifferentiableFunctionIKObjective, IKGoalRwLockVecTrait, IKGoalUpdateMode, IKPrevStatesRwLockTrait};
 
 pub struct DifferentiableFunctionClassLookAt<C, L, FQ, Q>(PhantomData<(C, L, FQ, Q)>)
@@ -49,6 +49,17 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q> where 
                                                                                 Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
     pub fn new(ik_objective: DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q>, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<T, O3DVecCategoryArr>, look_at_weight: T, roll_prevention_weight: T) -> Self {
         Self { ik_objective, looker_link, looker_forward_axis, looker_side_axis, look_at_target: RwLock::new(look_at_target), look_at_weight, roll_prevention_weight }
+    }
+    pub fn to_other_ad_type<T1: AD>(&self) -> DifferentiableFunctionLookAt<'a, T1, C, L, FQ, Q> {
+        DifferentiableFunctionLookAt {
+            ik_objective: self.ik_objective.to_other_ad_type::<T1>(),
+            looker_link: self.looker_link.clone(),
+            looker_forward_axis: self.looker_forward_axis.clone(),
+            looker_side_axis: self.looker_side_axis.clone(),
+            look_at_target: self.look_at_target.to_other_generic_types::<T1, O3DVecCategoryArr>(),
+            look_at_weight: self.look_at_weight.to_other_ad_type::<T1>(),
+            roll_prevention_weight: self.roll_prevention_weight.to_other_ad_type::<T1>(),
+        }
     }
 }
 impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait<'a, T> for DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q>
@@ -93,7 +104,7 @@ impl<'a, E, C, L, FQ, Q> DifferentiableBlockLookAtTrait<'a, C> for Differentiabl
 {
     fn update_look_at_target(&self, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>) {
         self.update_function(|x, y| {
-            *y.look_at_target.write().unwrap() = look_at_target.to_new_ad_type::<E::T>();
+            *y.look_at_target.write().unwrap() = look_at_target.to_other_ad_type::<E::T>();
             *x.look_at_target.write().unwrap() =  look_at_target.to_owned();
         });
     }

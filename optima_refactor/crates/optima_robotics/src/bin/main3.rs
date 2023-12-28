@@ -19,6 +19,6 @@ fn main() {
     r.add_robot(ORobot::from_urdf("ur5"), 0, 0, &Isometry3::identity(), [0.0; 3], OJointType::Fixed, OJointLimit::default());
 
     let chain = r.as_robot();
-    let chain = chain.to_new_ad_type::<adfn<1>>();
+    let chain = chain.to_other_ad_type::<adfn<1>>();
     test(&chain);
 }
