@@ -134,6 +134,55 @@ pub fn per_instant_velocity_acceleration_and_jerk_objectives<T: AD, V: OVec<T>>(
     (v,a,j)
 }
 
+pub fn min_velocity_over_path_objective<T: AD, V: OVec<T>>(inputs: &Vec<V>, p_norm: T) -> T {
+    let mut v_vec = vec![];
+    let num_inputs = inputs.len();
+    for i in 0..num_inputs - 1 {
+        let a = &inputs[i];
+        let b = &inputs[i+1];
+        let v = a.ovec_sub(b).ovec_p_norm(&p_norm);
+        v_vec.push(v);
+    }
+
+    return v_vec.ovec_p_norm(&p_norm);
+}
+
+pub fn min_acceleration_over_path_objective<T: AD, V: OVec<T>>(inputs: &Vec<V>, p_norm: T) -> T {
+    let mut a_vec = vec![];
+    let num_inputs = inputs.len();
+    for i in 0..num_inputs - 2 {
+        let a = &inputs[i];
+        let b = &inputs[i+1];
+        let c = &inputs[i+2];
+        let v1 = a.ovec_sub(b);
+        let v2 = b.ovec_sub(c);
+        let acc = v1.ovec_sub(&v2).ovec_p_norm(&p_norm);
+        a_vec.push(acc);
+    }
+
+    return a_vec.ovec_p_norm(&p_norm);
+}
+
+pub fn min_jerk_over_path_objective<T: AD, V: OVec<T>>(inputs: &Vec<V>, p_norm: T) -> T {
+    let mut j_vec = vec![];
+    let num_inputs = inputs.len();
+    for i in 0..num_inputs - 3 {
+        let a = &inputs[i];
+        let b = &inputs[i+1];
+        let c = &inputs[i+2];
+        let d = &inputs[i+3];
+        let v1 = a.ovec_sub(b);
+        let v2 = b.ovec_sub(c);
+        let v3 = c.ovec_sub(d);
+        let a1 = v1.ovec_sub(&v2);
+        let a2 = v2.ovec_sub(&v3);
+        let j = a1.ovec_sub(&a2).ovec_p_norm(&p_norm);
+        j_vec.push(j);
+    }
+
+    return j_vec.ovec_p_norm(&p_norm);
+}
+
 #[derive(Clone, Debug)]
 pub enum AxisDirection { X, Y, Z, NegX, NegY, NegZ }
 

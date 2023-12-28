@@ -6,7 +6,6 @@ use bevy::prelude::{Assets, Color, Commands, Component, Mesh, Res, ResMut, Resou
 use bevy::utils::default;
 use parry_ad::shape::TypedShape;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
-use optima_linalg::OVec;
 use optima_proximity::shape_scene::{OParryGenericShapeScene, ShapeSceneTrait};
 use optima_proximity::shapes::{OParryShape, OParryShpGeneric, OParryShpTrait};
 use crate::optima_bevy_utils::file::get_asset_path_str_from_ostemcellpath;

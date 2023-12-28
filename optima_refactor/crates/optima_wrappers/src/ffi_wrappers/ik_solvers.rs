@@ -14,6 +14,14 @@ use optima_robotics::robotics_optimization::robotics_optimization_ik::{Different
 
 type FAD = adfn<8>;
 
+pub unsafe extern "C" fn test() -> *const IKOptResult {
+    let data = vec![1.,2.,3.];
+    Box::into_raw(Box::new(IKOptResult {
+        data: data.as_ptr(),
+        length: 3,
+    }))
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn get_default_robot(robot_name: *const c_char) -> *const ORobotDefault {
     let c_str = std::ffi::CStr::from_ptr(robot_name);

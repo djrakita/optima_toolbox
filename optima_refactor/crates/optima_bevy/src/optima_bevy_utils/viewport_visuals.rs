@@ -1,8 +1,8 @@
 use ad_trait::AD;
-use bevy::asset::{Assets, AssetServer};
+use bevy::asset::{Assets};
 use bevy::math::{Mat3, Quat, Vec3};
 use bevy::pbr::{AlphaMode, PbrBundle};
-use bevy::prelude::{Color, Commands, default, Entity, Gizmos, Mesh, Res, ResMut, shape, StandardMaterial, Transform};
+use bevy::prelude::{Color, Commands, default, Entity, Gizmos, Mesh, ResMut, shape, StandardMaterial, Transform};
 use bevy_prototype_debug_lines::DebugLines;
 use nalgebra::DVector;
 use optima_3d_spatial::optima_3d_pose::O3DPose;
