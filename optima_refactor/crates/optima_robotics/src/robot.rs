@@ -26,7 +26,7 @@ use crate::robotics_traits::{AsRobotTrait, JointTrait};
 use optima_misc::arr_storage::MutArrTraitRaw;
 use optima_misc::arr_storage::ImmutArrTraitRaw;
 use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, PairGroupQryOutputCategoryParryFilter, PairGroupQryOutputCategory, ParryFilterOutput, ParryPairSelector, ToParryProximityOutputCategory, SkipReason};
-use optima_proximity::shape_scene::ShapeSceneTrait;
+use optima_proximity::shape_scene::{OParryGenericShapeScene, ShapeSceneTrait};
 use optima_proximity::shapes::{OParryShape, ShapeCategoryOParryShape};
 use optima_sampling::SimpleSampler;
 use optima_universal_hashmap::AHashMapWrapper;
@@ -450,6 +450,22 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
         let pair_average_distances = self.parry_shape_scene.get_pair_average_distances();
 
         query.query(shapes, shapes, p.as_ref(), p.as_ref(), pair_selector, pair_skips, pair_average_distances, freeze)
+    }
+    pub fn parry_shape_scene_external_query<Q, V: OVec<T>>(&self, state: &V, scene: &OParryGenericShapeScene<T, C::P<T>>, query: &OwnedPairGroupQry<T, Q>, pair_selector: &ParryPairSelector, freeze: bool) -> <Q::OutputCategory as PairGroupQryOutputCategory>::Output<T, C::P<T>>
+        where Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector>
+    {
+        let fk_res = self.forward_kinematics(state, None);
+        self.parry_shape_scene_external_query_from_fk_res(&fk_res, scene, query, pair_selector, freeze)
+    }
+    pub fn parry_shape_scene_external_query_from_fk_res<Q>(&self, fk_res: &FKResult<T, C::P<T>>, scene: &OParryGenericShapeScene<T, C::P<T>>, query: &OwnedPairGroupQry<T, Q>, pair_selector: &ParryPairSelector, freeze: bool) -> <Q::OutputCategory as PairGroupQryOutputCategory>::Output<T, C::P<T>>
+        where Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector>
+    {
+        let shapes_a = self.parry_shape_scene.get_shapes();
+        let shapes_b = scene.get_shapes();
+        let poses_a = self.get_shape_poses_from_fk_res(fk_res);
+        let poses_b = scene.get_shape_poses(&());
+
+        query.query(shapes_a, shapes_b, poses_a.as_ref(), poses_b.as_ref(), pair_selector, &(), &(), freeze)
     }
     #[inline(always)]
     pub fn get_dof_bounds(&self) -> Vec<(T, T)> {

@@ -416,6 +416,11 @@ impl<T, TargetRotationType> O3DRotationConstructor<T, TargetRotationType> for Un
 }
 
 pub struct QuatConstructor<T: AD>{pub w: T, pub x: T, pub y: T, pub z: T}
+impl<T: AD> QuatConstructor<T> {
+    pub fn new(w: T, x: T, y: T, z: T) -> Self {
+        Self { w, x, y, z }
+    }
+}
 impl<T, TargetRotationType> O3DRotationConstructor<T, TargetRotationType> for QuatConstructor<T>
     where T: AD,
           TargetRotationType: O3DRotation<T> {

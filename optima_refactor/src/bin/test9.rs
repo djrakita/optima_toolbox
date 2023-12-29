@@ -1,22 +1,11 @@
-use ad_trait::differentiable_function::{FiniteDifferencing2, ForwardADMulti2, ReverseAD2};
-use ad_trait::forward_ad::adfn::adfn;
-use nalgebra::Isometry3;
-use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_bevy::optima_bevy_utils::robotics::BevyRoboticsTrait;
-use optima_bevy::OptimaBevyTrait;
-use optima_interpolation::InterpolatorTrait;
-use optima_interpolation::splines::{InterpolatingSpline, InterpolatingSplineType};
-use optima_optimization2::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
-use optima_optimization2::open::SimpleOpEnOptimizer;
-use optima_proximity::pair_group_queries::{OwnedEmptyParryFilter, OwnedEmptyToProximityQry, OwnedParryDistanceGroupSequenceFilter, ParryDistanceGroupSequenceFilterArgs, ProximityLossFunction};
-use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
-use optima_proximity::proxima::{OwnedParryProximaAsProximityQry, PairGroupQryArgsParryProxima, ProximaTermination};
-use optima_robotics::robot::{ORobotDefault};
-use optima_robotics::robotics_optimization::robotics_optimization_ik::{DifferentiableBlockIKObjectiveTrait, IKGoalUpdateMode, IKGoalVecTrait};
+use optima_robotics::robot::ORobotDefault;
 
 fn main() {
     let robot = ORobotDefault::load_from_saved_robot("xarm7_with_gripper_and_rail_8dof");
+    robot.bevy_display();
 
+    /*
     // let fq = OwnedParryDistanceGroupSequenceFilter::new(ParryDistanceGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB, ParryShapeRep::Full], vec![], 0.6, true, ParryDisMode::ContactDis));
     let fq = OwnedEmptyParryFilter::new(());
     // let q = OwnedParryProximaAsProximityQry::new(PairGroupQryArgsParryProxima::new(ParryShapeRep::Full, true, false, ProximaTermination::MaxError(0.1), ProximityLossFunction::Hinge, 15.0, 0.6));
@@ -46,4 +35,6 @@ fn main() {
     let mut app = robot.bevy_get_motion_playback_app(&s);
     app.optima_bevy_draw_3d_curve(c, 100, 10.0, 5, 2);
     app.run();
+
+     */
 }

@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use ad_trait::AD;
 use bevy::input::common_conditions::input_just_pressed;
 pub use bevy::prelude::*;
@@ -33,7 +34,7 @@ pub trait OptimaBevyTrait {
     fn optima_bevy_pan_orbit_camera(&mut self) -> &mut Self;
     fn optima_bevy_starter_lights(&mut self) -> &mut Self;
     fn optima_bevy_spawn_robot<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static>(&mut self) -> &mut Self;
-    fn optima_bevy_spawn_robot_in_pose<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, V: OVec<T>>(&mut self, robot: ORobot<T, C, L>, state: V, robot_instance_idx: usize) -> &mut Self;
+    fn optima_bevy_spawn_robot_in_pose<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, V: OVec<T>>(&mut self, robot: Arc<ORobot<T, C, L>>, state: V, robot_instance_idx: usize) -> &mut Self;
     fn optima_bevy_robotics_scene_visuals_starter(&mut self) -> &mut Self;
     fn optima_bevy_egui(&mut self) -> &mut Self;
     fn optima_bevy_draw_3d_curve<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V> + 'static + Sync + Send>(&mut self, curve: I, num_points: usize, width_in_mm: f32, num_points_per_circle: usize, num_concentric_circles: usize) -> &mut Self;
@@ -111,7 +112,7 @@ impl OptimaBevyTrait for App {
 
         self
     }
-    fn optima_bevy_spawn_robot_in_pose<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, V: OVec<T>>(&mut self, robot: ORobot<T, C, L>, state: V, robot_instance_idx: usize) -> &mut Self {
+    fn optima_bevy_spawn_robot_in_pose<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, V: OVec<T>>(&mut self, robot: Arc<ORobot<T, C, L>>, state: V, robot_instance_idx: usize) -> &mut Self {
 
         self.add_systems(Startup, move |mut commands: Commands, asset_server: Res<AssetServer>, mut materials: ResMut<Assets<StandardMaterial>>| {
             let fk_res = robot.forward_kinematics(&state, None);

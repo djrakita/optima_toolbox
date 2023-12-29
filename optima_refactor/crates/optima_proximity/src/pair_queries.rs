@@ -276,8 +276,8 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceUpperBoun
     }
 }
 pub struct ParryProximaDistanceUpperBoundArgs<'a, T: AD, P: O3DPose<T>, V: O3DVec<T>> {
-    pub parry_qry_shape_type: ParryQryShapeType,
-    pub parry_shape_rep: ParryShapeRep,
+    // pub parry_qry_shape_type: ParryQryShapeType,
+    // pub parry_shape_rep: ParryShapeRep,
     pub pose_a_j: &'a P,
     pub pose_b_j: &'a P,
     pub closest_point_a_j: &'a V,
@@ -295,7 +295,7 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceLowerBoun
     #[inline(always)]
     fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
         let start = Instant::now();
-        let shapes = get_shapes_from_parry_qry_shape_type_and_parry_shape_rep(shape_a, shape_b, &args.parry_qry_shape_type, &args.parry_shape_rep);
+        let shapes = get_shapes_from_parry_qry_shape_type_and_parry_shape_rep(shape_a, shape_b, &args.parry_qry_shape_type, &args.parry_shape_rep1, &args.parry_shape_rep2);
         let a_f = shapes.0.max_dis_from_origin_to_point_on_shape.expect("error: max dis from origin to point was not computed for this parry shape");
         let b_f = shapes.1.max_dis_from_origin_to_point_on_shape.expect("error: max dis from origin to point was not computed for this parry shape");
         let max_f = a_f.max(b_f);
@@ -326,7 +326,8 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceLowerBoun
 
 pub struct ParryProximaDistanceLowerBoundArgs<'a, T: AD, P: O3DPose<T>> {
     pub parry_qry_shape_type: ParryQryShapeType,
-    pub parry_shape_rep: ParryShapeRep,
+    pub parry_shape_rep1: ParryShapeRep,
+    pub parry_shape_rep2: ParryShapeRep,
     pub raw_distance_j: T,
     pub displacement_between_a_and_b_j: &'a P,
     pub average_distance: Option<T>
@@ -345,7 +346,8 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceBoundsQry
 
         let lower_bound_res = ParryProximaDistanceLowerBoundQry::query(shape_a, shape_b, pose_a, pose_b, &ParryProximaDistanceLowerBoundArgs {
             parry_qry_shape_type: args.parry_qry_shape_type.clone(),
-            parry_shape_rep: args.parry_shape_rep.clone(),
+            parry_shape_rep1: args.parry_shape_rep1.clone(),
+            parry_shape_rep2: args.parry_shape_rep2.clone(),
             raw_distance_j: args.raw_distance_j,
             displacement_between_a_and_b_j: &args.displacement_between_a_and_b_j,
             average_distance: args.average_distance.clone(),
@@ -358,8 +360,8 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceBoundsQry
         }
 
         let upper_bound_res = ParryProximaDistanceUpperBoundQry::query(shape_a, shape_b, pose_a, pose_b, &ParryProximaDistanceUpperBoundArgs {
-            parry_qry_shape_type: args.parry_qry_shape_type.clone(),
-            parry_shape_rep: args.parry_shape_rep.clone(),
+            // parry_qry_shape_type: args.parry_qry_shape_type.clone(),
+            // parry_shape_rep: args.parry_shape_rep.clone(),
             pose_a_j: args.pose_a_j,
             pose_b_j: args.pose_b_j,
             closest_point_a_j: args.closest_point_a_j,
@@ -384,7 +386,8 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceBoundsQry
 
 pub struct ParryProximaDistanceBoundsArgs<'a, T: AD, P: O3DPose<T>, V: O3DVec<T>> {
     pub parry_qry_shape_type: ParryQryShapeType,
-    pub parry_shape_rep: ParryShapeRep,
+    pub parry_shape_rep1: ParryShapeRep,
+    pub parry_shape_rep2: ParryShapeRep,
     pub pose_a_j: &'a P,
     pub pose_b_j: &'a P,
     pub closest_point_a_j: &'a V,
@@ -533,20 +536,63 @@ pub (crate) fn parry_shape_lower_and_upper_bound<T: AD, P: O3DPose<T>>(shape_a: 
 }
 
 #[inline(always)]
-pub (crate) fn get_shapes_from_parry_qry_shape_type_and_parry_shape_rep<'a, T: AD, P: O3DPose<T>>(shape_a: &'a OParryShape<T, P>, shape_b: &'a OParryShape<T, P>, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep: &ParryShapeRep) -> (&'a OParryShpGeneric<T, P>, &'a OParryShpGeneric<T, P>) {
+pub (crate) fn get_shapes_from_parry_qry_shape_type_and_parry_shape_rep<'a, T: AD, P: O3DPose<T>>(shape_a: &'a OParryShape<T, P>, shape_b: &'a OParryShape<T, P>, parry_qry_shape_type: &ParryQryShapeType, parry_shape_rep1: &ParryShapeRep, parry_shape_rep2: &ParryShapeRep) -> (&'a OParryShpGeneric<T, P>, &'a OParryShpGeneric<T, P>) {
     let shapes = match parry_qry_shape_type {
         ParryQryShapeType::Standard => {
-            match parry_shape_rep {
-                ParryShapeRep::Full => { (&shape_a.base_shape.base_shape, &shape_b.base_shape.base_shape) }
-                ParryShapeRep::OBB => { (&shape_a.base_shape.obb, &shape_b.base_shape.obb) }
-                ParryShapeRep::BoundingSphere => { (&shape_a.base_shape.bounding_sphere, &shape_b.base_shape.bounding_sphere) }
+            match parry_shape_rep1 {
+                // ParryShapeRep::Full => { (&shape_a.base_shape.base_shape, &shape_b.base_shape.base_shape) }
+                // ParryShapeRep::OBB => { (&shape_a.base_shape.obb, &shape_b.base_shape.obb) }
+                // ParryShapeRep::BoundingSphere => { (&shape_a.base_shape.bounding_sphere, &shape_b.base_shape.bounding_sphere) }
+                ParryShapeRep::Full => {
+                    match parry_shape_rep2 {
+                        ParryShapeRep::Full => { (&shape_a.base_shape.base_shape, &shape_b.base_shape.base_shape) }
+                        ParryShapeRep::OBB => { (&shape_a.base_shape.base_shape, &shape_b.base_shape.obb) }
+                        ParryShapeRep::BoundingSphere => { (&shape_a.base_shape.base_shape, &shape_b.base_shape.bounding_sphere) }
+                    }
+                }
+                ParryShapeRep::OBB => {
+                    match parry_shape_rep2 {
+                        ParryShapeRep::Full => { (&shape_a.base_shape.obb, &shape_b.base_shape.base_shape) }
+                        ParryShapeRep::OBB => { (&shape_a.base_shape.obb, &shape_b.base_shape.obb) }
+                        ParryShapeRep::BoundingSphere => { (&shape_a.base_shape.obb, &shape_b.base_shape.bounding_sphere) }
+                    }
+                }
+                ParryShapeRep::BoundingSphere => {
+                    match parry_shape_rep2 {
+                        ParryShapeRep::Full => { (&shape_a.base_shape.bounding_sphere, &shape_b.base_shape.base_shape) }
+                        ParryShapeRep::OBB => { (&shape_a.base_shape.bounding_sphere, &shape_b.base_shape.obb) }
+                        ParryShapeRep::BoundingSphere => { (&shape_a.base_shape.bounding_sphere, &shape_b.base_shape.bounding_sphere) }
+                    }
+                }
             }
         }
         ParryQryShapeType::ConvexSubcomponentsWithIdxs { shape_a_subcomponent_idx, shape_b_subcomponent_idx } => {
-            match parry_shape_rep {
-                ParryShapeRep::Full => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].base_shape, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].base_shape) }
-                ParryShapeRep::OBB => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].base_shape, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].base_shape) }
-                ParryShapeRep::BoundingSphere => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].base_shape, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].base_shape) }
+            match parry_shape_rep1 {
+                // ParryShapeRep::Full => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].base_shape, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].base_shape) }
+                // ParryShapeRep::OBB => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].base_shape, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].base_shape) }
+                // ParryShapeRep::BoundingSphere => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].base_shape, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].base_shape) }
+
+                ParryShapeRep::Full => {
+                    match parry_shape_rep2 {
+                        ParryShapeRep::Full => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].base_shape, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].base_shape) }
+                        ParryShapeRep::OBB => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].base_shape, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].obb) }
+                        ParryShapeRep::BoundingSphere => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].base_shape, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].bounding_sphere) }
+                    }
+                }
+                ParryShapeRep::OBB => {
+                    match parry_shape_rep2 {
+                        ParryShapeRep::Full => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].obb, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].base_shape) }
+                        ParryShapeRep::OBB => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].obb, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].obb) }
+                        ParryShapeRep::BoundingSphere => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].obb, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].bounding_sphere) }
+                    }
+                }
+                ParryShapeRep::BoundingSphere => {
+                    match parry_shape_rep2 {
+                        ParryShapeRep::Full => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].bounding_sphere, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].base_shape) }
+                        ParryShapeRep::OBB => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].bounding_sphere, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].obb) }
+                        ParryShapeRep::BoundingSphere => { (&shape_a.convex_subcomponents[*shape_a_subcomponent_idx].bounding_sphere, &shape_b.convex_subcomponents[*shape_b_subcomponent_idx].bounding_sphere) }
+                    }
+                }
             }
         }
     };

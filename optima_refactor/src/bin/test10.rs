@@ -3,7 +3,7 @@ use optima_3d_spatial::optima_3d_pose::O3DPose;
 use optima_3d_spatial::optima_3d_rotation::QuatConstructor;
 use optima_bevy::{App, OptimaBevyTrait};
 use optima_bevy::optima_bevy_utils::viewport_visuals::BevyDrawShape;
-use optima_proximity::Cuboid;
+use optima_proximity::parry_ad::shape::Cuboid;
 use optima_proximity::shape_scene::OParryGenericShapeScene;
 use optima_proximity::shapes::OParryShape;
 use optima_robotics::robot::ORobotDefault;

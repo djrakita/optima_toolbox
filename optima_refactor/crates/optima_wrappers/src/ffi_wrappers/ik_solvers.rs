@@ -70,7 +70,17 @@ pub unsafe extern "C" fn ik_optimize(init_condition: *const c_double, joint_stat
     let l = solution.len();
     let ptr = solution.as_ptr();
 
+    let boxed_slice = solution.into_boxed_slice();
+    let ptr = Box::into_raw(boxed_slice) as *const c_double;
+
     IKOptResult { data: ptr, length: l as c_int }
+}
+
+#[no_mangle]
+pub extern "C" fn free_ik_optimize_result(ptr: *mut c_double, length: c_int) {
+    unsafe {
+        let _ = Box::from_raw(std::slice::from_raw_parts_mut(ptr, length as usize));
+    }
 }
 
 #[repr(C)]

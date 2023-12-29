@@ -80,7 +80,7 @@ pub trait OVec<T: AD> : Debug + Clone + Send + Sync + AsAny  {
         let mut out = T::zero();
         let slice = self.ovec_as_slice();
         if slice.len() == 0 { return out; }
-        slice.iter().for_each(|x| { out += x.powf(*p); });
+        slice.iter().for_each(|x| { out += x.abs().powf(*p); });
         out.powf(p.recip())
     }
     #[inline(always)]
