@@ -59,7 +59,7 @@ impl<'a, T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryT
     pub fn to_other_ad_type<T1: AD>(&self) -> DifferentiableFunctionPathOpt<'a, T1, C, S, Q> {
         DifferentiableFunctionPathOpt {
             spline_constructor: self.spline_constructor.clone(),
-            environment: Cow::Owned(self.environment.to_other_generic_category::<T1, C>()),
+            environment: Cow::Owned(self.environment.to_other_generic_types::<T1, C>()),
             proximity_qry: self.proximity_qry.to_other_ad_type::<T1>(),
             spheres: self.spheres.iter().map(|x| x.to_other_generic_category::<T1, C>() ).collect(),
             start_point: self.start_point.ovec_to_other_ad_type::<T1>(),

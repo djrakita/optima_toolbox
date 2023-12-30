@@ -62,6 +62,7 @@ fn simple_open_optimize<'a, DC, E>(objective_function: &DifferentiableBlock<'a, 
     })
 }
 
+#[derive(Clone, Debug)]
 pub struct SimpleOpEnEngineOptimizerOutput {
     x_star: Vec<f64>,
     solver_status: SolverStatus

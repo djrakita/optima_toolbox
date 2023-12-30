@@ -6,9 +6,7 @@ use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3};
 use optima_linalg::OLinalgCategoryNalgebra;
 use optima_optimization::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
 use optima_optimization::open::SimpleOpEnOptimizer;
-use optima_proximity::pair_group_queries::{EmptyParryFilter, EmptyToParryProximity, OwnedEmptyParryFilter, OwnedEmptyToProximityQry, OwnedParryDistanceGroupSequenceFilter, ParryDistanceGroupSequenceFilter, ParryDistanceGroupSequenceFilterArgs, ProximityLossFunction};
-use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
-use optima_proximity::proxima::{OwnedParryProximaAsProximityQry, PairGroupQryArgsParryProxima, ParryProximaAsProximityQry, ProximaTermination};
+use optima_proximity::pair_group_queries::{EmptyParryFilter, EmptyToParryProximity, OwnedEmptyParryFilter, OwnedEmptyToProximityQry};
 use optima_robotics::robot::ORobotDefault;
 use optima_robotics::robotics_optimization::robotics_optimization_ik::{DifferentiableBlockIKObjective, DifferentiableBlockIKObjectiveTrait, IKGoalUpdateMode};
 

@@ -52,9 +52,9 @@ impl<T: AD, P: O3DPose<T>> OParryGenericShapeScene<T, P> {
         self.poses[idx] = pose;
     }
     pub fn to_other_ad_type<T1: AD>(&self) -> OParryGenericShapeScene<T1, <P::Category as O3DPoseCategory>::P<T1>> {
-        self.to_other_generic_category::<T1, P::Category>()
+        self.to_other_generic_types::<T1, P::Category>()
     }
-    pub fn to_other_generic_category<T1: AD, C1: O3DPoseCategory>(&self) -> OParryGenericShapeScene<T1, C1::P<T1>> {
+    pub fn to_other_generic_types<T1: AD, C1: O3DPoseCategory>(&self) -> OParryGenericShapeScene<T1, C1::P<T1>> {
         let json_str = self.to_json_string();
         OParryGenericShapeScene::<T1, C1::P<T1>>::from_json_string(&json_str)
     }

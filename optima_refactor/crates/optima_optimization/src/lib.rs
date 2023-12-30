@@ -1,6 +1,10 @@
 pub mod open;
 pub mod argmin;
 pub mod loss_functions;
+#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(target_arch = "wasm64"))]
+#[cfg(feature = "include_nlopt")]
+pub mod nlopt;
 
 use std::any::Any;
 use ad_trait::AD;

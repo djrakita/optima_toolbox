@@ -195,12 +195,12 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
             phantom_data: Default::default(),
         }
     }
-    pub fn to_new_generic_types<T2: AD, C2: O3DPoseCategory, L2: OLinalgCategory>(&self) -> ORobot<T2, C2, L2> {
+    pub fn to_other_generic_types<T2: AD, C2: O3DPoseCategory, L2: OLinalgCategory>(&self) -> ORobot<T2, C2, L2> {
         let json_str = self.to_json_string();
         ORobot::<T2, C2, L2>::from_json_string(&json_str)
     }
     pub fn to_other_ad_type<T2: AD>(&self) -> ORobot<T2, C, L> {
-        self.to_new_generic_types::<T2, C, L>()
+        self.to_other_generic_types::<T2, C, L>()
     }
     #[inline(always)]
     pub fn robot_name(&self) -> &str {

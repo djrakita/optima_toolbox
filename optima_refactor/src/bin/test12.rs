@@ -1,5 +1,6 @@
 use std::sync::Arc;
-use ad_trait::differentiable_function::ForwardADMulti;
+use std::time::Instant;
+use ad_trait::differentiable_function::{FiniteDifferencing, ForwardADMulti};
 use ad_trait::forward_ad::adfn::adfn;
 use nalgebra::{Isometry3, Vector3};
 use optima_3d_spatial::optima_3d_pose::O3DPose;
@@ -8,7 +9,9 @@ use optima_bevy::{App, OptimaBevyTrait};
 use optima_bevy::optima_bevy_utils::robotics::BevyRoboticsTrait;
 use optima_interpolation::{get_interpolation_range_num_steps, InterpolatorTrait, InterpolatorTraitLite};
 use optima_interpolation::splines::{InterpolatingSpline, InterpolatingSplineType};
+use optima_linalg::OVec;
 use optima_optimization::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
+use optima_optimization::nlopt::{Algorithm, NLOptOptimizer};
 use optima_optimization::open::SimpleOpEnOptimizer;
 use optima_proximity::pair_group_queries::{OwnedEmptyParryFilter, OwnedEmptyToProximityQry, OwnedParryDistanceAsProximityGroupQry, OwnedParryIntersectGroupQry, ParryDistanceGroupArgs, ParryIntersectGroupArgs, ParryPairSelector, ProximityLossFunction};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
@@ -17,6 +20,7 @@ use optima_proximity::proxima::{OwnedParryProximaAsProximityQry, PairGroupQryArg
 use optima_proximity::shape_scene::OParryGenericShapeScene;
 use optima_proximity::shapes::OParryShape;
 use optima_robotics::robot::{ORobotDefault};
+use optima_robotics::robotics_optimization::robotics_collision_state_resolver::{DifferentiableBlockCollisionStateResolver, DifferentiableFunctionCollisionStateResolver};
 use optima_robotics::robotics_optimization::robotics_optimization_ik::{DifferentiableBlockIKObjectiveTrait, IKGoalUpdateMode};
 
 fn main() {
@@ -100,8 +104,25 @@ fn main() {
         println!("---");
     }
 
+    let prox = OwnedParryDistanceAsProximityGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::OBB, ParryShapeRep::OBB, ParryDisMode::ContactDis, false, false, f64::MIN, false));
+    // let prox = OwnedParryProximaAsProximityQry::new(PairGroupQryArgsParryProxima::new(ParryShapeRep::OBB, ParryShapeRep::OBB, false, false, ProximaTermination::MaxError(0.1), ProximityLossFunction::Hinge, 15.0, 0.1));
+    let f1 = DifferentiableFunctionCollisionStateResolver::new(robot.clone(), Arc::new(scene.clone()), max_proximity_state.clone(), control_points[0].clone(), control_points[1].clone(), prox.clone(), prox, ParryPairSelector::HalfPairs, ParryPairSelector::AllPairs, 0.1, 15.0);
+    let db2 = DifferentiableBlockCollisionStateResolver::new(ForwardADMulti::<adfn<7>>::new(), f1.to_other_ad_type::<f64>(), f1.to_other_ad_type::<adfn<7>>());
+
+    // let o = SimpleOpEnOptimizer::new(robot.get_dof_lower_bounds(), robot.get_dof_upper_bounds(), 0.001);
+    let o = NLOptOptimizer::new(Algorithm::Mma, false, 7, Some(10), None, None);
+    let res = o.optimize_unconstrained(&max_proximity_state, &db2);
+    println!("{:?}, {:?}", max_proximity_state, res.x_star());
+    println!("{:?}", res);
+
+    // let start = Instant::now();
+    // let derivative = db2.derivative(&max_proximity_state);
+    // let new_state = derivative.1.data.as_vec().ovec_scalar_mul(&-0.00001).ovec_add(&max_proximity_state);
+    // println!("{:?}", new_state);
+
     let mut app = robot.bevy_get_motion_playback_app(&init_solution_path);
     app.optima_bevy_spawn_robot_in_pose(robot.clone(), max_proximity_state.clone(), 1);
+    app.optima_bevy_spawn_robot_in_pose(robot.clone(), res.x_star().to_vec(), 2);
     app.optima_bevy_spawn_generic_shape_scene(scene.clone());
 
     app.run();

@@ -54,10 +54,11 @@ nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 
 [features]
 default = [
-    "do_not_embed_assets"
+    "do_not_embed_assets",
+    "include_nlopt"
 ]
 
-# optima_file_features
+# optima_file features
 do_not_embed_assets = [ "optima_file/do_not_embed_assets" ]
 only_use_embedded_assets = [ "optima_file/only_use_embedded_assets" ] # NOTE!  This will only work if you include --no-default-features.
 exclude_all_robot_assets = [ "optima_file/exclude_all_robot_assets" ]
@@ -72,6 +73,9 @@ include_hubo = [ "optima_file/include_hubo" ]
 include_optima_scenes = [ "optima_file/include_optima_scenes" ]
 include_file_io = [ "optima_file/include_file_io" ]
 include_optima_robot_sets = [ "optima_file/include_optima_robot_sets" ]
+
+# optima_optimization features
+include_nlopt = [ "optima_optimization/include_nlopt" ]
 
 [lib]
 name = "optima"
