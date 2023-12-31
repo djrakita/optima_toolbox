@@ -6,6 +6,5 @@ pub mod shapes;
 pub mod pair_group_queries;
 pub mod shape_scene;
 pub mod proxima;
-pub mod proxima2;
 
 pub extern crate parry_ad;

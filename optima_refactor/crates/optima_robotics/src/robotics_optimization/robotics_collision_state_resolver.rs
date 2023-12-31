@@ -4,7 +4,6 @@ use ad_trait::AD;
 use ad_trait::differentiable_block::DifferentiableBlock;
 use ad_trait::differentiable_function::{DifferentiableFunctionClass, DifferentiableFunctionTrait};
 use optima_3d_spatial::optima_3d_pose::O3DPoseCategory;
-use optima_3d_spatial::optima_3d_vec::O3DVec;
 use optima_linalg::{OLinalgCategory, OVec};
 use optima_optimization::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
 use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, ParryPairSelector, ProximityLossFunction, ToParryProximityOutputCategory};

@@ -1252,7 +1252,7 @@ impl ADConvertableTrait for PairGroupQryArgsCategoryParryDistanceSequenceFilterC
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// DISTANCE SEQUENCE FILTER //
+// EMPTY FILTER //
 
 pub struct EmptyParryFilter;
 impl OPairGroupQryTrait for EmptyParryFilter {
@@ -1272,6 +1272,45 @@ impl OPairGroupQryTrait for EmptyParryFilter {
     }
 }
 pub type OwnedEmptyParryFilter<'a, T> = OwnedPairGroupQry<'a, T, EmptyParryFilter>;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*
+// ROBOT STATE DEPENDENT FILTER
+
+pub struct ParryRobotStateDependentFilter<FQ>(PhantomData<FQ>) where FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>;
+impl<FQ> OPairGroupQryTrait for ParryRobotStateDependentFilter<FQ>
+    where FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>
+{
+    type ShapeCategory = ShapeCategoryOParryShape;
+    type SelectorType = ParryPairSelector;
+    type ArgsCategory = PairGroupQryArgsCategoryParryRobotStateDependentFilter<FQ>;
+    type OutputCategory = ParryFilterOutput;
+
+    fn query<'a, T: AD, P: O3DPose<T>, S: PairSkipsTrait, A: PairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, freeze: bool, args: &<Self::ArgsCategory as PairGroupQryArgsCategory>::Args<'a, T>) -> <Self::OutputCategory as PairGroupQryOutputCategory>::Output<T, P> {
+        todo!()
+    }
+}
+
+pub struct ParryRobotStateDependentFilterArgs<'a, T: AD, FQ>
+    where FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>
+{
+    curr_state: RwLock<Vec<f64>>,
+    last_checked_state: RwLock<Vec<f64>>,
+    linf_cutoff_for_check: f64,
+    curr_selector: RwLock<ParryPairSelector>,
+    filter_query: OwnedPairGroupQry<'a, T, FQ>
+}
+
+pub struct PairGroupQryArgsCategoryParryRobotStateDependentFilter<FQ>(PhantomData<FQ>)
+    where FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>;
+impl<FQ> PairGroupQryArgsCategory for PairGroupQryArgsCategoryParryRobotStateDependentFilter<FQ>
+    where FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=PairGroupQryOutputCategoryParryFilter>
+{
+    type Args<'a, T: AD> = ParryRobotStateDependentFilterArgs<'a, T, FQ>;
+    type QueryType = ParryRobotStateDependentFilter<FQ>;
+}
+*/
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1464,7 +1503,7 @@ pub(crate) fn parry_generic_pair_group_query<T: AD, P: O3DPose<T>, S: PairSkipsT
                         let idx0 = *idx_pair0;
                         let idx1 = *idx_pair1;
                         let shape_a = &shape_group_a[idx0];
-                        let shape_b = &shape_group_a[idx1];
+                        let shape_b = &shape_group_b[idx1];
                         let pose_a = &poses_a[idx0];
                         let pose_b = &poses_b[idx1];
 
@@ -1487,12 +1526,12 @@ pub(crate) fn parry_generic_pair_group_query<T: AD, P: O3DPose<T>, S: PairSkipsT
                         let shape_b_subcomponent_idx = idxs1.1;
 
                         let shape_a = &shape_group_a[shape_a_idx];
-                        let shape_b = &shape_group_a[shape_b_idx];
+                        let shape_b = &shape_group_b[shape_b_idx];
                         let pose_a = &poses_a[shape_a_idx];
                         let pose_b = &poses_b[shape_b_idx];
 
                         let id_a = shape_a.convex_subcomponents[shape_a_subcomponent_idx].id_from_shape_rep(parry_shape_rep1);
-                        let id_b = shape_b.convex_subcomponents[shape_b_subcomponent_idx].id_from_shape_rep(parry_shape_rep1);
+                        let id_b = shape_b.convex_subcomponents[shape_b_subcomponent_idx].id_from_shape_rep(parry_shape_rep2);
                         if decide_skip_generic(id_a, id_b, pair_skips, for_filter) { continue 'l; }
 
                         count += 1;

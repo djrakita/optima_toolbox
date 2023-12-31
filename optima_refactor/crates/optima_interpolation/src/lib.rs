@@ -18,6 +18,23 @@ pub trait InterpolatorTraitLite<T: AD, V: OVec<T>> {
         let ratio = self.max_t() * u;
         return self.interpolate(ratio);
     }
+    fn interpolate_points_by_num_points(&self, num_points: usize) -> Vec<V> {
+        let mut out = vec![];
+
+        let ts = get_interpolation_range_num_steps(T::zero(), T::one(), num_points);
+        for t in ts { out.push(self.interpolate_normalized(t)); }
+
+        out
+    }
+    fn interpolate_points_by_normalized_stride(&self, stride_length: T) -> Vec<V> {
+        let mut out = vec![];
+
+        println!("{:?}", stride_length);
+        let ts = get_interpolation_range(T::zero(), T::one(), stride_length);
+        for t in ts { out.push(self.interpolate_normalized(t)); }
+
+        out
+    }
 }
 impl<T: AD, V: OVec<T>, U: InterpolatorTraitLite<T, V>> InterpolatorTraitLite<T, V> for Box<U> {
     fn interpolate(&self, t: T) -> V {
@@ -79,6 +96,11 @@ impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> ArclengthParameterizedInterp
 
         Self { interpolator, arclength_markers, total_arclength: accumulated_distance, phantom_data: PhantomData::default() }
     }
+
+    pub fn interpolate_points_by_arclength_absolute_stride(&self, arclength_stride: T) -> Vec<V> {
+        let normalized_stride = arclength_stride / self.total_arclength;
+        self.interpolate_points_by_normalized_stride(normalized_stride)
+    }
 }
 impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> InterpolatorTraitLite<T, V> for ArclengthParameterizedInterpolator<T, V, I> {
     fn interpolate(&self, s: T) -> V {
@@ -132,6 +154,15 @@ impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> TimedInterpolator<T, V, I> {
     pub fn new(interpolator: I, max_time: T) -> Self {
         Self { interpolator, max_time, phantom_data: PhantomData::default() }
     }
+
+    pub fn interpolate_points_by_time_stride(&self, time_stride: T) -> Vec<V> {
+        let mut out = vec![];
+
+        let ts = get_interpolation_range(T::zero(), self.max_time, time_stride);
+        for t in ts { out.push(self.interpolate_normalized(t)); }
+
+        out
+    }
 }
 impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> InterpolatorTraitLite<T, V> for TimedInterpolator<T, V, I> {
     fn interpolate(&self, t: T) -> V {
@@ -175,11 +206,14 @@ impl<T: AD, V: OVec<T>, SI: InterpolatorTrait<T, V>, TI: InterpolatorTrait<T, V>
 */
 
 pub fn get_interpolation_range<T: AD>(range_start: T, range_stop: T, step_size: T) -> Vec<T> {
+    assert!(range_stop >= range_start);
+
     let mut out_range = Vec::new();
-    out_range.push(range_start);
+    let mut curr_val = range_start;
+    /*
     let mut last_added_val = range_start;
 
-    while !( (range_stop - last_added_val).abs() < step_size ) {
+    while !( (range_stop - last_added_val).abs() <= step_size ) {
         if range_stop > range_start {
             last_added_val = last_added_val + step_size;
         } else {
@@ -189,6 +223,16 @@ pub fn get_interpolation_range<T: AD>(range_start: T, range_stop: T, step_size: 
     }
 
     // out_range.push(range_stop);
+    */
+
+    'l: loop {
+        out_range.push(curr_val);
+        curr_val += step_size;
+        if curr_val > range_stop { break 'l; }
+    }
+
+    let diff =  (range_stop - *out_range.last().unwrap()).abs();
+    if diff > T::constant(0.001) { out_range.push(range_stop) }
 
     out_range
 }
