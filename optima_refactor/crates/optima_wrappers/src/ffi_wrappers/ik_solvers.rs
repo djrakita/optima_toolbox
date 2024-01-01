@@ -115,6 +115,8 @@ pub unsafe extern "C" fn compute_interpolated_motion_path_to_ee_pose(ee_position
     let o = optimizer.as_ref().unwrap();
     let res = o.optimize_unconstrained(&x, differentiable_block.as_ref().unwrap());
     let solution = res.x_star().to_vec();
+    let boxed_slice = solution.clone().into_boxed_slice();
+    let solution_point = Box::into_raw(boxed_slice) as *const c_double;
 
     let spline = InterpolatingSpline::new(vec![x.clone(), solution.clone()], InterpolatingSplineType::Linear)
         .to_arclength_parameterized_interpolator(40);
@@ -157,7 +159,8 @@ pub unsafe extern "C" fn compute_interpolated_motion_path_to_ee_pose(ee_position
     InterpolatedMotionPathResult {
         data: ptr,
         length: l as c_int,
-        path_as_str: c_string.into_raw()
+        path_as_str: c_string.into_raw(),
+        solution_point,
     }
 }
 
@@ -184,5 +187,6 @@ pub struct DoubleArray {
 pub struct InterpolatedMotionPathResult {
     pub data: *const DoubleArray,
     pub length: c_int,
-    pub path_as_str: *const c_char
+    pub path_as_str: *const c_char,
+    pub solution_point: *const c_double
 }
