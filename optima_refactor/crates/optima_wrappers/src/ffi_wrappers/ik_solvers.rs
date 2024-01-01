@@ -98,7 +98,7 @@ pub unsafe extern "C" fn ik_optimize(init_condition: *const c_double, joint_stat
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn compute_interpolated_motion_path_to_ee_pose(ee_position: *const c_double, ee_orientation: *const c_double, init_state: *const c_double, joint_state_length: c_int, differentiable_block: *const DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, EmptyParryFilter, EmptyToParryProximity, ForwardADMulti<FAD>>, optimizer: *const SimpleOpEnOptimizer) -> *const *const c_double {
+pub unsafe extern "C" fn compute_interpolated_motion_path_to_ee_pose(ee_position: *const c_double, ee_orientation: *const c_double, init_state: *const c_double, joint_state_length: c_int, differentiable_block: *const DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, EmptyParryFilter, EmptyToParryProximity, ForwardADMulti<FAD>>, optimizer: *const SimpleOpEnOptimizer) -> InterpolatedMotionPathResult {
     let x_slice: &[c_double] = std::slice::from_raw_parts(init_state, joint_state_length as usize);
     let x = x_slice.to_vec();
 
@@ -120,11 +120,18 @@ pub unsafe extern "C" fn compute_interpolated_motion_path_to_ee_pose(ee_position
 
     let path = spline.interpolate_points_by_arclength_absolute_stride(0.05);
 
+    let l0 = path[0].len();
+    let l1 = path.len();
+
     let ptr: *const *const c_double = path.as_ptr().cast::<*const c_double>();
 
     std::mem::forget(path);
 
-    ptr
+    InterpolatedMotionPathResult {
+        data: ptr,
+        num_dofs_in_robot_state: l0 as c_int,
+        num_robot_states_along_path: l1 as c_int,
+    }
 
     /*
     let mut out_arrays = vec![];
@@ -164,14 +171,17 @@ pub struct IKOptResult {
     pub length: c_int,
 }
 
+/*
 #[repr(C)]
 pub struct DoubleArray {
     pub data: *const c_double,
     pub length: c_int,
 }
+*/
 
 #[repr(C)]
 pub struct InterpolatedMotionPathResult {
-    pub data: *const DoubleArray,
-    pub length: c_int,
+    pub data: *const *const c_double,
+    pub num_dofs_in_robot_state: c_int,
+    pub num_robot_states_along_path: c_int
 }
