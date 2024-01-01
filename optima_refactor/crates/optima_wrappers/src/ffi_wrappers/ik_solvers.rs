@@ -1,3 +1,4 @@
+use std::ffi::CString;
 use std::os::raw::*;
 use ad_trait::differentiable_function::ForwardADMulti;
 use ad_trait::forward_ad::adfn::adfn;
@@ -120,20 +121,24 @@ pub unsafe extern "C" fn compute_interpolated_motion_path_to_ee_pose(ee_position
 
     let path = spline.interpolate_points_by_arclength_absolute_stride(0.05);
 
-    let l0 = path[0].len();
-    let l1 = path.len();
-
+    /*
     let ptr: *const *const c_double = path.as_ptr().cast::<*const c_double>();
 
     std::mem::forget(path);
 
-    InterpolatedMotionPathResult {
-        data: ptr,
-        num_dofs_in_robot_state: l0 as c_int,
-        num_robot_states_along_path: l1 as c_int,
-    }
+    ptr
+    */
 
-    /*
+    let mut path_as_string = "".to_string();
+    for (i, point) in path.iter().enumerate() {
+        for (j, val) in point.iter().enumerate() {
+            path_as_string += format!("{:?}", val).as_str();
+            if j < point.len() - 1 { path_as_string += ","; }
+        }
+        if i < path.len() - 1 { path_as_string += ";"; }
+    }
+    let c_string = CString::new(path_as_string).expect("error");
+
     let mut out_arrays = vec![];
     for point in &path {
         let l = point.len();
@@ -144,18 +149,16 @@ pub unsafe extern "C" fn compute_interpolated_motion_path_to_ee_pose(ee_position
             length: l as c_int,
         });
     }
-    */
-    /*
+
     let l = out_arrays.len();
     let boxed_slice = out_arrays.into_boxed_slice();
     let ptr = Box::into_raw(boxed_slice) as *const DoubleArray;
-    */
-    /*
+
     InterpolatedMotionPathResult {
         data: ptr,
         length: l as c_int,
+        path_as_str: c_string.into_raw()
     }
-    */
 }
 
 #[no_mangle]
@@ -171,17 +174,15 @@ pub struct IKOptResult {
     pub length: c_int,
 }
 
-/*
 #[repr(C)]
 pub struct DoubleArray {
     pub data: *const c_double,
     pub length: c_int,
 }
-*/
 
 #[repr(C)]
 pub struct InterpolatedMotionPathResult {
-    pub data: *const *const c_double,
-    pub num_dofs_in_robot_state: c_int,
-    pub num_robot_states_along_path: c_int
+    pub data: *const DoubleArray,
+    pub length: c_int,
+    pub path_as_str: *const c_char
 }
