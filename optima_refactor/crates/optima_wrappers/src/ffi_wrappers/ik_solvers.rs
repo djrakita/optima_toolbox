@@ -150,7 +150,7 @@ pub unsafe extern "C" fn compute_interpolated_motion_path_to_ee_pose(ee_position
         });
     }
 
-    let l = out_arrays.len();
+    let l = path.len();
     let boxed_slice = out_arrays.into_boxed_slice();
     let ptr = Box::into_raw(boxed_slice) as *const DoubleArray;
 
