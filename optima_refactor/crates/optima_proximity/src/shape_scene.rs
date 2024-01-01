@@ -4,7 +4,7 @@ use as_any::AsAny;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
-use crate::pair_group_queries::{PairSkipsTrait, SkipReason};
+use crate::pair_group_queries::{OPairSkipsTrait, OSkipReason};
 use crate::shapes::OParryShape;
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
 use optima_file::traits::{FromJsonString, ToJsonString};
@@ -13,7 +13,7 @@ use optima_universal_hashmap::AHashMapWrapper;
 pub trait ShapeSceneTrait<T: AD, P: O3DPose<T>> {
     type ShapeType : AsAny;
     type GetPosesInput : Clone;
-    type PairSkipsType: PairSkipsTrait;
+    type PairSkipsType: OPairSkipsTrait;
 
     fn get_shapes(&self) -> &Vec<Self::ShapeType>;
     fn get_shape_poses<'a>(&'a self, input: &'a Self::GetPosesInput) -> Cow<'a, Vec<P>>;
@@ -86,7 +86,7 @@ impl<T: AD, P: O3DPose<T>> ShapeSceneTrait<T, P> for OParryGenericShapeScene<T, 
 }
 
 
-pub fn get_shape_skips_for_two_shape_scenes() -> AHashMapWrapper<(u64, u64), Vec<SkipReason>> {
+pub fn get_shape_skips_for_two_shape_scenes() -> AHashMapWrapper<(u64, u64), Vec<OSkipReason>> {
     todo!()
 }
 

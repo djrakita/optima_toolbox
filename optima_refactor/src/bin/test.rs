@@ -8,7 +8,7 @@ use optima_interpolation::InterpolatorTrait;
 use optima_interpolation::splines::{InterpolatingSpline, InterpolatingSplineType};
 use optima_optimization2::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
 use optima_optimization2::open::SimpleOpEnOptimizer;
-use optima_proximity::pair_group_queries::{OwnedParryDistanceGroupQry, OwnedParryDistanceGroupSequenceFilter, ParryDistanceGroupArgs, ParryDistanceGroupSequenceFilterArgs};
+use optima_proximity::pair_group_queries::{OwnedParryDistanceGroupQry, OwnedParryDistanceGroupSequenceFilter, OParryDistanceGroupArgs, OParryDistanceGroupSequenceFilterArgs};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_robotics::robot::ORobotDefault;
 use optima_robotics::robotics_optimization::robotics_optimization_ik::{DifferentiableBlockIKObjectiveTrait, IKGoalUpdateMode};
@@ -17,8 +17,8 @@ fn main() {
     let r = ORobotDefault::load_from_saved_robot("xarm7_with_gripper_and_rail");
 
     let distance_threshold = 0.6;
-    let fq = OwnedParryDistanceGroupSequenceFilter::new(ParryDistanceGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], 0.6, true, ParryDisMode::ContactDis));
-    let q = OwnedParryDistanceGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, true, f64::MIN));
+    let fq = OwnedParryDistanceGroupSequenceFilter::new(OParryDistanceGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB], 0.6, true, ParryDisMode::ContactDis));
+    let q = OwnedParryDistanceGroupQry::new(OParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, true, f64::MIN));
 
     let init_state = [0.57;9];
     let db1 = r.get_ik_differentiable_block(ForwardADMulti2::<adfn<9>>::new(), fq, q, &init_state, vec![19], distance_threshold, 10.0, 0.0, 0.5, 0.3, 0.2);

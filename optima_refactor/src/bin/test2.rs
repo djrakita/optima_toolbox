@@ -7,9 +7,9 @@ use optima_interpolation::InterpolatorTrait;
 use optima_interpolation::splines::{InterpolatingSpline, InterpolatingSplineType};
 use optima_optimization2::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
 use optima_optimization2::open::SimpleOpEnOptimizer;
-use optima_proximity::pair_group_queries::{OwnedEmptyParryFilter, OwnedEmptyToProximityQry, OwnedParryDistanceAsProximityGroupQry, OwnedParryDistanceGroupFilter, OwnedParryDistanceGroupSequenceFilter, ParryDistanceGroupArgs, ParryDistanceGroupFilterArgs, ParryDistanceGroupSequenceFilterArgs, ParryPairSelector, ProximityLossFunction};
+use optima_proximity::pair_group_queries::{OwnedEmptyParryFilter, OwnedEmptyToProximityQry, OwnedParryDistanceAsProximityGroupQry, OwnedParryDistanceGroupFilter, OwnedParryDistanceGroupSequenceFilter, OParryDistanceGroupArgs, OParryDistanceGroupFilterArgs, OParryDistanceGroupSequenceFilterArgs, OParryPairSelector, OProximityLossFunction};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
-use optima_proximity::proxima::{OwnedParryProximaAsProximityQry, PairGroupQryArgsParryProxima, ProximaTermination};
+use optima_proximity::proxima::{OwnedParryProximaAsProximityQry, OParryProximaArgs, OProximaTermination};
 use optima_robotics::robot::ORobotDefault;
 use optima_robotics::robotics_optimization::robotics_optimization_functions::{AxisDirection, LookAtTarget};
 use optima_robotics::robotics_optimization::robotics_optimization_ik::IKGoalUpdateMode;
@@ -20,9 +20,9 @@ fn main() {
     let robot = ORobotDefault::load_from_saved_robot("xarm7_bimanual_viewpoint");
 
     let init = vec![0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3,  0.0, 3.14, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,];
-    let qf = OwnedParryDistanceGroupSequenceFilter::new(ParryDistanceGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB, ParryShapeRep::Full], vec![], 0.6, true, ParryDisMode::ContactDis));
+    let qf = OwnedParryDistanceGroupSequenceFilter::new(OParryDistanceGroupSequenceFilterArgs::new(vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB, ParryShapeRep::Full], vec![], 0.6, true, ParryDisMode::ContactDis));
     // let qf = OwnedEmptyParryFilter::new(());
-    let q = OwnedParryProximaAsProximityQry::new(PairGroupQryArgsParryProxima::new(ParryShapeRep::Full, true, false, ProximaTermination::MaxError(0.2), ProximityLossFunction::Hinge, 15.0, 0.6));
+    let q = OwnedParryProximaAsProximityQry::new(OParryProximaArgs::new(ParryShapeRep::Full, true, false, OProximaTermination::MaxError(0.2), OProximityLossFunction::Hinge, 15.0, 0.6));
     // let q = OwnedParryDistanceAsProximityGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryDisMode::ContactDis, true, false, 0.0, false));
     // let q = OwnedEmptyToProximityQry::new(());
     let db = robot.get_look_at_differentiable_block(ForwardADMulti2::<adfn<16>>::new(), qf, q, None, &init, vec![20], 32, AxisDirection::Z, AxisDirection::X, LookAtTarget::RobotLink(20), 0.09, 0.6, 0.5, 0.1, 1.0, 0.5, 0.1, 0.5, 0.1);

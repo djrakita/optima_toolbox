@@ -19,6 +19,7 @@ pub unsafe extern "C" fn get_default_robot(robot_name: *const c_char) -> *const 
     let c_str = std::ffi::CStr::from_ptr(robot_name);
     let s = c_str.to_str().expect("Not a valid UTF-8 string");
     let r = ORobotDefault::load_from_saved_robot(s);
+    // std::mem::forget(r);
     Box::into_raw(Box::new(r))
 }
 
@@ -97,7 +98,7 @@ pub unsafe extern "C" fn ik_optimize(init_condition: *const c_double, joint_stat
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn compute_interpolated_motion_path_to_ee_pose(ee_position: *const c_double, ee_orientation: *const c_double, init_state: *const c_double, joint_state_length: c_int, differentiable_block: *const DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, EmptyParryFilter, EmptyToParryProximity, ForwardADMulti<FAD>>, optimizer: *const SimpleOpEnOptimizer) -> InterpolatedMotionPathResult {
+pub unsafe extern "C" fn compute_interpolated_motion_path_to_ee_pose(ee_position: *const c_double, ee_orientation: *const c_double, init_state: *const c_double, joint_state_length: c_int, differentiable_block: *const DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, EmptyParryFilter, EmptyToParryProximity, ForwardADMulti<FAD>>, optimizer: *const SimpleOpEnOptimizer) -> *const *const c_double {
     let x_slice: &[c_double] = std::slice::from_raw_parts(init_state, joint_state_length as usize);
     let x = x_slice.to_vec();
 
@@ -117,8 +118,15 @@ pub unsafe extern "C" fn compute_interpolated_motion_path_to_ee_pose(ee_position
     let spline = InterpolatingSpline::new(vec![x.clone(), solution.clone()], InterpolatingSplineType::Linear)
         .to_arclength_parameterized_interpolator(40);
 
-    let path = spline.interpolate_points_by_arclength_absolute_stride(0.1);
+    let path = spline.interpolate_points_by_arclength_absolute_stride(0.05);
 
+    let ptr: *const *const c_double = path.as_ptr().cast::<*const c_double>();
+
+    std::mem::forget(path);
+
+    ptr
+
+    /*
     let mut out_arrays = vec![];
     for point in &path {
         let l = point.len();
@@ -129,15 +137,18 @@ pub unsafe extern "C" fn compute_interpolated_motion_path_to_ee_pose(ee_position
             length: l as c_int,
         });
     }
-
+    */
+    /*
     let l = out_arrays.len();
     let boxed_slice = out_arrays.into_boxed_slice();
     let ptr = Box::into_raw(boxed_slice) as *const DoubleArray;
-
+    */
+    /*
     InterpolatedMotionPathResult {
         data: ptr,
         length: l as c_int,
     }
+    */
 }
 
 #[no_mangle]

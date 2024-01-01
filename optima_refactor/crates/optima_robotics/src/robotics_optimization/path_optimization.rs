@@ -10,18 +10,18 @@ use optima_interpolation::{get_interpolation_range_num_steps, InterpolatorTrait,
 use optima_interpolation::splines::SplineConstructorTrait;
 use optima_linalg::OVec;
 use optima_optimization::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, ParryPairSelector, ProximityLossFunction, ToParryProximityOutputCategory};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, OParryPairSelector, OProximityLossFunction, ToParryProximityOutputCategory};
 use optima_proximity::shape_scene::{OParryGenericShapeScene, ShapeSceneTrait};
 use optima_proximity::shapes::{OParryShape, ShapeCategoryOParryShape};
 use crate::robotics_optimization::robotics_optimization_functions::{min_acceleration_over_path_objective, min_jerk_over_path_objective, min_velocity_over_path_objective};
 
-pub struct DifferentiableFunctionClassPathOpt<C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory>>(PhantomData<(C, S, Q)>);
-impl<C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory>> DifferentiableFunctionClass for DifferentiableFunctionClassPathOpt<C, S, Q> {
+pub struct DifferentiableFunctionClassPathOpt<C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory>>(PhantomData<(C, S, Q)>);
+impl<C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory>> DifferentiableFunctionClass for DifferentiableFunctionClassPathOpt<C, S, Q> {
     type FunctionType<'a, T: AD> = DifferentiableFunctionPathOpt<'a, T, C, S, Q>;
 }
 
 #[allow(dead_code)]
-pub struct DifferentiableFunctionPathOpt<'a, T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory>>
+pub struct DifferentiableFunctionPathOpt<'a, T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory>>
 {
     spline_constructor: S,
     environment: Cow<'a, OParryGenericShapeScene<T, C::P<T>>>,
@@ -39,7 +39,7 @@ pub struct DifferentiableFunctionPathOpt<'a, T: AD, C: O3DPoseCategory, S: Splin
     min_accel_weight: T,
     min_jerk_weight: T
 }
-impl<'a, T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory>> DifferentiableFunctionPathOpt<'a, T, C, S, Q> {
+impl<'a, T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory>> DifferentiableFunctionPathOpt<'a, T, C, S, Q> {
     pub fn new(spline_constructor: S, environment: Cow<'a, OParryGenericShapeScene<T, C::P<T>>>, proximity_qry: OwnedPairGroupQry<'a, T, Q>, start_point: Vec<T>, end_point: Vec<T>, num_arclength_markers: usize, num_points_along_spline_to_sample: usize, match_start_and_end_point_weight: T, collision_avoidance_weight: T, min_vel_weight: T, min_accel_weight: T, min_jerk_weight: T) -> Self {
         let mut spheres = vec![];
         let dis = start_point.dis(&end_point);
@@ -77,7 +77,7 @@ impl<'a, T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryT
     }
 }
 
-impl<'a, T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=ParryPairSelector, OutputCategory=ToParryProximityOutputCategory>> DifferentiableFunctionTrait<'a, T> for DifferentiableFunctionPathOpt<'a, T, C, S, Q> {
+impl<'a, T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory>> DifferentiableFunctionTrait<'a, T> for DifferentiableFunctionPathOpt<'a, T, C, S, Q> {
     fn call(&self, inputs: &[T], freeze: bool) -> Vec<T> {
         let mut out = T::zero();
 
@@ -109,8 +109,8 @@ impl<'a, T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryT
             let p1 = &poses;
             let p2 = self.environment.as_ref().get_shape_poses(&());
 
-            let res = self.proximity_qry.query(&s1, &s2, &p1, p2.as_ref(), &ParryPairSelector::AllPairs, &(), &(), freeze);
-            let proximity_value = res.get_proximity_objective_value(self.distance_cutoff, T::constant(15.0), ProximityLossFunction::Hinge);
+            let res = self.proximity_qry.query(&s1, &s2, &p1, p2.as_ref(), &OParryPairSelector::AllPairs, &(), &(), freeze);
+            let proximity_value = res.get_proximity_objective_value(self.distance_cutoff, T::constant(15.0), OProximityLossFunction::Hinge);
 
             let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(6.0), T::constant(0.4), T::constant(2.0), T::constant(4.0));
             out += self.collision_avoidance_weight*loss.loss(proximity_value);

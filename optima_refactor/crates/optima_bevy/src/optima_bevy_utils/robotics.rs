@@ -15,7 +15,7 @@ use optima_3d_spatial::optima_3d_vec::O3DVec;
 use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSidePanel, OEguiSlider, OEguiTopBottomPanel, OEguiWidgetTrait};
 use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategory, OVec};
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryPairSelector, ProximityLossFunction, SkipReason, ToParryProximityOutputTrait};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OParryDistanceGroupArgs, OParryDistanceGroupQry, OParryIntersectGroupArgs, OParryIntersectGroupQry, OParryPairSelector, OProximityLossFunction, OSkipReason, ToParryProximityOutputTrait};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_robotics::robot::{FKResult, ORobot, SaveRobot};
 use crate::optima_bevy_utils::file::get_asset_path_str_from_ostemcellpath;
@@ -338,16 +338,16 @@ impl RoboticsSystems {
                                 let parry_shape_rep_response = binding.get_selector_response("selector2");
 
                                 if let (Some(parry_pair_selector_response), Some(parry_shape_rep_response)) = (parry_pair_selector_response, parry_shape_rep_response) {
-                                    let p1 = parry_pair_selector_response.current_selections::<ParryPairSelector>();
+                                    let p1 = parry_pair_selector_response.current_selections::<OParryPairSelector>();
                                     let p2 = parry_shape_rep_response.current_selections::<ParryShapeRep>();
 
                                     // let fr = ParryIntersectGroupSequenceFilter::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a, &ParryIntersectGroupSequenceFilterArgs::new(vec![], vec![]));
-                                    let res = ParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), &p1[0], skips, &(), false, &ParryIntersectGroupArgs::new(p2[0].clone(), p2[0].clone(), false, false));
+                                    let res = OParryIntersectGroupQry::query(s, s, p.as_ref(), p.as_ref(), &p1[0], skips, &(), false, &OParryIntersectGroupArgs::new(p2[0].clone(), p2[0].clone(), false, false));
 
                                     // let fr = ParryDistanceGroupSequenceFilter::query(s, s, p.as_ref(), p.as_ref(), &ParryPairSelector::HalfPairs, skips, a, &ParryDistanceGroupSequenceFilterArgs::new(vec![], vec![], T::constant(0.6), true, ParryDisMode::ContactDis));
-                                    let res2 = ParryDistanceGroupQry::query(s, s, p.as_ref(), p.as_ref(), &p1[0], skips, a, false, &ParryDistanceGroupArgs::new(p2[0].clone(), p2[0].clone(), ParryDisMode::ContactDis, true, false, T::constant(f64::MIN), true));
+                                    let res2 = OParryDistanceGroupQry::query(s, s, p.as_ref(), p.as_ref(), &p1[0], skips, a, false, &OParryDistanceGroupArgs::new(p2[0].clone(), p2[0].clone(), ParryDisMode::ContactDis, true, false, T::constant(f64::MIN), true));
 
-                                    let proximity_objective_value = res2.get_proximity_objective_value(T::constant(0.6), T::constant(20.0), ProximityLossFunction::Hinge);
+                                    let proximity_objective_value = res2.get_proximity_objective_value(T::constant(0.6), T::constant(20.0), OProximityLossFunction::Hinge);
 
                                     let intersect = res.intersect();
                                     ui.heading(format!("In collision: {:?}", intersect));
@@ -403,7 +403,7 @@ impl RoboticsSystems {
                             }
 
                             ui.group(|ui| {
-                                OEguiSelector::new(OEguiSelectorMode::Checkboxes, vec![ParryPairSelector::HalfPairs, ParryPairSelector::HalfPairsSubcomponents], vec![ParryPairSelector::HalfPairsSubcomponents], None, false)
+                                OEguiSelector::new(OEguiSelectorMode::Checkboxes, vec![OParryPairSelector::HalfPairs, OParryPairSelector::HalfPairsSubcomponents], vec![OParryPairSelector::HalfPairsSubcomponents], None, false)
                                     .show("selector1", ui, &egui_engine, &*keys);
                                 ui.separator();
                                 OEguiSelector::new(OEguiSelectorMode::Checkboxes, vec![ParryShapeRep::BoundingSphere, ParryShapeRep::OBB, ParryShapeRep::Full], vec![ParryShapeRep::Full], None, false)
@@ -542,7 +542,7 @@ pub struct BevyORobot<T: AD, C: O3DPoseCategory + Send + 'static, L: OLinalgCate
 impl<T: AD, C: O3DPoseCategory + Send + 'static, L: OLinalgCategory + 'static> ShapeSceneTrait<T, C::P<T>> for BevyORobot<T, C, L> {
     type ShapeType = OParryShape<T, C::P<T>>;
     type GetPosesInput = Vec<T>;
-    type PairSkipsType = AHashMapWrapper<(u64, u64), Vec<SkipReason>>;
+    type PairSkipsType = AHashMapWrapper<(u64, u64), Vec<OSkipReason>>;
 
     #[inline(always)]
     fn get_shapes(&self) -> &Vec<Self::ShapeType> {

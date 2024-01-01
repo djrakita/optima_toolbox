@@ -13,10 +13,10 @@ use optima_linalg::OVec;
 use optima_optimization::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
 use optima_optimization::nlopt::{Algorithm, NLOptOptimizer};
 use optima_optimization::open::SimpleOpEnOptimizer;
-use optima_proximity::pair_group_queries::{OwnedEmptyParryFilter, OwnedEmptyToProximityQry, OwnedParryDistanceAsProximityGroupQry, OwnedParryIntersectGroupQry, ParryDistanceGroupArgs, ParryIntersectGroupArgs, ParryPairSelector, ProximityLossFunction};
+use optima_proximity::pair_group_queries::{OwnedEmptyParryFilter, OwnedEmptyToProximityQry, OwnedParryDistanceAsProximityGroupQry, OwnedParryIntersectGroupQry, OParryDistanceGroupArgs, OParryIntersectGroupArgs, OParryPairSelector, OProximityLossFunction};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_proximity::parry_ad::shape::Cuboid;
-use optima_proximity::proxima::{OwnedParryProximaAsProximityQry, PairGroupQryArgsParryProxima, ProximaTermination};
+use optima_proximity::proxima::{OwnedParryProximaAsProximityQry, OParryProximaArgs, OProximaTermination};
 use optima_proximity::shape_scene::OParryGenericShapeScene;
 use optima_proximity::shapes::OParryShape;
 use optima_robotics::robot::{ORobotDefault};
@@ -85,8 +85,8 @@ fn main() {
     let init_solution_path = InterpolatingSpline::new(control_points.clone(), InterpolatingSplineType::Linear).to_timed_interpolator(6.0);
 
     // let q = OwnedParryDistanceAsProximityGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryShapeRep::Full, ParryDisMode::ContactDis, false, false, -10000.0, true));
-    let q = OwnedParryProximaAsProximityQry::new(PairGroupQryArgsParryProxima::new(ParryShapeRep::Full, ParryShapeRep::Full, false, false, ProximaTermination::MaxError(0.2), ProximityLossFunction::Hinge, 15.0, 0.2));
-    let q2 = OwnedParryIntersectGroupQry::new(ParryIntersectGroupArgs::new(ParryShapeRep::Full, ParryShapeRep::Full, false, false));
+    let q = OwnedParryProximaAsProximityQry::new(OParryProximaArgs::new(ParryShapeRep::Full, ParryShapeRep::Full, false, false, OProximaTermination::MaxError(0.2), OProximityLossFunction::Hinge, 15.0, 0.2));
+    let q2 = OwnedParryIntersectGroupQry::new(OParryIntersectGroupArgs::new(ParryShapeRep::Full, ParryShapeRep::Full, false, false));
 
     let mut max_proximity_val = f64::MIN;
     let mut max_proximity_state = init_state.clone();
@@ -94,9 +94,9 @@ fn main() {
     let ts = get_interpolation_range_num_steps(0.0, 1.0, 15);
     for t in &ts {
         let point = init_solution_path.interpolate_normalized(*t);
-        let res = robot.parry_shape_scene_external_query(&point, &scene, &q, &ParryPairSelector::AllPairs, false);
-        let res2 = robot.parry_shape_scene_external_query(&point, &scene, &q2, &ParryPairSelector::AllPairs, false);
-        let proximity = res.get_proximity_objective_value(0.2, 15.0, ProximityLossFunction::Hinge);
+        let res = robot.parry_shape_scene_external_query(&point, &scene, &q, &OParryPairSelector::AllPairs, false);
+        let res2 = robot.parry_shape_scene_external_query(&point, &scene, &q2, &OParryPairSelector::AllPairs, false);
+        let proximity = res.get_proximity_objective_value(0.2, 15.0, OProximityLossFunction::Hinge);
         if proximity > max_proximity_val { max_proximity_val = proximity; max_proximity_state = point.clone(); }
         println!("{:?}", point);
         println!("{:?}", proximity);
@@ -104,9 +104,9 @@ fn main() {
         println!("---");
     }
 
-    let prox = OwnedParryDistanceAsProximityGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::OBB, ParryShapeRep::OBB, ParryDisMode::ContactDis, false, false, f64::MIN, false));
+    let prox = OwnedParryDistanceAsProximityGroupQry::new(OParryDistanceGroupArgs::new(ParryShapeRep::OBB, ParryShapeRep::OBB, ParryDisMode::ContactDis, false, false, f64::MIN, false));
     // let prox = OwnedParryProximaAsProximityQry::new(PairGroupQryArgsParryProxima::new(ParryShapeRep::OBB, ParryShapeRep::OBB, false, false, ProximaTermination::MaxError(0.1), ProximityLossFunction::Hinge, 15.0, 0.1));
-    let f1 = DifferentiableFunctionCollisionStateResolver::new(robot.clone(), Arc::new(scene.clone()), max_proximity_state.clone(), control_points[0].clone(), control_points[1].clone(), prox.clone(), prox, ParryPairSelector::HalfPairs, ParryPairSelector::AllPairs, 0.1, 15.0);
+    let f1 = DifferentiableFunctionCollisionStateResolver::new(robot.clone(), Arc::new(scene.clone()), max_proximity_state.clone(), control_points[0].clone(), control_points[1].clone(), prox.clone(), prox, OParryPairSelector::HalfPairs, OParryPairSelector::AllPairs, 0.1, 15.0);
     let db2 = DifferentiableBlockCollisionStateResolver::new(ForwardADMulti::<adfn<7>>::new(), f1.to_other_ad_type::<f64>(), f1.to_other_ad_type::<adfn<7>>());
 
     // let o = SimpleOpEnOptimizer::new(robot.get_dof_lower_bounds(), robot.get_dof_upper_bounds(), 0.001);

@@ -7,7 +7,7 @@ use serde_with::serde_as;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
 use optima_console::output::{get_default_progress_bar};
 use optima_linalg::{OLinalgCategory, OVec, OVecCategoryVec};
-use optima_proximity::pair_group_queries::{AHashMapWrapperSkipsWithReasonsTrait, OPairGroupQryTrait, ParryDistanceGroupArgs, ParryDistanceGroupQry, ParryIntersectGroupArgs, ParryIntersectGroupQry, ParryPairIdxs, ParryPairSelector, SkipReason};
+use optima_proximity::pair_group_queries::{AHashMapWrapperSkipsWithReasonsTrait, OPairGroupQryTrait, OParryDistanceGroupArgs, OParryDistanceGroupQry, OParryIntersectGroupArgs, OParryIntersectGroupQry, OParryPairIdxs, OParryPairSelector, OSkipReason};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_proximity::shape_queries::{DistanceOutputTrait, IntersectOutputTrait};
 use optima_proximity::shape_scene::ShapeSceneTrait;
@@ -643,7 +643,7 @@ pub struct ORobotParryShapeScene<T: AD, C: O3DPoseCategory + 'static, L: OLinalg
     #[serde(deserialize_with="Vec::<OParryShape::<T, C::P<T>>>::deserialize")]
     pub (crate) shapes: Vec<OParryShape<T, C::P<T>>>,
     pub (crate) shape_idx_to_link_idx: Vec<usize>,
-    pub pair_skips: AHashMapWrapper<(u64, u64), Vec<SkipReason>>,
+    pub pair_skips: AHashMapWrapper<(u64, u64), Vec<OSkipReason>>,
     #[serde_as(as = "AHashMapWrapper<(u64, u64), T>")]
     pub pair_average_distances: AHashMapWrapper<(u64, u64), T>,
     pub (crate) id_to_string: AHashMapWrapper<u64, String>,
@@ -690,10 +690,10 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
         }
     }
     pub fn preprocess_non_collision_states_pair_skips<V: OVec<T>>(&mut self, robot: Arc<ORobot<T, C, L>>, non_collision_states: &Vec<V>) {
-        self.pair_skips.clear_skip_reason_type(SkipReason::FromNonCollisionExample);
+        self.pair_skips.clear_skip_reason_type(OSkipReason::FromNonCollisionExample);
 
         let shape_reps = vec![ ParryShapeRep::BoundingSphere, ParryShapeRep::OBB, ParryShapeRep::Full ];
-        let selectors = vec![ParryPairSelector::HalfPairs, ParryPairSelector::HalfPairsSubcomponents];
+        let selectors = vec![OParryPairSelector::HalfPairs, OParryPairSelector::HalfPairsSubcomponents];
 
         let shapes = &self.shapes;
         for state in non_collision_states {
@@ -704,12 +704,12 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
 
             for shape_rep in &shape_reps {
                 for selector in &selectors {
-                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), false, &ParryIntersectGroupArgs::new(shape_rep.clone(), shape_rep.clone(),  false, false));
+                    let out = OParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), false, &OParryIntersectGroupArgs::new(shape_rep.clone(), shape_rep.clone(), false, false));
                     out.outputs().iter().for_each(|x| {
                        if x.data().intersect() {
                            let (id_a, id_b) = x.pair_ids();
-                           self.pair_skips.add_skip_reason(id_a, id_b, SkipReason::FromNonCollisionExample);
-                           self.pair_skips.add_skip_reason(id_b, id_a, SkipReason::FromNonCollisionExample);
+                           self.pair_skips.add_skip_reason(id_a, id_b, OSkipReason::FromNonCollisionExample);
+                           self.pair_skips.add_skip_reason(id_b, id_a, OSkipReason::FromNonCollisionExample);
                        }
                     });
                 }
@@ -720,7 +720,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
         // self.pair_skips.clear_skip_reason_type(SkipReason::CloseProximityWrtAverageExample);
 
         let shape_reps = vec![ ParryShapeRep::BoundingSphere, ParryShapeRep::OBB, ParryShapeRep::Full ];
-        let selectors = vec![ParryPairSelector::HalfPairs, ParryPairSelector::HalfPairsSubcomponents];
+        let selectors = vec![OParryPairSelector::HalfPairs, OParryPairSelector::HalfPairsSubcomponents];
 
         let shapes = &self.shapes;
         let binding = (robot.clone(), close_proximity_state.ovec_to_other_generic_category::<T, OVecCategoryVec>());
@@ -730,25 +730,25 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
         for shape_rep in &shape_reps {
             for selector in &selectors {
                 // let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), false, &ParryIntersectGroupArgs::new(shape_rep.clone(), false, false));
-                let out = ParryDistanceGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &self.pair_average_distances, false, &ParryDistanceGroupArgs::new(shape_rep.clone(), shape_rep.clone(), ParryDisMode::ContactDis, true, false, T::constant(-1000.0), false));
+                let out = OParryDistanceGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &self.pair_average_distances, false, &OParryDistanceGroupArgs::new(shape_rep.clone(), shape_rep.clone(), ParryDisMode::ContactDis, true, false, T::constant(-1000.0), false));
                 out.outputs().iter().for_each(|x| {
                     if x.data().distance() < threshold {
                         let (id_a, id_b) = x.pair_ids();
-                        self.pair_skips.add_skip_reason(id_a, id_b, SkipReason::CloseProximityWrtAverageExample);
-                        self.pair_skips.add_skip_reason(id_b, id_a, SkipReason::CloseProximityWrtAverageExample);
+                        self.pair_skips.add_skip_reason(id_a, id_b, OSkipReason::CloseProximityWrtAverageExample);
+                        self.pair_skips.add_skip_reason(id_b, id_a, OSkipReason::CloseProximityWrtAverageExample);
                     }
                 });
             }
         }
     }
     pub fn clear_close_proximity_states_pair_skips(&mut self) {
-        self.pair_skips.clear_skip_reason_type(SkipReason::CloseProximityWrtAverageExample);
+        self.pair_skips.clear_skip_reason_type(OSkipReason::CloseProximityWrtAverageExample);
     }
     pub fn preprocess_always_in_collision_states_pair_skips(&mut self, robot: Arc<ORobot<T, C, L>>, num_same: usize) {
-        self.pair_skips.clear_skip_reason_type(SkipReason::AlwaysInCollision);
+        self.pair_skips.clear_skip_reason_type(OSkipReason::AlwaysInCollision);
 
         let shape_reps = vec![ ParryShapeRep::BoundingSphere, ParryShapeRep::OBB, ParryShapeRep::Full ];
-        let selectors = vec![ParryPairSelector::HalfPairs, ParryPairSelector::HalfPairsSubcomponents];
+        let selectors = vec![OParryPairSelector::HalfPairs, OParryPairSelector::HalfPairsSubcomponents];
 
         let shapes = &self.shapes;
 
@@ -769,7 +769,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                     let poses = self.get_shape_poses(&binding);
                     let poses = poses.as_ref();
 
-                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), false, &ParryIntersectGroupArgs::new(shape_rep.clone(), shape_rep.clone(), false, false));
+                    let out = OParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), false, &OParryIntersectGroupArgs::new(shape_rep.clone(), shape_rep.clone(), false, false));
                     out.outputs().iter().for_each(|x| {
                         let ids = x.pair_ids();
                         if x.data().intersect() && first_loop {
@@ -787,16 +787,16 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                 }
 
                 h.hashmap.keys().for_each(|(x, y)| {
-                    self.pair_skips.add_skip_reason(*x, *y, SkipReason::AlwaysInCollision);
+                    self.pair_skips.add_skip_reason(*x, *y, OSkipReason::AlwaysInCollision);
                 });
             }
         }
     }
     pub fn preprocess_never_in_collision_states_pair_skips(&mut self, robot: Arc<ORobot<T, C, L>>, num_same: usize) {
-        self.pair_skips.clear_skip_reason_type(SkipReason::NeverInCollision);
+        self.pair_skips.clear_skip_reason_type(OSkipReason::NeverInCollision);
 
         let shape_reps = vec![ ParryShapeRep::BoundingSphere, ParryShapeRep::OBB, ParryShapeRep::Full ];
-        let selectors = vec![ParryPairSelector::HalfPairs, ParryPairSelector::HalfPairsSubcomponents];
+        let selectors = vec![OParryPairSelector::HalfPairs, OParryPairSelector::HalfPairsSubcomponents];
 
         let shapes = &self.shapes;
 
@@ -817,7 +817,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                     let poses = self.get_shape_poses(&binding);
                     let poses = poses.as_ref();
 
-                    let out = ParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), false, &ParryIntersectGroupArgs::new(shape_rep.clone(), shape_rep.clone(), false, false));
+                    let out = OParryIntersectGroupQry::query(&shapes, &shapes, &poses, &poses, selector, &(), &(), false, &OParryIntersectGroupArgs::new(shape_rep.clone(), shape_rep.clone(), false, false));
                     out.outputs().iter().for_each(|x| {
                         let ids = x.pair_ids();
                         if !x.data().intersect() && first_loop {
@@ -835,7 +835,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                 }
 
                 h.hashmap.keys().for_each(|(x, y)| {
-                    self.pair_skips.add_skip_reason(*x, *y, SkipReason::NeverInCollision);
+                    self.pair_skips.add_skip_reason(*x, *y, OSkipReason::NeverInCollision);
                 });
             }
         }
@@ -844,7 +844,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
         self.pair_average_distances.hashmap.clear();
 
         let shape_reps = vec![ ParryShapeRep::Full ];
-        let selectors = vec![ParryPairSelector::HalfPairs, ParryPairSelector::HalfPairsSubcomponents];
+        let selectors = vec![OParryPairSelector::HalfPairs, OParryPairSelector::HalfPairsSubcomponents];
 
         let shapes = &self.shapes;
 
@@ -859,13 +859,13 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
                     progress_bar.message(&format!("shape rep {:?}, selector {:?}: average distance sample {} of {}", shape_rep, selector, i, num_samples));
                     progress_bar.set(i as u64);
 
-                    let res = ParryDistanceGroupQry::query(shapes, shapes, poses, poses, selector, &(), &(), false, &ParryDistanceGroupArgs::new(shape_rep.clone(), shape_rep.clone(), ParryDisMode::ContactDis, false, false, T::constant(f64::MIN), false));
+                    let res = OParryDistanceGroupQry::query(shapes, shapes, poses, poses, selector, &(), &(), false, &OParryDistanceGroupArgs::new(shape_rep.clone(), shape_rep.clone(), ParryDisMode::ContactDis, false, false, T::constant(f64::MIN), false));
                     res.outputs().iter().for_each(|output| {
                         let ids = output.pair_ids();
 
                         let pair_shape_idxs = output.pair_idxs();
                         let id_pairs = match &pair_shape_idxs {
-                            ParryPairIdxs::Shapes(x, y) => {
+                            OParryPairIdxs::Shapes(x, y) => {
                                 let bounding_sphere_a = shapes[*x].base_shape().bounding_sphere();
                                 let bounding_sphere_b = shapes[*y].base_shape().bounding_sphere();
 
@@ -874,7 +874,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
 
                                 [(bounding_sphere_a.id(), bounding_sphere_b.id()), (obb_a.id(), obb_b.id())]
                             }
-                            ParryPairIdxs::ShapeSubcomponents(x, y) => {
+                            OParryPairIdxs::ShapeSubcomponents(x, y) => {
                                 let bounding_sphere_a = shapes[x.0].convex_subcomponents()[x.1].bounding_sphere();
                                 let bounding_sphere_b = shapes[y.0].convex_subcomponents()[y.1].bounding_sphere();
 
@@ -968,7 +968,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobotPa
 impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ShapeSceneTrait<T, C::P<T>> for ORobotParryShapeScene<T, C, L> {
     type ShapeType = OParryShape<T, C::P<T>>;
     type GetPosesInput = (Arc<ORobot<T, C, L>>, Vec<T>);
-    type PairSkipsType = AHashMapWrapper<(u64, u64), Vec<SkipReason>>;
+    type PairSkipsType = AHashMapWrapper<(u64, u64), Vec<OSkipReason>>;
 
     #[inline(always)]
     fn get_shapes(&self) -> &Vec<Self::ShapeType> {

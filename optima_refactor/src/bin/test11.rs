@@ -9,7 +9,7 @@ use optima_bevy::optima_bevy_utils::viewport_visuals::BevyDrawShape;
 use optima_linalg::{OVec, VecOfOVecTrait};
 use optima_optimization::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
 use optima_optimization::open::SimpleOpEnOptimizer;
-use optima_proximity::pair_group_queries::{OwnedParryDistanceAsProximityGroupQry, ParryDistanceGroupArgs};
+use optima_proximity::pair_group_queries::{OwnedParryDistanceAsProximityGroupQry, OParryDistanceGroupArgs};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_proximity::shape_scene::OParryGenericShapeScene;
 use optima_proximity::shapes::OParryShape;
@@ -21,7 +21,7 @@ fn main() {
     let start_point = vec![-2.0, 0.1,0.];
     let end_point = vec![2.0, 0., 0.];
     let spline_constructor = SplineConstructorLinear;
-    let q = OwnedParryDistanceAsProximityGroupQry::new(ParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryShapeRep::Full, ParryDisMode::ContactDis, false, false, -1000.0, false));
+    let q = OwnedParryDistanceAsProximityGroupQry::new(OParryDistanceGroupArgs::new(ParryShapeRep::Full, ParryShapeRep::Full, ParryDisMode::ContactDis, false, false, -1000.0, false));
     let f: DifferentiableFunctionPathOpt<_, O3DPoseCategoryIsometry3, _, _> = DifferentiableFunctionPathOpt::new(spline_constructor.clone(), Cow::Owned(env.clone()), q, start_point.clone(), end_point.clone(), 20, 20, 4.0, 5.0, 0.0, 0., 0.3);
     let f2 = f.to_other_ad_type::<f64>();
     let db = DifferentiableBlockPathOpt::new(FiniteDifferencing::new(), f, f2);

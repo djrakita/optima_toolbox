@@ -6,24 +6,24 @@ use ad_trait::differentiable_function::{DifferentiableFunctionClass, Differentia
 use optima_3d_spatial::optima_3d_pose::O3DPoseCategory;
 use optima_linalg::{OLinalgCategory, OVec};
 use optima_optimization::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, ParryPairSelector, ProximityLossFunction, ToParryProximityOutputCategory};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, OParryPairSelector, OProximityLossFunction, ToParryProximityOutputCategory};
 use optima_proximity::shape_scene::OParryGenericShapeScene;
 use optima_proximity::shapes::ShapeCategoryOParryShape;
 use crate::robot::ORobot;
 
 pub struct DifferentiableFunctionClassCollisionStateResolver<C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, Q1, Q2>(PhantomData<(C, L, Q1, Q2)>)
-    where Q1: OPairGroupQryTrait<SelectorType=ParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>,
-          Q2: OPairGroupQryTrait<SelectorType=ParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>;
+    where Q1: OPairGroupQryTrait<SelectorType=OParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>,
+          Q2: OPairGroupQryTrait<SelectorType=OParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>;
 impl<C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, Q1, Q2> DifferentiableFunctionClass for DifferentiableFunctionClassCollisionStateResolver<C, L, Q1, Q2>
-    where Q1: OPairGroupQryTrait<SelectorType=ParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>,
-          Q2: OPairGroupQryTrait<SelectorType=ParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>
+    where Q1: OPairGroupQryTrait<SelectorType=OParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>,
+          Q2: OPairGroupQryTrait<SelectorType=OParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>
 {
     type FunctionType<'a, T: AD> = DifferentiableFunctionCollisionStateResolver<'a, T, C, L, Q1, Q2>;
 }
 
 pub struct DifferentiableFunctionCollisionStateResolver<'a, T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, Q1, Q2>
-    where Q1: OPairGroupQryTrait<SelectorType=ParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>,
-          Q2: OPairGroupQryTrait<SelectorType=ParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>
+    where Q1: OPairGroupQryTrait<SelectorType=OParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>,
+          Q2: OPairGroupQryTrait<SelectorType=OParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>
 {
     robot: Arc<ORobot<T, C, L>>,
     environment: Arc<OParryGenericShapeScene<T, C::P<T>>>,
@@ -32,14 +32,14 @@ pub struct DifferentiableFunctionCollisionStateResolver<'a, T: AD, C: O3DPoseCat
     boundary_point_b: Vec<T>,
     self_proximity_query: OwnedPairGroupQry<'a, T, Q1>,
     environment_proximity_query: OwnedPairGroupQry<'a, T, Q2>,
-    self_selector: ParryPairSelector,
-    environment_selector: ParryPairSelector,
+    self_selector: OParryPairSelector,
+    environment_selector: OParryPairSelector,
     distance_cutoff: T,
     p_norm: T
 }
-impl<'a, T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, Q1, Q2> DifferentiableFunctionCollisionStateResolver<'a, T, C, L, Q1, Q2> where Q1: OPairGroupQryTrait<SelectorType=ParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>,
-                                                                                                                                                  Q2: OPairGroupQryTrait<SelectorType=ParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory> {
-    pub fn new(robot: Arc<ORobot<T, C, L>>, environment: Arc<OParryGenericShapeScene<T, C::P<T>>>, start_state: Vec<T>, boundary_point_a: Vec<T>, boundary_point_b: Vec<T>, self_proximity_query: OwnedPairGroupQry<'a, T, Q1>, environment_proximity_query: OwnedPairGroupQry<'a, T, Q2>, self_selector: ParryPairSelector, environment_selector: ParryPairSelector, distance_cutoff: T, p_norm: T) -> Self {
+impl<'a, T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, Q1, Q2> DifferentiableFunctionCollisionStateResolver<'a, T, C, L, Q1, Q2> where Q1: OPairGroupQryTrait<SelectorType=OParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>,
+                                                                                                                                                  Q2: OPairGroupQryTrait<SelectorType=OParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory> {
+    pub fn new(robot: Arc<ORobot<T, C, L>>, environment: Arc<OParryGenericShapeScene<T, C::P<T>>>, start_state: Vec<T>, boundary_point_a: Vec<T>, boundary_point_b: Vec<T>, self_proximity_query: OwnedPairGroupQry<'a, T, Q1>, environment_proximity_query: OwnedPairGroupQry<'a, T, Q2>, self_selector: OParryPairSelector, environment_selector: OParryPairSelector, distance_cutoff: T, p_norm: T) -> Self {
         Self { robot, environment, start_state, boundary_point_a, boundary_point_b, self_proximity_query, environment_proximity_query, self_selector, environment_selector, distance_cutoff, p_norm }
     }
     pub fn to_other_ad_type<T1: AD>(&self) -> DifferentiableFunctionCollisionStateResolver<'a, T1, C, L, Q1, Q2> {
@@ -59,8 +59,8 @@ impl<'a, T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, Q1, 
     }
 }
 impl<'a, T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, Q1, Q2> DifferentiableFunctionTrait<'a, T> for DifferentiableFunctionCollisionStateResolver<'a, T, C, L, Q1, Q2>
-    where Q1: OPairGroupQryTrait<SelectorType=ParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>,
-          Q2: OPairGroupQryTrait<SelectorType=ParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>
+    where Q1: OPairGroupQryTrait<SelectorType=OParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>,
+          Q2: OPairGroupQryTrait<SelectorType=OParryPairSelector, ShapeCategory=ShapeCategoryOParryShape, OutputCategory=ToParryProximityOutputCategory>
 {
     fn call(&self, inputs: &[T], freeze: bool) -> Vec<T> {
         let x = inputs.to_vec();
@@ -71,8 +71,8 @@ impl<'a, T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, Q1, 
         let res1 = self.robot.parry_shape_scene_self_query_from_fk_res(&fk_res, &self.self_proximity_query, &self.self_selector, freeze);
         let res2 = self.robot.parry_shape_scene_external_query_from_fk_res(&fk_res, &self.environment, &self.environment_proximity_query, &self.environment_selector, freeze);
 
-        let p1 = res1.get_proximity_objective_value(self.distance_cutoff, self.p_norm, ProximityLossFunction::Hinge);
-        let p2 = res2.get_proximity_objective_value(self.distance_cutoff, self.p_norm, ProximityLossFunction::Hinge);
+        let p1 = res1.get_proximity_objective_value(self.distance_cutoff, self.p_norm, OProximityLossFunction::Hinge);
+        let p2 = res2.get_proximity_objective_value(self.distance_cutoff, self.p_norm, OProximityLossFunction::Hinge);
 
         let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.3), T::constant(1.0), T::constant(2.0));
         out += loss.loss(p1);
