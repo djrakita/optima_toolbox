@@ -12,7 +12,7 @@ use optima_optimization::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
 use optima_optimization::open::SimpleOpEnOptimizer;
 use optima_proximity::pair_group_queries::{EmptyParryFilter, EmptyToParryProximity, OwnedEmptyParryFilter, OwnedEmptyToProximityQry};
 use optima_robotics::robotics_optimization::robotics_optimization_ik::{DifferentiableBlockIKObjective, DifferentiableBlockIKObjectiveTrait, IKGoalUpdateMode};
-use crate::ffi_wrappers::{ArrayOfDoubleArrays, FFIConverters, GLOBAL_ROBOT};
+use crate::ffi_wrappers::{DoubleArray, ArrayOfDoubleArrays, FFIConverters, GLOBAL_ROBOT};
 
 type FAD = adfn<8>;
 
@@ -56,6 +56,23 @@ pub unsafe extern "C" fn ffi_compute_interpolated_motion_path_to_ee_pose(goal_li
     let res = compute_interpolated_motion_path_to_ee_pose(goal_link_idx, ee_position, ee_orientation, init_state);
 
     FFIConverters::rust_vec_of_f64_vecs_to_array_of_double_arrays(res)
+}
+
+#[no_mangle]
+pub extern "C" fn ffi_free_double_array(ptr: *mut DoubleArray) {
+    unsafe {
+        if !ptr.is_null() {
+            let _ = Box::from_raw(ptr);
+        }
+    }
+}
+#[no_mangle]
+pub extern "C" fn ffi_free_array_of_double_arrays(ptr: *mut ArrayOfDoubleArrays) {
+    unsafe {
+        if !ptr.is_null() {
+            let _ = Box::from_raw(ptr);
+        }
+    }
 }
 
 
