@@ -1,6 +1,4 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use ad_trait::AD;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
@@ -12,14 +10,16 @@ use optima_proximity::shapes::ShapeCategoryOParryShape;
 use crate::robot::{FKResult, ORobot};
 use crate::robotics_optimization::robotics_optimization_ik::{IKGoal, IKPrevStates};
 
-pub fn robot_self_proximity_refilter_check<'a, T, C, L, FQ>(robot: &ORobot<T, C, L>, filter_query: &OwnedPairGroupQry<'a, T, FQ>, inputs: &[T], fk_res: &FKResult<T, C::P<T>>, last_proximity_filter_state: &Rc<RefCell<Option<Vec<f64>>>>, filter_output: &Rc<RefCell<Option<OParryFilterOutput>>>, linf_dis_cutoff: f64)
+pub fn robot_self_proximity_refilter_check<'a, T, C, L, FQ>(robot: &ORobot<T, C, L>, filter_query: &OwnedPairGroupQry<'a, T, FQ>, inputs: &[T], fk_res: &FKResult<T, C::P<T>>, last_proximity_filter_state: &Arc<RwLock<Option<Vec<f64>>>>, filter_output: &Arc<RwLock<Option<OParryFilterOutput>>>, linf_dis_cutoff: f64)
     where T: AD,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
           FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=OParryFilterOutputCategory>
 {
     let inputs_as_vec = inputs.to_vec().o3dvec_to_other_ad_type::<f64>();
-    let dis = match last_proximity_filter_state.as_ref().borrow().as_ref() {
+    let binding = last_proximity_filter_state.as_ref().read();
+    let binding = binding.as_ref().unwrap();
+    let dis = match binding.as_ref() {
         None => { f64::MAX }
         Some(state) => {
             state.ovec_sub(&inputs_as_vec).ovec_p_norm(&15.0)
@@ -28,8 +28,10 @@ pub fn robot_self_proximity_refilter_check<'a, T, C, L, FQ>(robot: &ORobot<T, C,
 
     if dis > linf_dis_cutoff {
         let new_filter = robot.parry_shape_scene_self_query_from_fk_res(fk_res, filter_query, &OParryPairSelector::HalfPairs, false);
-        *filter_output.borrow_mut() = Some(new_filter);
-        *last_proximity_filter_state.borrow_mut() = Some(inputs_as_vec);
+        // *filter_output.borrow_mut() = Some(new_filter);
+        // *last_proximity_filter_state.borrow_mut() = Some(inputs_as_vec);
+        *filter_output.write().unwrap() = Some(new_filter);
+        *last_proximity_filter_state.write().unwrap() = Some(inputs_as_vec);
     }
 }
 

@@ -1,8 +1,6 @@
 use std::borrow::Cow;
-use std::cell::RefCell;
 use std::marker::PhantomData;
-use std::rc::Rc;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use ad_trait::AD;
 use ad_trait::differentiable_block::DifferentiableBlock;
 use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFunctionClass, DifferentiableFunctionTrait};
@@ -55,8 +53,8 @@ pub struct DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q>
     constant_selector: Option<OParryPairSelector>,
     dis_filter_cutoff: T,
     linf_dis_cutoff: f64,
-    last_proximity_filter_state: Rc<RefCell<Option<Vec<f64>>>>,
-    filter_output: Rc<RefCell<Option<OParryFilterOutput>>>,
+    last_proximity_filter_state: Arc<RwLock<Option<Vec<f64>>>>,
+    filter_output: Arc<RwLock<Option<OParryFilterOutput>>>,
     ee_matching_weight: T,
     collision_avoidance_weight: T,
     min_vel_weight: T,
@@ -68,7 +66,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> w
                                                                                      L: OLinalgCategory + 'static,
                                                                                      FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=OParryFilterOutputCategory>,
                                                                                      Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
-    pub fn new(robot: Cow<'a, ORobot<T, C, L>>, ik_goals: Vec<IKGoal<T, C::P<T>>>, init_state: Vec<T>, filter_query: OwnedPairGroupQry<'a, T, FQ>, distance_query: OwnedPairGroupQry<'a, T, Q>, constant_selector: Option<OParryPairSelector>, dis_filter_cutoff: T, linf_dis_cutoff: f64, last_proximity_filter_state: Rc<RefCell<Option<Vec<f64>>>>, filter_output: Rc<RefCell<Option<OParryFilterOutput>>>, ee_matching_weight: T, collision_avoidance_weight: T, min_vel_weight: T, min_acc_weight: T, min_jerk_weight: T) -> Self {
+    pub fn new(robot: Cow<'a, ORobot<T, C, L>>, ik_goals: Vec<IKGoal<T, C::P<T>>>, init_state: Vec<T>, filter_query: OwnedPairGroupQry<'a, T, FQ>, distance_query: OwnedPairGroupQry<'a, T, Q>, constant_selector: Option<OParryPairSelector>, dis_filter_cutoff: T, linf_dis_cutoff: f64, last_proximity_filter_state: Arc<RwLock<Option<Vec<f64>>>>, filter_output: Arc<RwLock<Option<OParryFilterOutput>>>, ee_matching_weight: T, collision_avoidance_weight: T, min_vel_weight: T, min_acc_weight: T, min_jerk_weight: T) -> Self {
         let prev_states = IKPrevStates::new(init_state.clone());
         Self { robot, ik_goals: RwLock::new(ik_goals), prev_states: RwLock::new(prev_states), filter_query, distance_query, constant_selector, dis_filter_cutoff, linf_dis_cutoff, last_proximity_filter_state, filter_output, ee_matching_weight, collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight }
     }
@@ -91,7 +89,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> w
             let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(6.0), T::constant(0.4), T::constant(2.0), T::constant(4.0));
             let tmp = match &self.constant_selector {
                 None => {
-                    let binding = self.filter_output.borrow();
+                    let binding = self.filter_output.read().unwrap();
                     let selector = binding.as_ref().unwrap().selector();
                     robot_self_proximity_objective(&self.robot, &fk_res, &self.distance_query, selector, self.dis_filter_cutoff, T::constant(15.0), OProximityLossFunction::Hinge, freeze)
                 }

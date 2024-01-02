@@ -20,8 +20,8 @@ pub unsafe extern "C" fn get_default_robot(robot_name: *const c_char) -> *const 
     let c_str = std::ffi::CStr::from_ptr(robot_name);
     let s = c_str.to_str().expect("Not a valid UTF-8 string");
     let r = ORobotDefault::load_from_saved_robot(s);
-    // std::mem::forget(r);
-    Box::into_raw(Box::new(r))
+    let ptr = Box::into_raw(Box::new(r));
+    ptr
 }
 
 #[no_mangle]

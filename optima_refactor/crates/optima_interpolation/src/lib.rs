@@ -29,7 +29,6 @@ pub trait InterpolatorTraitLite<T: AD, V: OVec<T>> {
     fn interpolate_points_by_normalized_stride(&self, stride_length: T) -> Vec<V> {
         let mut out = vec![];
 
-        println!("{:?}", stride_length);
         let ts = get_interpolation_range(T::zero(), T::one(), stride_length);
         for t in ts { out.push(self.interpolate_normalized(t)); }
 

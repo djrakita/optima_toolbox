@@ -5,7 +5,7 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
-crate-type = ["cdylib", "staticlib"]
+crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
 ad_trait = { git = "https://github.com/djrakita/ad_trait" }

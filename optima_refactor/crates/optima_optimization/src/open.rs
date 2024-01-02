@@ -51,7 +51,7 @@ fn simple_open_optimize<'a, DC, E>(objective_function: &DifferentiableBlock<'a, 
     let mut panoc = PANOCOptimizer::new(problem, cache);
     // panoc = panoc.with_max_iter(3);
 
-    let s = SimpleSampler::uniform_samples(&vec![(-0.00001, 0.00001); init_condition.len()], None);
+    let s = SimpleSampler::uniform_samples(&vec![(-0.000001, 0.000001); init_condition.len()], None);
     let mut x = init_condition.to_vec().ovec_add(&s);
     // let mut x = init_condition.to_vec();
     let solver_status = panoc.solve(x.as_mut_slice()).expect("error");

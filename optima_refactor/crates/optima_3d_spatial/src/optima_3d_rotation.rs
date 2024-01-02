@@ -9,6 +9,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeTuple;
 use serde_with::{DeserializeAs, SerializeAs};
+use optima_linalg::OVec;
 use crate::optima_3d_vec::O3DVec;
 
 #[derive(Clone, Debug, Copy, Eq, PartialEq)]
@@ -419,6 +420,11 @@ pub struct QuatConstructor<T: AD>{pub w: T, pub x: T, pub y: T, pub z: T}
 impl<T: AD> QuatConstructor<T> {
     pub fn new(w: T, x: T, y: T, z: T) -> Self {
         Self { w, x, y, z }
+    }
+    pub fn new_from_wxyz_ovec<V: OVec<T>>(v: &V) -> Self {
+        assert_eq!(v.len(), 4);
+
+        Self::new(*v.ovec_get_element(0), *v.ovec_get_element(1), *v.ovec_get_element(2), *v.ovec_get_element(3))
     }
 }
 impl<T, TargetRotationType> O3DRotationConstructor<T, TargetRotationType> for QuatConstructor<T>
