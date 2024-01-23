@@ -16,3 +16,4 @@ optima_book
 .DS_Store
 chains
 .cargo
+optima_refactor/.idea/
