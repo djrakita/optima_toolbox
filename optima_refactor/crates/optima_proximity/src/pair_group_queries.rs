@@ -257,7 +257,6 @@ pub enum OParryShapeIdx {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // INTERSECT //
-
 pub struct OParryIntersectGroupQry;
 impl OPairGroupQryTrait for OParryIntersectGroupQry {
     type ShapeCategory = ShapeCategoryOParryShape;
@@ -948,18 +947,6 @@ impl OPairGroupQryArgsCategoryTrait for OParryDistanceGroupFilterArgsCategory {
     type QueryType = OParryDistanceGroupFilter;
 }
 
-/*
-pub struct PairGroupQryArgsCategoryParryDistanceFilterConverter;
-impl ADConvertableTrait for PairGroupQryArgsCategoryParryDistanceFilterConverter {
-    type ConvertableType<T: AD> = OParryDistanceGroupFilterArgs<T>;
-
-    fn convert_to_other_ad_type<T1: AD, T2: AD>(input: &Self::ConvertableType<T1>) -> Self::ConvertableType<T2> {
-        let json_str = input.to_json_string();
-        Self::ConvertableType::<T2>::from_json_string(&json_str)
-    }
-}
-*/
-
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // INTERSECT FILTER //
@@ -1004,17 +991,6 @@ impl OPairGroupQryArgsCategoryTrait for OParryIntersectGroupFilterArgsCategory {
     type Args<'a, T: AD> = OParryIntersectGroupFilterArgs;
     type QueryType = OParryIntersectGroupFilter;
 }
-
-/*
-pub struct PairGroupQryArgsCategoryParryIntersectFilterConverter;
-impl ADConvertableTrait for PairGroupQryArgsCategoryParryIntersectFilterConverter {
-    type ConvertableType<T: AD> = OParryIntersectGroupFilterArgs;
-
-    fn convert_to_other_ad_type<T1: AD, T2: AD>(input: &Self::ConvertableType<T1>) -> Self::ConvertableType<T2> {
-        input.clone()
-    }
-}
-*/
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1174,17 +1150,6 @@ impl OPairGroupQryArgsCategoryTrait for OParryIntersectGroupSequenceFilterArgsCa
     type Args<'a, T: AD> = OParryIntersectGroupSequenceFilterArgs;
     type QueryType = OParryIntersectGroupSequenceFilter;
 }
-
-/*
-pub struct PairGroupQryArgsCategoryParryIntersectSequenceFilterConverter;
-impl ADConvertableTrait for PairGroupQryArgsCategoryParryIntersectSequenceFilterConverter {
-    type ConvertableType<T: AD> = OParryIntersectGroupSequenceFilterArgs;
-
-    fn convert_to_other_ad_type<T1: AD, T2: AD>(input: &Self::ConvertableType<T1>) -> Self::ConvertableType<T2> {
-        input.clone()
-    }
-}
-*/
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 

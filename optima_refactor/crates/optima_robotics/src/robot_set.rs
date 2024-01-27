@@ -3,8 +3,8 @@ use std::fmt::Debug;
 use serde::{Serialize, Deserialize};
 use std::marker::PhantomData;
 use ad_trait::AD;
-use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3, O3DPoseCategory};
-use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategory, OVec};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3, O3DPoseCategory, AliasO3DPoseCategory};
+use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategory, OVec, AliasOLinalgCategory};
 use serde_with::*;
 use optima_file::traits::{FromJsonString, ToJsonString};
 use crate::robot::{ORobot, RobotType};
@@ -402,7 +402,7 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory> ORobotWrapper<T, C, L> {
         &self.dof_idxs_range
     }
 }
-impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ORobot<T, C, L> {
+impl<T: AD, C: AliasO3DPoseCategory, L: AliasOLinalgCategory> ORobot<T, C, L> {
     pub(crate) fn new_world_robot() -> Self {
         Self::from_manual("world", vec![OLink::new_manual("world_link", vec![], vec![], OInertial::new_zeros())], vec![])
     }

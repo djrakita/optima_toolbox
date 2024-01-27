@@ -25,6 +25,9 @@ pub trait OLinalgCategory: Clone + Debug + Serialize + for<'a> Deserialize<'a> +
     fn type_identifier() -> OLinalgType;
 }
 
+pub trait AliasOLinalgCategory: OLinalgCategory + 'static { }
+impl<A> AliasOLinalgCategory for A where A: OLinalgCategory + 'static { }
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct OLinalgCategoryNalgebra;
 impl OLinalgCategory for OLinalgCategoryNalgebra {

@@ -7,7 +7,7 @@ use ad_trait::*;
 use ad_trait::differentiable_block::DifferentiableBlock;
 use ad_trait::differentiable_function::DerivativeMethodTrait;
 use serde::{Serialize, Deserialize};
-use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3, O3DPoseCategory};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3, AliasO3DPoseCategory};
 use crate::utils::get_urdf_path_from_chain_name;
 use serde_with::*;
 use optima_3d_mesh::{SaveToSTL, ToTriMesh};
@@ -17,15 +17,16 @@ use optima_console::output::{oprint, PrintColor, PrintMode};
 use optima_console::tab;
 use optima_file::path::{OAssetLocation, OPath, OPathMatchingPattern, OPathMatchingStopCondition, OStemCellPath};
 use optima_file::traits::{FromJsonString, ToJsonString};
-use optima_linalg::{OLinalgCategoryNalgebra, OLinalgCategory, OVec, OVecCategoryVec};
+use optima_linalg::{OLinalgCategoryNalgebra, OVec, OVecCategoryVec, AliasOLinalgCategory};
 use crate::robotics_components::*;
 use crate::robotics_functions::compute_chain_info;
 use crate::robotics_traits::{AsRobotTrait, JointTrait};
 use optima_misc::arr_storage::MutArrTraitRaw;
 use optima_misc::arr_storage::ImmutArrTraitRaw;
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, OParryFilterOutputCategory, OPairGroupQryOutputCategoryTrait, OParryFilterOutput, OParryPairSelector, ToParryProximityOutputCategory, OSkipReason};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, OPairGroupQryOutputCategoryTrait, OParryFilterOutput, OParryPairSelector, OSkipReason};
 use optima_proximity::shape_scene::{OParryGenericShapeScene, ShapeSceneTrait};
 use optima_proximity::shapes::{OParryShape, ShapeCategoryOParryShape};
+use optima_proximity::trait_aliases::{AliasParryGroupFilterQry, AliasParryToProximityQry};
 use optima_sampling::SimpleSampler;
 use optima_universal_hashmap::AHashMapWrapper;
 use crate::robot_shape_scene::{ORobotParryShapeScene};
@@ -36,7 +37,7 @@ use crate::robotics_optimization::robotics_optimization_look_at::{Differentiable
 pub type ORobotDefault = ORobot<f64, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>;
 #[serde_as]
 #[derive(Clone, Serialize, Deserialize)]
-pub struct ORobot<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory> {
+pub struct ORobot<T: AD, C: AliasO3DPoseCategory, L: AliasOLinalgCategory> {
     pub (crate) robot_name: String,
     robot_type: RobotType,
     #[serde(deserialize_with = "Vec::<OLink<T, C, L>>::deserialize")]
@@ -58,7 +59,7 @@ pub struct ORobot<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory> {
     has_been_preprocessed: bool,
     phantom_data: PhantomData<(T, C)>
 }
-impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T, C, L> {
+impl<T: AD, C: AliasO3DPoseCategory, L: AliasOLinalgCategory> ORobot<T, C, L> {
     pub fn from_urdf(robot_name: &str) -> Self {
         let urdf_path = get_urdf_path_from_chain_name(robot_name);
         let urdf = urdf_path.load_urdf();
@@ -193,7 +194,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
             phantom_data: Default::default(),
         }
     }
-    pub fn to_other_generic_types<T2: AD, C2: O3DPoseCategory, L2: OLinalgCategory>(&self) -> ORobot<T2, C2, L2> {
+    pub fn to_other_generic_types<T2: AD, C2: AliasO3DPoseCategory, L2: AliasOLinalgCategory>(&self) -> ORobot<T2, C2, L2> {
         let json_str = self.to_json_string();
         ORobot::<T2, C2, L2>::from_json_string(&json_str)
     }
@@ -712,7 +713,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> ORobot<T
         self.set_robot_parry_shape_scene();
     }
 }
-impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ORobot<T, C, L> {
+impl<T: AD, C: AliasO3DPoseCategory, L: AliasOLinalgCategory> ORobot<T, C, L> {
     fn set_link_and_joint_idxs(&mut self) {
         self.links.iter_mut().enumerate().for_each(|(i, x)| {
             x.link_idx = i;
@@ -981,11 +982,11 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ORobot<T, C, L> {
         self.parry_shape_scene = parry_shape_scene;
     }
 }
-impl<C: O3DPoseCategory, L: OLinalgCategory> ORobot<f64, C, L> {
+impl<C: AliasO3DPoseCategory, L: AliasOLinalgCategory> ORobot<f64, C, L> {
     pub fn get_ik_differentiable_block<'a, E, FQ, Q>(&'a self, derivative_method: E, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, constant_selector: Option<OParryPairSelector>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64) -> DifferentiableBlock<'a, DifferentiableFunctionClassIKObjective<C, L, FQ, Q>, E>
         where E: DerivativeMethodTrait,
-              FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=OParryFilterOutputCategory>,
-              Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
+              FQ: AliasParryGroupFilterQry,
+              Q: AliasParryToProximityQry {
 
         let last_proximity_filter_state: Arc<RwLock<Option<Vec<f64>>>> = Arc::new(RwLock::new(None));
         let filter_output: Arc<RwLock<Option<OParryFilterOutput>>> = Arc::new(RwLock::new(None));
@@ -997,8 +998,8 @@ impl<C: O3DPoseCategory, L: OLinalgCategory> ORobot<f64, C, L> {
     }
     pub fn get_look_at_differentiable_block<'a, E, FQ, Q>(&'a self, derivative_method: E, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, constant_selector: Option<OParryPairSelector>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64, look_at_weight: f64, roll_prevention_weight: f64) -> DifferentiableBlock<'a, DifferentiableFunctionClassLookAt<C, L, FQ, Q>, E>
         where E: DerivativeMethodTrait,
-              FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=OParryFilterOutputCategory>,
-              Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
+              FQ: AliasParryGroupFilterQry,
+              Q: AliasParryToProximityQry {
         let last_proximity_filter_state: Arc<RwLock<Option<Vec<f64>>>> = Arc::new(RwLock::new(None));
         let filter_output: Arc<RwLock<Option<OParryFilterOutput>>> = Arc::new(RwLock::new(None));
 
@@ -1009,11 +1010,11 @@ impl<C: O3DPoseCategory, L: OLinalgCategory> ORobot<f64, C, L> {
     }
 }
 /// Objective Functions
-impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory> ORobot<T, C, L > {
+impl<T: AD, C: AliasO3DPoseCategory, L: AliasOLinalgCategory> ORobot<T, C, L > {
     pub fn get_ik_objective_function<'a, T1, FQ, Q>(&'a self, robot: Cow<'a, ORobot<T1, C, L>>, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, constant_selector: Option<OParryPairSelector>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64, last_proximity_filter_state: Arc<RwLock<Option<Vec<f64>>>>, filter_output: Arc<RwLock<Option<OParryFilterOutput>>>) -> DifferentiableFunctionIKObjective<T1, C, L, FQ, Q>
         where T1: AD,
-              FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=OParryFilterOutputCategory>,
-              Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory>
+              FQ: AliasParryGroupFilterQry,
+              Q: AliasParryToProximityQry
     {
         let fk_res = self.forward_kinematics(&init_state.to_vec().ovec_to_other_ad_type::<T>(), None);
 
@@ -1026,20 +1027,20 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory> ORobot<T, C, L > {
     }
     pub fn get_look_at_objective_function<'a, T1, FQ, Q>(&'a self, robot: Cow<'a, ORobot<T1, C, L>>, filter_query: OwnedPairGroupQry<'a, f64, FQ>, distance_query: OwnedPairGroupQry<'a, f64, Q>, constant_selector: Option<OParryPairSelector>, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>, linf_dis_cutoff: f64, dis_filter_cutoff: f64, ee_matching_weight: f64, self_collision_avoidance_weight: f64, min_vel_weight: f64, min_acc_weight: f64, min_jerk_weight: f64, look_at_weight: f64, roll_prevention_weight: f64, last_proximity_filter_state: Arc<RwLock<Option<Vec<f64>>>>, filter_output: Arc<RwLock<Option<OParryFilterOutput>>>) -> DifferentiableFunctionLookAt<T1, C, L, FQ, Q>
         where T1: AD,
-              FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=OParryFilterOutputCategory>,
-              Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
+              FQ: AliasParryGroupFilterQry,
+              Q: AliasParryToProximityQry {
         let ik_objective = self.get_ik_objective_function(robot, filter_query, distance_query, constant_selector, init_state, ik_goal_link_idxs, linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, last_proximity_filter_state, filter_output);
 
         DifferentiableFunctionLookAt::new(ik_objective, looker_link, looker_forward_axis, looker_side_axis, look_at_target.to_other_ad_type::<T1>(), T1::constant(look_at_weight), T1::constant(roll_prevention_weight))
     }
 }
-impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> AsRobotTrait<T, C, L> for ORobot<T, C, L> {
+impl<T: AD, C: AliasO3DPoseCategory, L: AliasOLinalgCategory> AsRobotTrait<T, C, L> for ORobot<T, C, L> {
     #[inline(always)]
     fn as_robot(&self) -> &ORobot<T, C, L> {
         self
     }
 }
-impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> Debug for ORobot<T, C, L> {
+impl<T: AD, C: AliasO3DPoseCategory, L: AliasOLinalgCategory> Debug for ORobot<T, C, L> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let mut s = "".to_string();
 
@@ -1066,7 +1067,7 @@ impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> Debug for ORobot<T
         Ok(())
     }
 }
-impl<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static> ShapeSceneTrait<T, C::P<T>> for ORobot<T, C, L> {
+impl<T: AD, C: AliasO3DPoseCategory, L: AliasOLinalgCategory> ShapeSceneTrait<T, C::P<T>> for ORobot<T, C, L> {
     type ShapeType = OParryShape<T, C::P<T>>;
     type GetPosesInput = Vec<T>;
     type PairSkipsType = AHashMapWrapper<(u64, u64), Vec<OSkipReason>>;
@@ -1124,7 +1125,7 @@ pub enum SaveRobot<'a> {
     DoNotSave
 }
 
-pub enum IKGoalMode<T: AD, C: O3DPoseCategory> {
+pub enum IKGoalMode<T: AD, C: AliasO3DPoseCategory> {
     Absolute,
     LocalRelativeCombined { offset: C::P<T> },
     GlobalRelativeCombined { offset: C::P<T> },

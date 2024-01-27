@@ -16,3 +16,4 @@ num_cpus = "1.16.0"
 serde = { version="*", features = ["derive"] }
 serde_json = { version="*" }
 serde_with = { version="3.2.0" }
+bevy_ecs = "0.12.1"

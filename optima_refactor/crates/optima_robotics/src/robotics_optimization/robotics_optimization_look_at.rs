@@ -7,8 +7,7 @@ use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
 use optima_3d_spatial::optima_3d_vec::O3DVecCategoryArr;
 use optima_linalg::{OLinalgCategory, OVec, OVecCategoryVec};
 use optima_optimization::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OParryFilterOutputCategory, OParryPairSelector, ToParryProximityOutputCategory};
-use optima_proximity::shapes::ShapeCategoryOParryShape;
+use optima_proximity::trait_aliases::{AliasParryGroupFilterQry, AliasParryToProximityQry};
 use crate::robotics_optimization::robotics_optimization_functions::{AxisDirection, LookAtTarget, LookAtTargetRwLockTrait, robot_link_look_at_objective, robot_link_look_at_roll_prevention_objective};
 use crate::robotics_optimization::robotics_optimization_ik::{DifferentiableFunctionIKObjective, IKGoalRwLockVecTrait, IKGoalUpdateMode, IKPrevStatesRwLockTrait};
 
@@ -16,14 +15,14 @@ pub struct DifferentiableFunctionClassLookAt<C, L, FQ, Q>(PhantomData<(C, L, FQ,
     where
         C: O3DPoseCategory + 'static,
         L: OLinalgCategory + 'static,
-        FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=OParryFilterOutputCategory>,
-        Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector>;
+        FQ: AliasParryGroupFilterQry,
+        Q: AliasParryToProximityQry;
 impl<C, L, FQ, Q> DifferentiableFunctionClass for DifferentiableFunctionClassLookAt<C, L, FQ, Q>
     where
         C: O3DPoseCategory + 'static,
         L: OLinalgCategory + 'static,
-        FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=OParryFilterOutputCategory>,
-        Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory>
+        FQ: AliasParryGroupFilterQry,
+        Q: AliasParryToProximityQry
 {
     type FunctionType<'a, T: AD> = DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q>;
 }
@@ -32,8 +31,8 @@ pub struct DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q>
     where T: AD,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
-          FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=OParryFilterOutputCategory>,
-          Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
+          FQ: AliasParryGroupFilterQry,
+          Q: AliasParryToProximityQry {
     ik_objective: DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q>,
     looker_link: usize,
     looker_forward_axis: AxisDirection,
@@ -45,8 +44,8 @@ pub struct DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q>
 impl<'a, T, C, L, FQ, Q> DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q> where T: AD,
                                                                                 C: O3DPoseCategory + 'static,
                                                                                 L: OLinalgCategory + 'static,
-                                                                                FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=OParryFilterOutputCategory>,
-                                                                                Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory> {
+                                                                                FQ: AliasParryGroupFilterQry,
+                                                                                Q: AliasParryToProximityQry {
     pub fn new(ik_objective: DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q>, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<T, O3DVecCategoryArr>, look_at_weight: T, roll_prevention_weight: T) -> Self {
         Self { ik_objective, looker_link, looker_forward_axis, looker_side_axis, look_at_target: RwLock::new(look_at_target), look_at_weight, roll_prevention_weight }
     }
@@ -66,8 +65,8 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait<'a, T> for DifferentiableFu
     where T: AD,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
-          FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=OParryFilterOutputCategory>,
-          Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory>
+          FQ: AliasParryGroupFilterQry,
+          Q: AliasParryToProximityQry
 {
     fn call(&self, inputs: &[T], freeze: bool) -> Vec<T> {
         let (output, fk_res) = self.ik_objective.call_and_return_fk_res(inputs, freeze);
@@ -99,8 +98,8 @@ impl<'a, E, C, L, FQ, Q> DifferentiableBlockLookAtTrait<'a, C> for Differentiabl
     where E: DerivativeMethodTrait,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
-          FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=OParryFilterOutputCategory>,
-          Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory>
+          FQ: AliasParryGroupFilterQry,
+          Q: AliasParryToProximityQry
 {
     fn update_look_at_target(&self, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>) {
         self.update_function(|x, y| {

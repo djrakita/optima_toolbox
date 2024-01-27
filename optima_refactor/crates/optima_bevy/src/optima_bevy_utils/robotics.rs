@@ -9,12 +9,13 @@ use bevy_egui::egui::panel::{Side, TopBottomSide};
 use bevy_egui::egui::Ui;
 use bevy_egui::{egui, EguiContexts};
 use bevy_prototype_debug_lines::DebugLines;
-use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory, AliasO3DPoseCategory};
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_3d_spatial::optima_3d_vec::O3DVec;
-use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSidePanel, OEguiSlider, OEguiTopBottomPanel, OEguiWidgetTrait};
+use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSidePanel, OEguiSlider, OEguiTextbox, OEguiTextboxResponse, OEguiTopBottomPanel, OEguiWidgetTrait};
+use optima_file::traits::{FromJsonString, ToJsonString};
 use optima_interpolation::InterpolatorTrait;
-use optima_linalg::{OLinalgCategory, OVec};
+use optima_linalg::{OLinalgCategory, OVec, AliasOLinalgCategory};
 use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OParryDistanceGroupArgs, OParryDistanceGroupQry, OParryIntersectGroupArgs, OParryIntersectGroupQry, OParryPairSelector, OProximityLossFunction, OSkipReason, ToParryProximityOutputTrait};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_robotics::robot::{FKResult, ORobot, SaveRobot};
@@ -29,7 +30,7 @@ use optima_universal_hashmap::AHashMapWrapper;
 
 pub struct RoboticsActions;
 impl RoboticsActions {
-    pub fn action_spawn_robot_as_stl_meshes<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static>(robot: &ORobot<T, C, L>,
+    pub fn action_spawn_robot_as_stl_meshes<T: AD, C: AliasO3DPoseCategory, L: AliasOLinalgCategory>(robot: &ORobot<T, C, L>,
                                                                                                      fk_res: &FKResult<T, C::P<T>>,
                                                                                                      commands: &mut Commands,
                                                                                                      asset_server: &Res<AssetServer>,
@@ -62,7 +63,7 @@ impl RoboticsActions {
             }
         });
     }
-    pub fn action_set_state_of_robot<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static, V: OVec<T>>(robot: &ORobot<T, C, L>,
+    pub fn action_set_state_of_robot<T: AD, C: AliasO3DPoseCategory, L: AliasOLinalgCategory, V: OVec<T>>(robot: &ORobot<T, C, L>,
                                                                                                           state: &V,
                                                                                                           robot_instance_idx: usize,
                                                                                                           query: &mut Query<(&LinkMeshID, &mut Transform)>) {
@@ -80,7 +81,7 @@ impl RoboticsActions {
             }
         }
     }
-    pub fn action_robot_joint_sliders_egui<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static>(robot: &ORobot<T, C, L>,
+    pub fn action_robot_joint_sliders_egui<T: AD, C: AliasO3DPoseCategory, L: AliasOLinalgCategory>(robot: &ORobot<T, C, L>,
                                                                                                     robot_state_engine: &mut ResMut<RobotStateEngine>,
                                                                                                     egui_engine: &Res<OEguiEngineWrapper>,
                                                                                                     ui: &mut Ui) {
@@ -89,6 +90,18 @@ impl RoboticsActions {
             ui.heading("Joint Sliders");
             reset_clicked = ui.button("Reset").clicked();
         });
+
+        ui.separator();
+
+        Self::action_robot_copy_state_to_clipboard(robot_state_engine, ui);
+
+        ui.separator();
+
+        Self::action_robot_set_robot_state_from_copy_paste::<T>(robot_state_engine, egui_engine, ui);
+
+        ui.separator();
+
+        let mut changed_via_button = false;
         ui.group(|ui| {
             egui::ScrollArea::new([true, true])
                 .max_height(400.)
@@ -105,6 +118,7 @@ impl RoboticsActions {
                             ui.label(format!("{}, sub dof {}", joint.name(), i));
                             ui.label(format!("Joint idx {}", joint.joint_idx()));
                             ui.label(format!("Joint type {:?}, Axis {:?}", joint.joint_type(), joint.axis()));
+
                             OEguiSlider::new(lower.to_constant(), upper.to_constant(), 0.0)
                                 .show(&label, ui, &egui_engine, &());
 
@@ -112,11 +126,11 @@ impl RoboticsActions {
                             let response = mutex_guard.get_slider_response_mut(&label).expect("error");
 
                             ui.horizontal(|ui| {
-                                if ui.button("0.0").clicked() { response.slider_value = 0.0; }
-                                if ui.button("+0.01").clicked() { response.slider_value += 0.01; }
-                                if ui.button("-0.01").clicked() { response.slider_value -= 0.01; }
-                                if ui.button("+0.1").clicked() { response.slider_value += 0.1; }
-                                if ui.button("-0.1").clicked() { response.slider_value -= 0.1; }
+                                if ui.button("0.0").clicked() { response.slider_value = 0.0; changed_via_button = true; }
+                                if ui.button("+0.01").clicked() { response.slider_value += 0.01; changed_via_button = true; }
+                                if ui.button("-0.01").clicked() { response.slider_value -= 0.01; changed_via_button = true; }
+                                if ui.button("+0.1").clicked() { response.slider_value += 0.1; changed_via_button = true; }
+                                if ui.button("-0.1").clicked() { response.slider_value -= 0.1; changed_via_button = true; }
                             });
                         }
                     });
@@ -125,19 +139,35 @@ impl RoboticsActions {
 
         let mut mutex_guard = egui_engine.get_mutex_guard();
 
-        let num_dofs = robot.num_dofs();
-        let mut curr_state = vec![T::zero(); robot.num_dofs()];
-        for i in 0..num_dofs {
-            let label = format!("joint_slider_dof_{}", i);
-            let response = mutex_guard.get_slider_response_mut(&label).expect("error");
-            if reset_clicked { response.slider_value = 0.0; }
-            let value = response.slider_value();
-            curr_state[i] = T::constant(value);
-        }
+        let curr_state_setting = robot_state_engine.get_robot_state(0);
+        let mut changed_via_slider = false;
+        match curr_state_setting {
+            None => {
+                let curr_state = vec![T::zero(); robot.num_dofs()];
+                robot_state_engine.add_update_request(0, &OVec::ovec_to_other_ad_type::<T>(&curr_state));
+            }
+            Some(curr_state_setting) => {
+                let num_dofs = robot.num_dofs();
+                let mut curr_state = vec![T::zero(); robot.num_dofs()];
+                for i in 0..num_dofs {
+                    let label = format!("joint_slider_dof_{}", i);
+                    let response = mutex_guard.get_slider_response_mut(&label).expect("error");
+                    if response.widget_response().changed() { changed_via_slider = true; }
+                    if reset_clicked { response.slider_value = 0.0; changed_via_button = true; }
+                    if changed_via_slider || changed_via_button {
+                        let value = response.slider_value();
+                        curr_state[i] = T::constant(value);
+                    } else {
+                        curr_state[i] = T::constant(curr_state_setting[i]);
+                        response.slider_value = curr_state_setting[i];
+                    }
+                }
 
-        robot_state_engine.add_update_request(0, &OVec::ovec_to_other_ad_type::<T>(&curr_state));
+                robot_state_engine.add_update_request(0, &OVec::ovec_to_other_ad_type::<T>(&curr_state));
+            }
+        }
     }
-    pub fn action_robot_link_vis_panel_egui<T: AD, C: O3DPoseCategory, L: OLinalgCategory + 'static>(robot: &ORobot<T, C, L>,
+    pub fn action_robot_link_vis_panel_egui<T: AD, C: AliasO3DPoseCategory, L: AliasOLinalgCategory>(robot: &ORobot<T, C, L>,
                                                                                                      robot_state_engine: &RobotStateEngine,
                                                                                                      lines: &mut ResMut<DebugLines>,
                                                                                                      egui_engine: &Res<OEguiEngineWrapper>,
@@ -216,6 +246,45 @@ impl RoboticsActions {
         });
 
 
+    }
+    pub fn action_robot_copy_state_to_clipboard(robot_state_engine: &mut ResMut<RobotStateEngine>,
+                                                ui: &mut Ui) {
+        let curr_robot_state = robot_state_engine.get_robot_state(0);
+        match curr_robot_state {
+            None => {  }
+            Some(curr_robot_state) => {
+                let s = curr_robot_state.to_json_string();
+                if ui
+                    .add(egui::Button::new("Copy Robot State to Clipboard"))
+                    .clicked()
+                {
+                    ui.output_mut(|o| o.copied_text = s);
+                };
+            }
+        }
+    }
+    pub fn action_robot_set_robot_state_from_copy_paste<T: AD>(robot_state_engine: &mut ResMut<RobotStateEngine>,
+                                                               egui_engine: &Res<OEguiEngineWrapper>,
+                                                               ui: &mut Ui) {
+
+        OEguiTextbox::new(false)
+            .show("textbox", ui, egui_engine, &());
+
+        if ui.button("Set Robot State").clicked() {
+            let binding = egui_engine.get_mutex_guard();
+            let response = binding.get_textbox_response("textbox");
+            match response {
+                None => { }
+                Some(response) => {
+                    let s = response.text.clone();
+                    let state = Vec::<T>::from_json_string_option(&s);
+                    match state {
+                        None => { println!("not a valid robot state when trying to set robot state from copy-paste"); }
+                        Some(state) => { robot_state_engine.add_update_request(0, &state); }
+                    }
+                }
+            }
+        }
     }
 }
 

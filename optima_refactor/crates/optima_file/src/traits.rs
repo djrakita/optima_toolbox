@@ -88,6 +88,13 @@ pub trait FromJsonString: ToJsonString + DeserializeOwned {
             panic!("Could not load json string {:?} into correct type.", json_str);
         }
     }
+
+    fn from_json_string_option(json_str: &str) -> Option<Self> where Self: Sized {
+        let load: Result<Self, _> = serde_json::from_str(json_str);
+        return if let Ok(load) = load { Some(load) } else {
+            None
+        }
+    }
 }
 impl<T> FromJsonString for T where T: ToJsonString + DeserializeOwned { }
 

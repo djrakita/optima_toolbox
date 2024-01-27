@@ -24,6 +24,9 @@ pub trait O3DPoseCategory:
     type P<T: AD> : O3DPose<T>;
 }
 
+pub trait AliasO3DPoseCategory: O3DPoseCategory + 'static { }
+impl<A> AliasO3DPoseCategory for A where A : O3DPoseCategory + 'static { }
+
 pub trait O3DPose<T: AD> :
     Clone + Debug + Serialize + for<'a> Deserialize<'a> + Send + Sync + AsAny
 {

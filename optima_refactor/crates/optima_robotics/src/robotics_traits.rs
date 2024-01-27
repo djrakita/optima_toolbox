@@ -1,7 +1,7 @@
 use ad_trait::AD;
-use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory, AliasO3DPoseCategory};
 use optima_3d_spatial::optima_3d_rotation::ScaledAxis;
-use optima_linalg::{OLinalgCategory, OVec};
+use optima_linalg::{OVec, AliasOLinalgCategory};
 use crate::robot::ORobot;
 use crate::robotics_components::{ODynamics, OJointLimit, OJointType, OMimic, OPose, OSafetyController};
 use optima_misc::arr_storage::ImmutArrTraitRaw;
@@ -109,7 +109,7 @@ pub trait JointTrait<T: AD, C: O3DPoseCategory + 'static> {
     }
 }
 
-pub trait AsRobotTrait<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory> {
+pub trait AsRobotTrait<T: AD, C: AliasO3DPoseCategory, L: AliasOLinalgCategory> {
     fn as_robot(&self) -> &ORobot<T, C, L>;
 }
 
@@ -121,7 +121,6 @@ pub trait AsTrajectoryWaypoint<T: AD> {
 pub trait AsTrajectory<T: AD, W: AsTrajectoryWaypoint<T>> {
     fn get_waypoints(&self) -> &Vec<W>;
 }
-
 
 
 /*

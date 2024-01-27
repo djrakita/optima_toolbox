@@ -5,8 +5,8 @@ use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_3d_spatial::optima_3d_vec::{O3DVec, O3DVecCategoryArr, O3DVecCategoryTrait};
 use optima_geometry::{pt_dis_to_line};
 use optima_linalg::{OLinalgCategory, OVec};
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, OParryFilterOutputCategory, OParryFilterOutput, OParryPairSelector, OProximityLossFunction, ToParryProximityOutputCategory};
-use optima_proximity::shapes::ShapeCategoryOParryShape;
+use optima_proximity::pair_group_queries::{OwnedPairGroupQry, OParryFilterOutput, OParryPairSelector, OProximityLossFunction};
+use optima_proximity::trait_aliases::{AliasParryGroupFilterQry, AliasParryToProximityQry};
 use crate::robot::{FKResult, ORobot};
 use crate::robotics_optimization::robotics_optimization_ik::{IKGoal, IKPrevStates};
 
@@ -14,7 +14,7 @@ pub fn robot_self_proximity_refilter_check<'a, T, C, L, FQ>(robot: &ORobot<T, C,
     where T: AD,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
-          FQ: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=OParryFilterOutputCategory>
+          FQ: AliasParryGroupFilterQry
 {
     let inputs_as_vec = inputs.to_vec().o3dvec_to_other_ad_type::<f64>();
     let binding = last_proximity_filter_state.as_ref().read();
@@ -39,7 +39,7 @@ pub fn robot_self_proximity_objective<'a, T, C, L, Q>(robot: &ORobot<T, C, L>, f
     where T: AD,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
-          Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory>
+          Q: AliasParryToProximityQry
 {
     let res = robot.parry_shape_scene_self_query_from_fk_res(fk_res, distance_query, selector, freeze);
     res.get_proximity_objective_value(cutoff, p_norm, loss_function)
