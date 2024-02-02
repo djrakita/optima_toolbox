@@ -1,6 +1,6 @@
 use std::sync::{Arc, RwLock};
 use ad_trait::AD;
-use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory};
+use optima_3d_spatial::optima_3d_pose::{AliasO3DPoseCategory, O3DPose, O3DPoseCategory};
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_3d_spatial::optima_3d_vec::{O3DVec, O3DVecCategoryArr, O3DVecCategoryTrait};
 use optima_geometry::{pt_dis_to_line};
@@ -55,8 +55,11 @@ pub fn robot_ik_goals_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, ik_goal
     ik_goals.iter().for_each(|ik_goal| {
         let pose = fk_res.get_link_pose(ik_goal.goal_link_idx).as_ref().expect("error");
         // let interpolated_ik_goal = pose.interpolate_with_max_translation_and_rotation(&ik_goal.goal_pose, max_translation, max_rotation);
-        let dis = pose.dis(&ik_goal.goal_pose);
-        out += ik_goal.weight * dis;
+        // let dis = pose.dis(&ik_goal.goal_pose);
+        // out += ik_goal.weight * dis;
+        let position_error = ik_goal.goal_pose.translation().o3dvec_sub(pose.translation()).norm();
+        let rotation_error = ik_goal.goal_pose.rotation().dis(&pose.rotation());
+        out += ik_goal.weight * (position_error + rotation_error);
     });
 
     out /= T::constant(ik_goals.len() as f64);
@@ -99,7 +102,7 @@ pub fn robot_link_look_at_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, loo
 
 pub fn robot_link_look_at_roll_prevention_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, looker_link: usize, looker_link_side_axis: &AxisDirection) -> T
     where T: AD,
-          C: O3DPoseCategory + 'static {
+          C: AliasO3DPoseCategory {
     let looker_link_pose = fk_res.get_link_pose(looker_link).as_ref().expect("error");
     let looker_link_pose_coordinate_frame_vectors = looker_link_pose.rotation().coordinate_frame_vectors();
     let looker_link_side_vector = match looker_link_side_axis {
@@ -115,6 +118,27 @@ pub fn robot_link_look_at_roll_prevention_objective<'a, T, C>(fk_res: &FKResult<
     let res = looker_link_side_vector.o3dvec_dot(&up_vector).powi(2);
 
     res
+}
+
+pub fn robot_goal_distance_between_looker_and_look_at_target_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, goal_distance: T, looker_link: usize, look_at_target: &LookAtTarget<T, O3DVecCategoryArr>) -> T
+    where T: AD, C: AliasO3DPoseCategory
+{
+    let looker_pose = fk_res.get_link_pose(looker_link).as_ref().expect("error");
+    let looker_location = looker_pose.translation().o3dvec_to_other_generic_category::<T, O3DVecCategoryArr>();
+    let look_at_target_location = match look_at_target {
+        LookAtTarget::Absolute(position) => { position.o3dvec_to_other_generic_category::<T, O3DVecCategoryArr>() }
+        LookAtTarget::RobotLink(idx) => {
+            let look_at_target_link = fk_res.get_link_pose(*idx).as_ref().expect("error");
+            look_at_target_link.translation().o3dvec_to_other_generic_category::<T, O3DVecCategoryArr>()
+        }
+        LookAtTarget::PhantomData(_) => { unreachable!() }
+    };
+
+    let dis = looker_location.o3dvec_sub(&look_at_target_location).norm();
+    let diff = dis - goal_distance;
+    let diff_squared = diff.powi(2);
+
+    diff_squared
 }
 
 pub fn robot_per_instant_velocity_acceleration_and_jerk_objectives<T: AD>(inputs: &[T], prev_states: &IKPrevStates<T>, p_norm: T) -> (T, T, T) {

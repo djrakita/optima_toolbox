@@ -292,7 +292,9 @@ impl<T: AD> O3DRotation<T> for UnitQuaternion<T> {
 
     #[inline(always)]
     fn dis(&self, other: &Self) -> T {
-        self.displacement(other).angle()
+        let option1 = self.displacement(other).angle();
+        let option2 = self.displacement(&other.conjugate()).angle();
+        return option1.min(option2);
     }
 
     #[inline(always)]

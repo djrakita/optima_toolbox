@@ -81,7 +81,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> w
         let mut out_val = T::zero();
 
         if self.ee_matching_weight > T::zero() {
-            let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.2), T::constant(1.0), T::constant(2.0));
+            let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.5), T::constant(1.0), T::constant(2.0));
             out_val += self.ee_matching_weight * loss.loss(robot_ik_goals_objective::<T, C>(&fk_res, &self.ik_goals.read().unwrap()));
         }
 
@@ -104,8 +104,8 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> w
         }
 
         if self.min_vel_weight + self.min_acc_weight + self.min_jerk_weight > T::zero() {
-            let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.2), T::constant(2.0), T::constant(2.0));
-            let (v, a, j) = robot_per_instant_velocity_acceleration_and_jerk_objectives(inputs, &self.prev_states.read().unwrap(), T::constant(12.0));
+            let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.5), T::constant(2.0), T::constant(2.0));
+            let (v, a, j) = robot_per_instant_velocity_acceleration_and_jerk_objectives(inputs, &self.prev_states.read().unwrap(), T::constant(10.0));
 
             out_val += self.min_vel_weight * loss.loss(v);
             out_val += self.min_acc_weight * loss.loss(a);

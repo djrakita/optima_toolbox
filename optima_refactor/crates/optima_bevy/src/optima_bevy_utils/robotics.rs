@@ -12,7 +12,7 @@ use bevy_prototype_debug_lines::DebugLines;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory, AliasO3DPoseCategory};
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_3d_spatial::optima_3d_vec::O3DVec;
-use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSidePanel, OEguiSlider, OEguiTextbox, OEguiTextboxResponse, OEguiTopBottomPanel, OEguiWidgetTrait};
+use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSidePanel, OEguiSlider, OEguiTextbox, OEguiTopBottomPanel, OEguiWidgetTrait};
 use optima_file::traits::{FromJsonString, ToJsonString};
 use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategory, OVec, AliasOLinalgCategory};
