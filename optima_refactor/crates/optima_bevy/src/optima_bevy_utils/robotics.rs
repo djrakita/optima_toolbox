@@ -1,11 +1,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::marker::PhantomData;
-use std::sync::{Arc, Mutex, OnceLock};
 use ad_trait::AD;
-use ad_trait::differentiable_block::DifferentiableBlock;
-use ad_trait::differentiable_function::{DerivativeMethodTrait, FiniteDifferencing, ForwardADMulti};
-use ad_trait::forward_ad::adfn::adfn;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -20,9 +16,7 @@ use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEng
 use optima_file::traits::{FromJsonString, ToJsonString};
 use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategory, OVec, AliasOLinalgCategory, OLinalgCategoryNalgebra};
-use optima_optimization::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
-use optima_optimization::open::SimpleOpEnOptimizer;
-use optima_proximity::pair_group_queries::{EmptyParryFilter, EmptyToParryProximity, OPairGroupQryTrait, OParryDistanceGroupArgs, OParryDistanceGroupQry, OParryIntersectGroupArgs, OParryIntersectGroupQry, OParryPairSelector, OProximityLossFunction, OSkipReason, ToParryProximityOutputTrait};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OParryDistanceGroupArgs, OParryDistanceGroupQry, OParryIntersectGroupArgs, OParryIntersectGroupQry, OParryPairSelector, OProximityLossFunction, OSkipReason, ToParryProximityOutputTrait};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_robotics::robot::{FKResult, ORobot, ORobotDefault, SaveRobot};
 use crate::optima_bevy_utils::file::get_asset_path_str_from_ostemcellpath;
@@ -32,7 +26,6 @@ use crate::optima_bevy_utils::storage::BevyAnyHashmap;
 use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsActions;
 use optima_proximity::shape_scene::ShapeSceneTrait;
 use optima_proximity::shapes::OParryShape;
-use optima_robotics::robotics_optimization::robotics_optimization_ik::{DifferentiableBlockIKObjective, DifferentiableBlockIKObjectiveTrait, DifferentiableFunctionClassIKObjective, IKGoalUpdateMode};
 use optima_universal_hashmap::AHashMapWrapper;
 
 pub struct RoboticsActions;
@@ -583,15 +576,15 @@ impl BevyRoboticsTraitF64 for ORobotDefault {
         });
 
         // let self_clone = self.clone();
-        let self_clone = self.clone();
-        let ik = self_clone.get_vanilla_ik_differentiable_block(FiniteDifferencing::new(), start_state.ovec_as_slice(), vec![goal_link_idx]);
-        let o = SimpleOpEnOptimizer::new(self.get_dof_lower_bounds(), self.get_dof_upper_bounds(), 0.001);
+        // let self_clone = self.clone();
+        // let ik = self_clone.get_vanilla_ik_differentiable_block(FiniteDifferencing::new(), start_state.ovec_as_slice(), vec![goal_link_idx]);
+        // let o = SimpleOpEnOptimizer::new(self.get_dof_lower_bounds(), self.get_dof_upper_bounds(), 0.001);
         let fk_res = self.forward_kinematics(start_state, None);
         let curr_goal_pose = fk_res.get_link_pose(goal_link_idx).as_ref().unwrap().clone();
         let mut curr_goal_pos = curr_goal_pose.translation().o3dvec_as_slice().to_vec();
-        let mut curr_solution = start_state.clone();
+        // let mut curr_solution = start_state.clone();
         app.add_systems(Update, move |mut gizmos: Gizmos, keys: Res<Input<KeyCode>>| {
-            let i = &ik;
+            // let i = &ik;
 
             gizmos.sphere(TransformUtils::util_convert_z_up_ovec3_to_y_up_vec3(&curr_goal_pos), Quat::default(), 0.08, Color::default());
             if keys.pressed(KeyCode::W) {
