@@ -1,7 +1,11 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::marker::PhantomData;
+use std::sync::{Arc, Mutex, OnceLock};
 use ad_trait::AD;
+use ad_trait::differentiable_block::DifferentiableBlock;
+use ad_trait::differentiable_function::{DerivativeMethodTrait, FiniteDifferencing, ForwardADMulti};
+use ad_trait::forward_ad::adfn::adfn;
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -9,16 +13,18 @@ use bevy_egui::egui::panel::{Side, TopBottomSide};
 use bevy_egui::egui::Ui;
 use bevy_egui::{egui, EguiContexts};
 use bevy_prototype_debug_lines::DebugLines;
-use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory, AliasO3DPoseCategory};
+use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory, AliasO3DPoseCategory, O3DPoseCategoryIsometry3};
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_3d_spatial::optima_3d_vec::O3DVec;
 use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSidePanel, OEguiSlider, OEguiTextbox, OEguiTopBottomPanel, OEguiWidgetTrait};
 use optima_file::traits::{FromJsonString, ToJsonString};
 use optima_interpolation::InterpolatorTrait;
-use optima_linalg::{OLinalgCategory, OVec, AliasOLinalgCategory};
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OParryDistanceGroupArgs, OParryDistanceGroupQry, OParryIntersectGroupArgs, OParryIntersectGroupQry, OParryPairSelector, OProximityLossFunction, OSkipReason, ToParryProximityOutputTrait};
+use optima_linalg::{OLinalgCategory, OVec, AliasOLinalgCategory, OLinalgCategoryNalgebra};
+use optima_optimization::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
+use optima_optimization::open::SimpleOpEnOptimizer;
+use optima_proximity::pair_group_queries::{EmptyParryFilter, EmptyToParryProximity, OPairGroupQryTrait, OParryDistanceGroupArgs, OParryDistanceGroupQry, OParryIntersectGroupArgs, OParryIntersectGroupQry, OParryPairSelector, OProximityLossFunction, OSkipReason, ToParryProximityOutputTrait};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
-use optima_robotics::robot::{FKResult, ORobot, SaveRobot};
+use optima_robotics::robot::{FKResult, ORobot, ORobotDefault, SaveRobot};
 use crate::optima_bevy_utils::file::get_asset_path_str_from_ostemcellpath;
 use crate::optima_bevy_utils::transform::TransformUtils;
 use crate::{BevySystemSet, OptimaBevyTrait};
@@ -26,6 +32,7 @@ use crate::optima_bevy_utils::storage::BevyAnyHashmap;
 use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsActions;
 use optima_proximity::shape_scene::ShapeSceneTrait;
 use optima_proximity::shapes::OParryShape;
+use optima_robotics::robotics_optimization::robotics_optimization_ik::{DifferentiableBlockIKObjective, DifferentiableBlockIKObjectiveTrait, DifferentiableFunctionClassIKObjective, IKGoalUpdateMode};
 use optima_universal_hashmap::AHashMapWrapper;
 
 pub struct RoboticsActions;
@@ -495,6 +502,11 @@ pub trait BevyRoboticsTrait<T: AD> {
     fn bevy_get_self_collision_visualization_app(&mut self) -> App;
 }
 
+pub trait BevyRoboticsTraitF64 {
+    fn bevy_ik_test_app<V: OVec<f64>>(&self, goal_link_idx: usize, start_state: &V) -> App;
+    fn bevy_ik_test<V: OVec<f64>>(&self, goal_link_idx: usize, start_state: &V);
+}
+
 impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> BevyRoboticsTrait<T> for ORobot<T, C, L> {
     fn bevy_display(&self) {
         self.bevy_get_display_app().run();
@@ -550,6 +562,70 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> BevyRobo
             .optima_bevy_egui()
             .add_systems(Update, RoboticsSystems::system_robot_self_collision_vis::<T, C, L>.before(BevySystemSet::Camera));
         app
+    }
+}
+
+impl BevyRoboticsTraitF64 for ORobotDefault {
+    fn bevy_ik_test_app<V: OVec<f64>>(&self, goal_link_idx: usize, start_state: &V) -> App {
+        let mut app = App::new();
+        app
+            .optima_bevy_base()
+            .optima_bevy_robotics_base(self.clone())
+            .optima_bevy_pan_orbit_camera()
+            .optima_bevy_starter_lights()
+            .optima_bevy_spawn_robot::<f64, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>()
+            .optima_bevy_robotics_scene_visuals_starter()
+            .optima_bevy_egui();
+
+        let start_state_cloned = start_state.clone();
+        app.add_systems(PostStartup, move |mut robot_state_engine: ResMut<RobotStateEngine>| {
+            robot_state_engine.add_update_request(0, &start_state_cloned);
+        });
+
+        // let self_clone = self.clone();
+        let self_clone = self.clone();
+        let ik = self_clone.get_vanilla_ik_differentiable_block(FiniteDifferencing::new(), start_state.ovec_as_slice(), vec![goal_link_idx]);
+        let o = SimpleOpEnOptimizer::new(self.get_dof_lower_bounds(), self.get_dof_upper_bounds(), 0.001);
+        let fk_res = self.forward_kinematics(start_state, None);
+        let curr_goal_pose = fk_res.get_link_pose(goal_link_idx).as_ref().unwrap().clone();
+        let mut curr_goal_pos = curr_goal_pose.translation().o3dvec_as_slice().to_vec();
+        let mut curr_solution = start_state.clone();
+        app.add_systems(Update, move |mut gizmos: Gizmos, keys: Res<Input<KeyCode>>| {
+            let i = &ik;
+
+            gizmos.sphere(TransformUtils::util_convert_z_up_ovec3_to_y_up_vec3(&curr_goal_pos), Quat::default(), 0.08, Color::default());
+            if keys.pressed(KeyCode::W) {
+                curr_goal_pos[0] += f64::constant(0.01);
+            }
+            if keys.pressed(KeyCode::X) {
+                curr_goal_pos[0] -= f64::constant(0.01);
+            }
+            if keys.pressed(KeyCode::D) {
+                curr_goal_pos[1] -= f64::constant(0.01);
+            }
+            if keys.pressed(KeyCode::A) {
+                curr_goal_pos[1] += f64::constant(0.01);
+            }
+            if keys.pressed(KeyCode::Q) {
+                curr_goal_pos[2] += f64::constant(0.01);
+            }
+            if keys.pressed(KeyCode::Z) {
+                curr_goal_pos[2] -= f64::constant(0.01);
+            }
+
+            // println!("{:?}", ik.call(&[0.0; 6]));
+            // let solution = o.optimize_unconstrained(curr_solution.ovec_as_slice(), &ik);
+            // println!("{:?}", solution.x_star());
+
+            // let goal_pose = C::P::from_constructors(&curr_goal_pos, &curr_goal_pose.rotation().scaled_axis_of_rotation());
+            // ik.update_ik_pose(0, goal_pose, IKGoalUpdateMode::Absolute);
+        });
+
+        app
+    }
+
+    fn bevy_ik_test<V: OVec<f64>>(&self, goal_link_idx: usize, start_state: &V) {
+        self.bevy_ik_test_app(goal_link_idx, start_state).run();
     }
 }
 
@@ -642,4 +718,5 @@ impl<T: AD, C: O3DPoseCategory + Send + 'static, L: OLinalgCategory + 'static> S
 pub struct BevyRobotInterpolator<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V> + 'static>(pub I, PhantomData<(T, V)>);
 unsafe impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> Send for BevyRobotInterpolator<T, V, I> { }
 unsafe impl<T: AD, V: OVec<T>, I: InterpolatorTrait<T, V>> Sync for BevyRobotInterpolator<T, V, I> { }
+
 

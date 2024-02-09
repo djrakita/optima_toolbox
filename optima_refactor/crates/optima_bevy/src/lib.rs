@@ -1,3 +1,5 @@
+#![feature(once_cell_try_insert)]
+
 use std::sync::Arc;
 use ad_trait::AD;
 use bevy::input::common_conditions::input_just_pressed;

@@ -37,9 +37,8 @@ impl TransformUtils {
     }
 
     #[inline(always)]
-    pub fn util_convert_z_up_ovec3_to_y_up_bevy_vec3<T: AD, V: O3DVec<T>>(v: &V) -> Vec3 {
-        let v = Self::util_convert_z_up_ovec3_to_z_up_vec3(v);
-        Self::util_convert_z_up_vec3_to_y_up_bevy_vec3(v)
+    pub fn util_convert_z_up_ovec3_to_y_up_vec3<T: AD, V: O3DVec<T>>(v: &V) -> Vec3 {
+        return Self::util_convert_z_up_vec3_to_y_up_bevy_vec3(Self::util_convert_z_up_ovec3_to_z_up_vec3(v));
     }
 
     #[inline(always)]

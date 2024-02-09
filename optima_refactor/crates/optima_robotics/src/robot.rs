@@ -23,7 +23,7 @@ use crate::robotics_functions::compute_chain_info;
 use crate::robotics_traits::{AsRobotTrait, JointTrait};
 use optima_misc::arr_storage::MutArrTraitRaw;
 use optima_misc::arr_storage::ImmutArrTraitRaw;
-use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, OPairGroupQryOutputCategoryTrait, OParryFilterOutput, OParryPairSelector, OSkipReason};
+use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OwnedPairGroupQry, OPairGroupQryOutputCategoryTrait, OParryFilterOutput, OParryPairSelector, OSkipReason, EmptyParryFilter, EmptyToParryProximity, OwnedEmptyParryFilter, OwnedEmptyToProximityQry};
 use optima_proximity::shape_scene::{OParryGenericShapeScene, ShapeSceneTrait};
 use optima_proximity::shapes::{OParryShape, ShapeCategoryOParryShape};
 use optima_proximity::trait_aliases::{AliasParryGroupFilterQry, AliasParryToProximityQry};
@@ -1008,6 +1008,9 @@ impl<C: AliasO3DPoseCategory, L: AliasOLinalgCategory> ORobot<f64, C, L> {
         let f1 = self.get_look_at_objective_function(Cow::Borrowed(self), filter_query, distance_query, constant_selector, init_state, ik_goal_link_idxs, looker_link, looker_forward_axis.clone(), looker_side_axis.clone(), look_at_target.clone(), goal_distance_between_looker_and_look_at_target, linf_dis_cutoff, dis_filter_cutoff, ee_matching_weight, self_collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight, look_at_weight, roll_prevention_weight, goal_distance_weight, last_proximity_filter_state.clone(), filter_output.clone());
 
         DifferentiableBlock::new(derivative_method, f1, f2)
+    }
+    pub fn get_vanilla_ik_differentiable_block<E: DerivativeMethodTrait>(&self, derivative_method: E, init_state: &[f64], ik_goal_link_idxs: Vec<usize>) -> DifferentiableBlock<DifferentiableFunctionClassIKObjective<C, L, EmptyParryFilter, EmptyToParryProximity>, E> {
+        self.get_ik_differentiable_block(derivative_method, OwnedEmptyParryFilter::new(()), OwnedEmptyToProximityQry::new(()), None, init_state, ik_goal_link_idxs, 0.0, 0.0, 1.0, 0.0, 0.5, 0.2, 0.1)
     }
 }
 /// Objective Functions
