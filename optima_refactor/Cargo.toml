@@ -55,7 +55,7 @@ nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
 [features]
 default = [
     "do_not_embed_assets",
-    "include_nlopt" # if you have nlopt installed, uncomment this line
+    # "include_nlopt" # if you have nlopt installed, uncomment this line
 ]
 
 # optima_file features

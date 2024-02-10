@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use ad_trait::AD;
-use ad_trait::differentiable_function::{ReverseAD};
+use ad_trait::differentiable_function::{FiniteDifferencing, ReverseAD};
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -13,12 +13,13 @@ use bevy_prototype_debug_lines::DebugLines;
 use nalgebra::Isometry3;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory, AliasO3DPoseCategory, O3DPoseCategoryIsometry3};
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
-use optima_3d_spatial::optima_3d_vec::O3DVec;
+use optima_3d_spatial::optima_3d_vec::{O3DVec, O3DVecCategoryArr};
 use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEngineWrapper, OEguiSelector, OEguiSelectorMode, OEguiSidePanel, OEguiSlider, OEguiTextbox, OEguiTopBottomPanel, OEguiWidgetTrait};
 use optima_file::traits::{FromJsonString, ToJsonString};
 use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategory, OVec, AliasOLinalgCategory, OLinalgCategoryNalgebra};
 use optima_optimization::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
+use optima_optimization::nlopt::{Algorithm, Nlopt, NLOptOptimizer};
 use optima_optimization::open::SimpleOpEnOptimizer;
 use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OParryDistanceGroupArgs, OParryDistanceGroupQry, OParryIntersectGroupArgs, OParryIntersectGroupQry, OParryPairSelector, OProximityLossFunction, OSkipReason, ToParryProximityOutputTrait};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
@@ -30,7 +31,9 @@ use crate::optima_bevy_utils::storage::BevyAnyHashmap;
 use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsActions;
 use optima_proximity::shape_scene::ShapeSceneTrait;
 use optima_proximity::shapes::OParryShape;
+use optima_robotics::robotics_optimization::robotics_optimization_functions::{AxisDirection, LookAtTarget};
 use optima_robotics::robotics_optimization::robotics_optimization_ik::{DifferentiableBlockIKObjectiveTrait, IKGoalUpdateMode};
+use optima_robotics::robotics_optimization::robotics_optimization_look_at::DifferentiableBlockLookAtTrait;
 use optima_universal_hashmap::AHashMapWrapper;
 
 pub struct RoboticsActions;
@@ -501,8 +504,12 @@ pub trait BevyRoboticsTrait<T: AD> {
 }
 
 pub trait BevyRoboticsTraitF64 {
-    fn bevy_ik_test_app<V: OVec<f64>>(&self, goal_link_idx: usize, start_state: &V) -> App;
-    fn bevy_ik_test<V: OVec<f64>>(&self, goal_link_idx: usize, start_state: &V);
+    fn bevy_simple_ik_app<V: OVec<f64>>(&self, goal_link_idx: usize, start_state: &V) -> App;
+    fn bevy_simple_ik<V: OVec<f64>>(&self, goal_link_idx: usize, start_state: &V);
+    fn bevy_ik_lookat_app<V: OVec<f64>>(&self, ik_goal_link_idx: usize, start_state: &V, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>) -> App;
+
+    fn bevy_ik_lookat<V: OVec<f64>>(&self, ik_goal_link_idx: usize, start_state: &V, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>);
+
 }
 
 impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> BevyRoboticsTrait<T> for ORobot<T, C, L> {
@@ -564,7 +571,7 @@ impl<T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static> BevyRobo
 }
 
 impl BevyRoboticsTraitF64 for ORobotDefault {
-    fn bevy_ik_test_app<V: OVec<f64>>(&self, goal_link_idx: usize, start_state: &V) -> App {
+    fn bevy_simple_ik_app<V: OVec<f64>>(&self, goal_link_idx: usize, start_state: &V) -> App {
         let mut app = App::new();
         app
             .optima_bevy_base()
@@ -582,7 +589,7 @@ impl BevyRoboticsTraitF64 for ORobotDefault {
 
         // let self_clone = self.clone();
         // let self_clone = self.clone();
-        let ik = self.get_vanilla_ik_differentiable_block(ReverseAD::new(), start_state.ovec_as_slice(), vec![goal_link_idx]);
+        let ik = self.get_default_vanilla_ik_differentiable_block(ReverseAD::new(), start_state.ovec_as_slice(), vec![goal_link_idx]);
         let o = SimpleOpEnOptimizer::new(self.get_dof_lower_bounds(), self.get_dof_upper_bounds(), 0.001);
         // let o = NLOptOptimizer::new(Algorithm::Slsqp, false, self.num_dofs(), None, None, None);
         let fk_res = self.forward_kinematics(start_state, None);
@@ -626,8 +633,93 @@ impl BevyRoboticsTraitF64 for ORobotDefault {
         app
     }
 
-    fn bevy_ik_test<V: OVec<f64>>(&self, goal_link_idx: usize, start_state: &V) {
-        self.bevy_ik_test_app(goal_link_idx, start_state).run();
+    fn bevy_simple_ik<V: OVec<f64>>(&self, goal_link_idx: usize, start_state: &V) {
+        self.bevy_simple_ik_app(goal_link_idx, start_state).run();
+    }
+
+    fn bevy_ik_lookat_app<V: OVec<f64>>(&self, ik_goal_link_idx: usize, start_state: &V, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>) -> App {
+        let mut app = App::new();
+        app
+            .optima_bevy_base()
+            .optima_bevy_robotics_base(self.clone())
+            .optima_bevy_pan_orbit_camera()
+            .optima_bevy_starter_lights()
+            .optima_bevy_spawn_robot::<f64, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra>()
+            .optima_bevy_robotics_scene_visuals_starter()
+            .optima_bevy_egui();
+
+        let start_state_cloned = start_state.clone();
+        app.add_systems(PostStartup, move |mut robot_state_engine: ResMut<RobotStateEngine>| {
+            robot_state_engine.add_update_request(0, &start_state_cloned);
+        });
+
+        let self_clone = self.clone();
+        let looker_forward_axis_clone = looker_forward_axis.clone();
+        let ik = self.get_default_ik_lookat_differentiable_block(FiniteDifferencing::new(), start_state.ovec_as_slice(), vec![ik_goal_link_idx], looker_link, looker_forward_axis, looker_side_axis, look_at_target);
+        let o = SimpleOpEnOptimizer::new(self.get_dof_lower_bounds(), self.get_dof_upper_bounds(), 0.001);
+        // let o = NLOptOptimizer::new(Algorithm::Slsqp, false, self.num_dofs(), Some(100), None, None);
+        let fk_res = self.forward_kinematics(start_state, None);
+        let curr_goal_pose = fk_res.get_link_pose(ik_goal_link_idx).as_ref().unwrap().clone();
+        let mut curr_goal_pos = curr_goal_pose.translation().o3dvec_as_slice().to_vec();
+        let mut curr_solution = start_state.to_constant_vec();
+        app.add_systems(Update, move |mut gizmos: Gizmos, keys: Res<Input<KeyCode>>, mut robot_state_engine: ResMut<crate::optima_bevy_utils::robotics::RobotStateEngine>| {
+            gizmos.sphere(TransformUtils::util_convert_z_up_ovec3_to_y_up_vec3(&curr_goal_pos), Quat::default(), 0.08, Color::default());
+            if keys.pressed(KeyCode::W) {
+                curr_goal_pos[0] += f64::constant(0.01);
+            }
+            if keys.pressed(KeyCode::X) {
+                curr_goal_pos[0] -= f64::constant(0.01);
+            }
+            if keys.pressed(KeyCode::D) {
+                curr_goal_pos[1] -= f64::constant(0.01);
+            }
+            if keys.pressed(KeyCode::A) {
+                curr_goal_pos[1] += f64::constant(0.01);
+            }
+            if keys.pressed(KeyCode::Q) {
+                curr_goal_pos[2] += f64::constant(0.01);
+            }
+            if keys.pressed(KeyCode::Z) {
+                curr_goal_pos[2] -= f64::constant(0.01);
+            }
+
+            let solution = o.optimize_unconstrained(curr_solution.ovec_as_slice(), &ik);
+            curr_solution = solution.x_star().to_vec();
+
+            // let goal_pose = Isometry3::from_constructors(&curr_goal_pos, &curr_goal_pose.rotation().scaled_axis_of_rotation());
+            let mut goal_pose = curr_goal_pose.clone();
+            goal_pose.translation.x = curr_goal_pos[0];
+            goal_pose.translation.y = curr_goal_pos[1];
+            goal_pose.translation.z = curr_goal_pos[2];
+            ik.update_ik_pose(0, goal_pose, IKGoalUpdateMode::Absolute);
+            ik.update_prev_states(curr_solution.clone());
+            robot_state_engine.add_update_request(0, &curr_solution);
+
+            let fk = self_clone.forward_kinematics(&curr_solution, None);
+            let looker_pose = fk.get_link_pose(looker_link).as_ref().unwrap();
+            let position = looker_pose.translation.vector.to_constant_vec();
+            let coordinate_frame_vectors = looker_pose.rotation.coordinate_frame_vectors();
+            let axis = match &looker_forward_axis_clone {
+                AxisDirection::X => { coordinate_frame_vectors[0] }
+                AxisDirection::Y => { coordinate_frame_vectors[1] }
+                AxisDirection::Z => { coordinate_frame_vectors[2] }
+                AxisDirection::NegX => { coordinate_frame_vectors[0].o3dvec_scalar_mul(f64::constant(-1.0)) }
+                AxisDirection::NegY => { coordinate_frame_vectors[1].o3dvec_scalar_mul(f64::constant(-1.0)) }
+                AxisDirection::NegZ => { coordinate_frame_vectors[2].o3dvec_scalar_mul(f64::constant(-1.0)) }
+            }.to_vec().o3dvec_scalar_mul(10.0);
+
+            let start_point = position.clone();
+            let end_point = position.o3dvec_add(&axis);
+
+            ViewportVisualsActions::action_draw_gpu_line_optima_space_gizmo(&mut gizmos, TransformUtils::util_convert_z_up_ovec3_to_z_up_vec3(&start_point), TransformUtils::util_convert_z_up_ovec3_to_z_up_vec3(&end_point), Color::default(), 0.01, 10, 1);
+        });
+
+
+        app
+    }
+
+    fn bevy_ik_lookat<V: OVec<f64>>(&self, ik_goal_link_idx: usize, start_state: &V, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>) {
+        self.bevy_ik_lookat_app(ik_goal_link_idx, start_state, looker_link, looker_forward_axis, looker_side_axis, look_at_target).run();
     }
 }
 

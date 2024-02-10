@@ -79,7 +79,7 @@ impl<T, C, L, FQ, Q> DifferentiableFunctionTrait<T> for DifferentiableFunctionLo
         let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.5), T::constant(1.0), T::constant(2.0));
         out += self.look_at_weight*loss.loss(robot_link_look_at_objective::<T, C>(&fk_res, self.looker_link, &self.looker_forward_axis, &self.look_at_target.read().unwrap()));
         out += self.roll_prevention_weight*loss.loss(robot_link_look_at_roll_prevention_objective::<T, C>(&fk_res, self.looker_link, &self.looker_side_axis));
-        out += self.goal_distance_weight*loss.loss(robot_goal_distance_between_looker_and_look_at_target_objective::<T, C>(&fk_res, *self.goal_distance_between_looker_and_look_at_target.read().unwrap(), self.looker_link, &self.look_at_target.read().unwrap()));
+        // out += self.goal_distance_weight*loss.loss(robot_goal_distance_between_looker_and_look_at_target_objective::<T, C>(&fk_res, *self.goal_distance_between_looker_and_look_at_target.read().unwrap(), self.looker_link, &self.look_at_target.read().unwrap()));
 
         vec![out]
     }
