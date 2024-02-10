@@ -1,3 +1,4 @@
+/*
 use std::marker::PhantomData;
 use std::sync::Arc;
 use ad_trait::AD;
@@ -111,3 +112,4 @@ impl<'a, T: AD, C: O3DPoseCategory + 'static, L: OLinalgCategory + 'static, Q1, 
 }
 
 pub type DifferentiableBlockCollisionStateResolver<'a, C, L, Q1, Q2, E> = DifferentiableBlock<'a, DifferentiableFunctionClassCollisionStateResolver<C, L, Q1, Q2>, E>;
+*/

@@ -24,16 +24,16 @@ impl<C, L, FQ, Q> DifferentiableFunctionClass for DifferentiableFunctionClassLoo
         FQ: AliasParryGroupFilterQry,
         Q: AliasParryToProximityQry
 {
-    type FunctionType<'a, T: AD> = DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q>;
+    type FunctionType<T: AD> = DifferentiableFunctionLookAt<T, C, L, FQ, Q>;
 }
 
-pub struct DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q>
+pub struct DifferentiableFunctionLookAt<T, C, L, FQ, Q>
     where T: AD,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
           FQ: AliasParryGroupFilterQry,
           Q: AliasParryToProximityQry {
-    ik_objective: DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q>,
+    ik_objective: DifferentiableFunctionIKObjective<T, C, L, FQ, Q>,
     looker_link: usize,
     looker_forward_axis: AxisDirection,
     looker_side_axis: AxisDirection,
@@ -43,15 +43,15 @@ pub struct DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q>
     roll_prevention_weight: T,
     goal_distance_weight: T
 }
-impl<'a, T, C, L, FQ, Q> DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q> where T: AD,
+impl<T, C, L, FQ, Q> DifferentiableFunctionLookAt<T, C, L, FQ, Q> where T: AD,
                                                                                 C: O3DPoseCategory + 'static,
                                                                                 L: OLinalgCategory + 'static,
                                                                                 FQ: AliasParryGroupFilterQry,
                                                                                 Q: AliasParryToProximityQry {
-    pub fn new(ik_objective: DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q>, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<T, O3DVecCategoryArr>, goal_distance_between_looker_and_look_at_target: T, look_at_weight: T, roll_prevention_weight: T, goal_distance_weight: T) -> Self {
+    pub fn new(ik_objective: DifferentiableFunctionIKObjective<T, C, L, FQ, Q>, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<T, O3DVecCategoryArr>, goal_distance_between_looker_and_look_at_target: T, look_at_weight: T, roll_prevention_weight: T, goal_distance_weight: T) -> Self {
         Self { ik_objective, looker_link, looker_forward_axis, looker_side_axis, look_at_target: RwLock::new(look_at_target), goal_distance_between_looker_and_look_at_target: RwLock::new(goal_distance_between_looker_and_look_at_target), look_at_weight, roll_prevention_weight, goal_distance_weight }
     }
-    pub fn to_other_ad_type<T1: AD>(&self) -> DifferentiableFunctionLookAt<'a, T1, C, L, FQ, Q> {
+    pub fn to_other_ad_type<T1: AD>(&self) -> DifferentiableFunctionLookAt<T1, C, L, FQ, Q> {
         DifferentiableFunctionLookAt {
             ik_objective: self.ik_objective.to_other_ad_type::<T1>(),
             looker_link: self.looker_link.clone(),
@@ -65,7 +65,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q> where 
         }
     }
 }
-impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait<'a, T> for DifferentiableFunctionLookAt<'a, T, C, L, FQ, Q>
+impl<T, C, L, FQ, Q> DifferentiableFunctionTrait<T> for DifferentiableFunctionLookAt<T, C, L, FQ, Q>
     where T: AD,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
@@ -93,14 +93,14 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait<'a, T> for DifferentiableFu
     }
 }
 
-pub type DifferentiableBlockLookAt<'a, E, C, L, FQ, Q> = DifferentiableBlock<'a, DifferentiableFunctionClassLookAt<C, L, FQ, Q>, E>;
-pub trait DifferentiableBlockLookAtTrait<'a, C: O3DPoseCategory> {
+pub type DifferentiableBlockLookAt<E, C, L, FQ, Q> = DifferentiableBlock<DifferentiableFunctionClassLookAt<C, L, FQ, Q>, E>;
+pub trait DifferentiableBlockLookAtTrait<C: O3DPoseCategory> {
     fn update_look_at_target(&self, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>);
     fn update_goal_distance_between_looker_and_look_at_target(&self, goal_distance_between_looker_and_look_at_target: f64);
     fn update_ik_pose(&self, idx: usize, pose: C::P<f64>, update_mode: IKGoalUpdateMode);
     fn update_prev_states(&self, state: Vec<f64>);
 }
-impl<'a, E, C, L, FQ, Q> DifferentiableBlockLookAtTrait<'a, C> for DifferentiableBlockLookAt<'a, E, C, L, FQ, Q>
+impl<E, C, L, FQ, Q> DifferentiableBlockLookAtTrait<C> for DifferentiableBlockLookAt<E, C, L, FQ, Q>
     where E: DerivativeMethodTrait,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,

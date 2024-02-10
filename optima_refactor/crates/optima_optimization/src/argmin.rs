@@ -2,20 +2,20 @@ use ad_trait::differentiable_block::DifferentiableBlock;
 use ad_trait::differentiable_function::{DerivativeMethodTrait, DifferentiableFunctionClass};
 use argmin::core::*;
 
-pub struct ArgminDiffBlockWrapper<'a, DC: DifferentiableFunctionClass, E: DerivativeMethodTrait> {
-    diff_block: DifferentiableBlock<'a, DC, E>
+pub struct ArgminDiffBlockWrapper<DC: DifferentiableFunctionClass, E: DerivativeMethodTrait> {
+    diff_block: DifferentiableBlock<DC, E>
 }
-impl<'a, DC: DifferentiableFunctionClass, E: DerivativeMethodTrait> ArgminDiffBlockWrapper<'a, DC, E> {
-    pub fn diff_block(&self) -> &DifferentiableBlock<'a, DC, E> {
+impl<'a, DC: DifferentiableFunctionClass, E: DerivativeMethodTrait> ArgminDiffBlockWrapper<DC, E> {
+    pub fn diff_block(&self) -> &DifferentiableBlock<DC, E> {
         &self.diff_block
     }
 }
-impl<'a, DC: DifferentiableFunctionClass, E: DerivativeMethodTrait> ArgminDiffBlockWrapper<'a, DC, E> {
-    pub fn new(diff_block: DifferentiableBlock<'a, DC, E>) -> Self {
+impl<'a, DC: DifferentiableFunctionClass, E: DerivativeMethodTrait> ArgminDiffBlockWrapper<DC, E> {
+    pub fn new(diff_block: DifferentiableBlock<DC, E>) -> Self {
         Self { diff_block }
     }
 }
-impl<'a, DC: DifferentiableFunctionClass, E: DerivativeMethodTrait> CostFunction for ArgminDiffBlockWrapper<'a, DC, E> {
+impl<'a, DC: DifferentiableFunctionClass, E: DerivativeMethodTrait> CostFunction for ArgminDiffBlockWrapper<DC, E> {
     type Param = Vec<f64>;
     type Output = f64;
 
@@ -24,7 +24,7 @@ impl<'a, DC: DifferentiableFunctionClass, E: DerivativeMethodTrait> CostFunction
         return Ok(res[0]);
     }
 }
-impl<'a, DC: DifferentiableFunctionClass, E: DerivativeMethodTrait> Gradient for ArgminDiffBlockWrapper<'a, DC, E> {
+impl<'a, DC: DifferentiableFunctionClass, E: DerivativeMethodTrait> Gradient for ArgminDiffBlockWrapper<DC, E> {
     type Param = Vec<f64>;
     type Gradient = Vec<f64>;
 

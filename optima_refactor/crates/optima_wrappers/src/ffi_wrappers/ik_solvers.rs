@@ -25,7 +25,7 @@ pub unsafe extern "C" fn get_default_robot(robot_name: *const c_char) -> *const 
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn get_default_ik_differentiable_block<'a>(robot: *const ORobotDefault, goal_link_idx: *const c_int, init_state: *const c_double, joint_state_length: c_int) -> *const DifferentiableBlockIKObjective<'a, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, EmptyParryFilter, EmptyToParryProximity, ForwardADMulti<FAD>> {
+pub unsafe extern "C" fn get_default_ik_differentiable_block(robot: *const ORobotDefault, goal_link_idx: *const c_int, init_state: *const c_double, joint_state_length: c_int) -> *const DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, EmptyParryFilter, EmptyToParryProximity, ForwardADMulti<FAD>> {
     let x_slice: &[c_double] = std::slice::from_raw_parts(init_state, joint_state_length as usize);
     let x = x_slice.to_vec();
     let goal_link_idx = goal_link_idx as usize;
@@ -41,7 +41,7 @@ pub unsafe extern "C" fn get_default_ik_differentiable_block<'a>(robot: *const O
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn get_static_ik_differentiable_block<'a>(robot: *const ORobotDefault, goal_link_idx: *const c_int) -> *const DifferentiableBlockIKObjective<'a, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, EmptyParryFilter, EmptyToParryProximity, ForwardADMulti<FAD>> {
+pub unsafe extern "C" fn get_static_ik_differentiable_block(robot: *const ORobotDefault, goal_link_idx: *const c_int) -> *const DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, EmptyParryFilter, EmptyToParryProximity, ForwardADMulti<FAD>> {
     let joint_state_length = robot.as_ref().unwrap().num_dofs();
     let init_state = vec![0.0; joint_state_length];
     // let x_slice: &[c_double] = std::slice::from_raw_parts(init_state, joint_state_length);

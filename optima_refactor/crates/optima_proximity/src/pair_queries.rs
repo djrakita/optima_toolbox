@@ -1,4 +1,5 @@
 use std::cmp::Ordering;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 use ad_trait::AD;
 use as_any::AsAny;
@@ -13,9 +14,9 @@ use crate::shapes::{OParryShape, OParryShpGeneric};
 pub trait OPairQryTrait<T: AD, P: O3DPose<T>> {
     type ShapeTypeA : AsAny;
     type ShapeTypeB : AsAny;
-    type Args<'a>;
+    type Args;
     type Output : AsAny + PartialOrd;
-    fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output;
+    fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output;
 }
 
 /*
@@ -28,10 +29,10 @@ pub struct ParryIntersectQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryIntersectQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = (ParryQryShapeType, ParryShapeRep, ParryShapeRep);
+    type Args = (ParryQryShapeType, ParryShapeRep, ParryShapeRep);
     type Output = ParryIntersectOutput;
 
-    fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
+    fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         shape_a.intersect(shape_b, pose_a, pose_b, args)
     }
 }
@@ -71,10 +72,10 @@ pub struct ParryDistanceQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = (ParryDisMode, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
+    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryDistanceOutput<T>;
 
-    fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
+    fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         shape_a.distance(shape_b, pose_a, pose_b, args)
     }
 }
@@ -104,10 +105,10 @@ pub struct ParryContactQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryContactQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = (T, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
+    type Args = (T, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryContactOutput<T>;
 
-    fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
+    fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         shape_a.contact(shape_b, pose_a, pose_b, &args)
     }
 }
@@ -139,10 +140,10 @@ pub struct ParryDistanceLowerBoundQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceLowerBoundQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = (ParryDisMode, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
+    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryDistanceLowerBoundOutput<T>;
 
-    fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
+    fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, &args.3, args.4);
         ParryDistanceLowerBoundOutput {
             distance_lower_bound_wrt_average: res.distance_lower_bound_wrt_average,
@@ -175,10 +176,10 @@ pub struct ParryDistanceUpperBoundQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceUpperBoundQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = (ParryDisMode, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
+    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryDistanceUpperBoundOutput<T>;
 
-    fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
+    fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         let res = parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, &args.3, args.4);
         ParryDistanceUpperBoundOutput {
             distance_upper_bound_wrt_average: res.distance_upper_bound_wrt_average,
@@ -211,10 +212,10 @@ pub struct ParryDistanceBoundsQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryDistanceBoundsQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = (ParryDisMode, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
+    type Args = (ParryDisMode, ParryQryShapeType, ParryShapeRep, ParryShapeRep, Option<T>);
     type Output = ParryDistanceBoundsOutput<T>;
 
-    fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
+    fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         parry_shape_lower_and_upper_bound(shape_a, shape_b, pose_a, pose_b, &args.0, &args.1, &args.2, &args.3, args.4)
     }
 }
@@ -223,19 +224,19 @@ pub struct ParryProximaDistanceUpperBoundQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceUpperBoundQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = ParryProximaDistanceUpperBoundArgs<'a, T, P, <P::RotationType as O3DRotation<T>>::Native3DVecType>;
+    type Args = ParryProximaDistanceUpperBoundArgs<T, P, <P::RotationType as O3DRotation<T>>::Native3DVecType>;
     type Output = ParryProximaDistanceUpperBoundOutput<T>;
 
     #[inline(always)]
-    fn query<'a>(_shape_a: &Self::ShapeTypeA, _shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
+    fn query(_shape_a: &Self::ShapeTypeA, _shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         let start = Instant::now();
         // let shapes = get_shapes_from_parry_qry_shape_type_and_parry_shape_rep(shape_a, shape_b, &args.0, &args.1);
 
-        let pose_a_j = args.pose_a_j;
-        let pose_b_j = args.pose_b_j;
+        let pose_a_j = &args.pose_a_j;
+        let pose_b_j = &args.pose_b_j;
 
-        let c_a_j = args.closest_point_a_j;
-        let c_b_j = args.closest_point_b_j;
+        let c_a_j = &args.closest_point_a_j;
+        let c_b_j = &args.closest_point_b_j;
 
         let r_a_j = pose_a_j.rotation();
         let r_b_j = pose_b_j.rotation();
@@ -275,13 +276,13 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceUpperBoun
         }
     }
 }
-pub struct ParryProximaDistanceUpperBoundArgs<'a, T: AD, P: O3DPose<T>, V: O3DVec<T>> {
+pub struct ParryProximaDistanceUpperBoundArgs<T: AD, P: O3DPose<T>, V: O3DVec<T>> {
     // pub parry_qry_shape_type: ParryQryShapeType,
     // pub parry_shape_rep: ParryShapeRep,
-    pub pose_a_j: &'a P,
-    pub pose_b_j: &'a P,
-    pub closest_point_a_j: &'a V,
-    pub closest_point_b_j: &'a V,
+    pub pose_a_j: Arc<P>,
+    pub pose_b_j: Arc<P>,
+    pub closest_point_a_j: Arc<V>,
+    pub closest_point_b_j: Arc<V>,
     pub average_distance: Option<T>
 }
 
@@ -289,11 +290,11 @@ pub struct ParryProximaDistanceLowerBoundQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceLowerBoundQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = ParryProximaDistanceLowerBoundArgs<'a, T, P>;
+    type Args = ParryProximaDistanceLowerBoundArgs<T, P>;
     type Output = ParryProximaDistanceLowerBoundOutput<T, P>;
 
     #[inline(always)]
-    fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
+    fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         let start = Instant::now();
         let shapes = get_shapes_from_parry_qry_shape_type_and_parry_shape_rep(shape_a, shape_b, &args.parry_qry_shape_type, &args.parry_shape_rep1, &args.parry_shape_rep2);
         let a_f = shapes.0.max_dis_from_origin_to_point_on_shape.expect("error: max dis from origin to point was not computed for this parry shape");
@@ -324,12 +325,12 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceLowerBoun
     }
 }
 
-pub struct ParryProximaDistanceLowerBoundArgs<'a, T: AD, P: O3DPose<T>> {
+pub struct ParryProximaDistanceLowerBoundArgs<T: AD, P: O3DPose<T>> {
     pub parry_qry_shape_type: ParryQryShapeType,
     pub parry_shape_rep1: ParryShapeRep,
     pub parry_shape_rep2: ParryShapeRep,
     pub raw_distance_j: T,
-    pub displacement_between_a_and_b_j: &'a P,
+    pub displacement_between_a_and_b_j: Arc<P>,
     pub average_distance: Option<T>
 }
 
@@ -337,11 +338,11 @@ pub struct ParryProximaDistanceBoundsQry;
 impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceBoundsQry {
     type ShapeTypeA = OParryShape<T, P>;
     type ShapeTypeB = OParryShape<T, P>;
-    type Args<'a> = ParryProximaDistanceBoundsArgs<'a, T, P, <P::RotationType as O3DRotation<T>>::Native3DVecType>;
+    type Args = ParryProximaDistanceBoundsArgs<T, P, <P::RotationType as O3DRotation<T>>::Native3DVecType>;
     type Output = ParryProximaDistanceBoundsOutputOption<T, P>;
 
     #[inline(always)]
-    fn query<'a>(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args<'a>) -> Self::Output {
+    fn query(shape_a: &Self::ShapeTypeA, shape_b: &Self::ShapeTypeB, pose_a: &P, pose_b: &P, args: &Self::Args) -> Self::Output {
         let start = Instant::now();
 
         let lower_bound_res = ParryProximaDistanceLowerBoundQry::query(shape_a, shape_b, pose_a, pose_b, &ParryProximaDistanceLowerBoundArgs {
@@ -349,7 +350,7 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceBoundsQry
             parry_shape_rep1: args.parry_shape_rep1.clone(),
             parry_shape_rep2: args.parry_shape_rep2.clone(),
             raw_distance_j: args.raw_distance_j,
-            displacement_between_a_and_b_j: &args.displacement_between_a_and_b_j,
+            displacement_between_a_and_b_j: args.displacement_between_a_and_b_j.clone(),
             average_distance: args.average_distance.clone(),
         });
 
@@ -362,10 +363,10 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceBoundsQry
         let upper_bound_res = ParryProximaDistanceUpperBoundQry::query(shape_a, shape_b, pose_a, pose_b, &ParryProximaDistanceUpperBoundArgs {
             // parry_qry_shape_type: args.parry_qry_shape_type.clone(),
             // parry_shape_rep: args.parry_shape_rep.clone(),
-            pose_a_j: args.pose_a_j,
-            pose_b_j: args.pose_b_j,
-            closest_point_a_j: args.closest_point_a_j,
-            closest_point_b_j: args.closest_point_b_j,
+            pose_a_j: args.pose_a_j.clone(),
+            pose_b_j: args.pose_b_j.clone(),
+            closest_point_a_j: args.closest_point_a_j.clone(),
+            closest_point_b_j: args.closest_point_b_j.clone(),
             average_distance: args.average_distance.clone(),
         });
 
@@ -384,16 +385,16 @@ impl<T: AD, P: O3DPose<T>> OPairQryTrait<T, P> for ParryProximaDistanceBoundsQry
     }
 }
 
-pub struct ParryProximaDistanceBoundsArgs<'a, T: AD, P: O3DPose<T>, V: O3DVec<T>> {
+pub struct ParryProximaDistanceBoundsArgs<T: AD, P: O3DPose<T>, V: O3DVec<T>> {
     pub parry_qry_shape_type: ParryQryShapeType,
     pub parry_shape_rep1: ParryShapeRep,
     pub parry_shape_rep2: ParryShapeRep,
-    pub pose_a_j: &'a P,
-    pub pose_b_j: &'a P,
-    pub closest_point_a_j: &'a V,
-    pub closest_point_b_j: &'a V,
+    pub pose_a_j: Arc<P>,
+    pub pose_b_j: Arc<P>,
+    pub closest_point_a_j: Arc<V>,
+    pub closest_point_b_j: Arc<V>,
     pub raw_distance_j: T,
-    pub displacement_between_a_and_b_j: &'a P,
+    pub displacement_between_a_and_b_j: Arc<P>,
     pub cutoff_distance: T,
     pub average_distance: Option<T>
 }

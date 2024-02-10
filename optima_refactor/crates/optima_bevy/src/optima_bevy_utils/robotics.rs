@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use ad_trait::AD;
+use ad_trait::differentiable_function::{ReverseAD};
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -9,6 +10,7 @@ use bevy_egui::egui::panel::{Side, TopBottomSide};
 use bevy_egui::egui::Ui;
 use bevy_egui::{egui, EguiContexts};
 use bevy_prototype_debug_lines::DebugLines;
+use nalgebra::Isometry3;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory, AliasO3DPoseCategory, O3DPoseCategoryIsometry3};
 use optima_3d_spatial::optima_3d_rotation::O3DRotation;
 use optima_3d_spatial::optima_3d_vec::O3DVec;
@@ -16,6 +18,8 @@ use optima_bevy_egui::{OEguiButton, OEguiCheckbox, OEguiContainerTrait, OEguiEng
 use optima_file::traits::{FromJsonString, ToJsonString};
 use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategory, OVec, AliasOLinalgCategory, OLinalgCategoryNalgebra};
+use optima_optimization::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
+use optima_optimization::open::SimpleOpEnOptimizer;
 use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OParryDistanceGroupArgs, OParryDistanceGroupQry, OParryIntersectGroupArgs, OParryIntersectGroupQry, OParryPairSelector, OProximityLossFunction, OSkipReason, ToParryProximityOutputTrait};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
 use optima_robotics::robot::{FKResult, ORobot, ORobotDefault, SaveRobot};
@@ -26,6 +30,7 @@ use crate::optima_bevy_utils::storage::BevyAnyHashmap;
 use crate::optima_bevy_utils::viewport_visuals::ViewportVisualsActions;
 use optima_proximity::shape_scene::ShapeSceneTrait;
 use optima_proximity::shapes::OParryShape;
+use optima_robotics::robotics_optimization::robotics_optimization_ik::{DifferentiableBlockIKObjectiveTrait, IKGoalUpdateMode};
 use optima_universal_hashmap::AHashMapWrapper;
 
 pub struct RoboticsActions;
@@ -577,15 +582,14 @@ impl BevyRoboticsTraitF64 for ORobotDefault {
 
         // let self_clone = self.clone();
         // let self_clone = self.clone();
-        // let ik = self_clone.get_vanilla_ik_differentiable_block(FiniteDifferencing::new(), start_state.ovec_as_slice(), vec![goal_link_idx]);
-        // let o = SimpleOpEnOptimizer::new(self.get_dof_lower_bounds(), self.get_dof_upper_bounds(), 0.001);
+        let ik = self.get_vanilla_ik_differentiable_block(ReverseAD::new(), start_state.ovec_as_slice(), vec![goal_link_idx]);
+        let o = SimpleOpEnOptimizer::new(self.get_dof_lower_bounds(), self.get_dof_upper_bounds(), 0.001);
+        // let o = NLOptOptimizer::new(Algorithm::Slsqp, false, self.num_dofs(), None, None, None);
         let fk_res = self.forward_kinematics(start_state, None);
         let curr_goal_pose = fk_res.get_link_pose(goal_link_idx).as_ref().unwrap().clone();
         let mut curr_goal_pos = curr_goal_pose.translation().o3dvec_as_slice().to_vec();
-        // let mut curr_solution = start_state.clone();
-        app.add_systems(Update, move |mut gizmos: Gizmos, keys: Res<Input<KeyCode>>| {
-            // let i = &ik;
-
+        let mut curr_solution = start_state.to_constant_vec();
+        app.add_systems(Update, move |mut gizmos: Gizmos, keys: Res<Input<KeyCode>>, mut robot_state_engine: ResMut<RobotStateEngine>| {
             gizmos.sphere(TransformUtils::util_convert_z_up_ovec3_to_y_up_vec3(&curr_goal_pos), Quat::default(), 0.08, Color::default());
             if keys.pressed(KeyCode::W) {
                 curr_goal_pos[0] += f64::constant(0.01);
@@ -607,11 +611,16 @@ impl BevyRoboticsTraitF64 for ORobotDefault {
             }
 
             // println!("{:?}", ik.call(&[0.0; 6]));
-            // let solution = o.optimize_unconstrained(curr_solution.ovec_as_slice(), &ik);
+            let solution = o.optimize_unconstrained(curr_solution.ovec_as_slice(), &ik);
+            curr_solution = solution.x_star().to_vec();
+            // println!("{:?}", solution.solver_status());
             // println!("{:?}", solution.x_star());
 
-            // let goal_pose = C::P::from_constructors(&curr_goal_pos, &curr_goal_pose.rotation().scaled_axis_of_rotation());
-            // ik.update_ik_pose(0, goal_pose, IKGoalUpdateMode::Absolute);
+            let goal_pose = Isometry3::from_constructors(&curr_goal_pos, &curr_goal_pose.rotation().scaled_axis_of_rotation());
+            // println!("{:?}", ik.call(&curr_solution));
+            ik.update_ik_pose(0, goal_pose, IKGoalUpdateMode::Absolute);
+            ik.update_prev_states(curr_solution.clone());
+            robot_state_engine.add_update_request(0, &curr_solution);
         });
 
         app

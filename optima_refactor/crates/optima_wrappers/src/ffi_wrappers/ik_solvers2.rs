@@ -17,7 +17,7 @@ use crate::ffi_wrappers::{DoubleArray, ArrayOfDoubleArrays, FFIConverters, GLOBA
 type FAD = adfn<8>;
 
 thread_local! {
-    static GLOBAL_STATIC_IK_DB: OnceLock<DifferentiableBlockIKObjective<'static, O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, EmptyParryFilter, EmptyToParryProximity, ForwardADMulti<FAD>>> = OnceLock::new();
+    static GLOBAL_STATIC_IK_DB: OnceLock<DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, EmptyParryFilter, EmptyToParryProximity, ForwardADMulti<FAD>>> = OnceLock::new();
     static GLOBAL_IK_OPTIMIZER: OnceLock<SimpleOpEnOptimizer> = OnceLock::new();
 }
 

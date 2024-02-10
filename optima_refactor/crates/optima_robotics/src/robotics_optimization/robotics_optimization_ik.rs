@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::marker::PhantomData;
 use std::sync::{Arc, RwLock};
 use ad_trait::AD;
@@ -10,7 +9,7 @@ use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategory, AliasO3DPoseCa
 use optima_linalg::{OVec, OVecCategoryVec, AliasOLinalgCategory};
 use optima_proximity::pair_group_queries::{OwnedPairGroupQry, OParryFilterOutput, OParryPairSelector, OProximityLossFunction};
 use crate::robot::{FKResult, ORobot};
-use crate::robotics_optimization::robotics_optimization_functions::{robot_ik_goals_objective, robot_per_instant_velocity_acceleration_and_jerk_objectives, robot_self_proximity_objective, robot_self_proximity_refilter_check};
+use crate::robotics_optimization::robotics_optimization_functions::{robot_ik_position_goals_objective, robot_ik_rotation_goals_objective, robot_per_instant_velocity_acceleration_and_jerk_objectives, robot_self_proximity_objective, robot_self_proximity_refilter_check};
 use optima_3d_spatial::optima_3d_pose::SerdeO3DPose;
 use ad_trait::SerdeAD;
 use serde_with::*;
@@ -36,20 +35,20 @@ impl<C, L, FQ, Q> DifferentiableFunctionClass for DifferentiableFunctionClassIKO
           L: AliasOLinalgCategory,
           FQ: AliasParryGroupFilterQry,
           Q: AliasParryToProximityQry {
-    type FunctionType<'a, T: AD> = DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q>;
+    type FunctionType<T: AD> = DifferentiableFunctionIKObjective<T, C, L, FQ, Q>;
 }
 
-pub struct DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q>
+pub struct DifferentiableFunctionIKObjective<T, C, L, FQ, Q>
     where T:AD,
           C: AliasO3DPoseCategory,
           L: AliasOLinalgCategory,
           FQ: AliasParryGroupFilterQry,
           Q: AliasParryToProximityQry {
-    robot: Cow<'a, ORobot<T, C, L>>,
+    robot: Arc<ORobot<T, C, L>>,
     ik_goals: RwLock<Vec<IKGoal<T, C::P<T>>>>,
     prev_states: RwLock<IKPrevStates<T>>,
-    filter_query: OwnedPairGroupQry<'a, T, FQ>,
-    distance_query: OwnedPairGroupQry<'a, T, Q>,
+    filter_query: OwnedPairGroupQry<T, FQ>,
+    distance_query: OwnedPairGroupQry<T, Q>,
     constant_selector: Option<OParryPairSelector>,
     dis_filter_cutoff: T,
     linf_dis_cutoff: f64,
@@ -61,12 +60,12 @@ pub struct DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q>
     min_acc_weight: T,
     min_jerk_weight: T
 }
-impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> where T: AD,
+impl<T, C, L, FQ, Q> DifferentiableFunctionIKObjective<T, C, L, FQ, Q> where T: AD,
                                                                                      C: AliasO3DPoseCategory,
                                                                                      L: AliasOLinalgCategory,
                                                                                      FQ: AliasParryGroupFilterQry,
                                                                                      Q: AliasParryToProximityQry {
-    pub fn new(robot: Cow<'a, ORobot<T, C, L>>, ik_goals: Vec<IKGoal<T, C::P<T>>>, init_state: Vec<T>, filter_query: OwnedPairGroupQry<'a, T, FQ>, distance_query: OwnedPairGroupQry<'a, T, Q>, constant_selector: Option<OParryPairSelector>, dis_filter_cutoff: T, linf_dis_cutoff: f64, last_proximity_filter_state: Arc<RwLock<Option<Vec<f64>>>>, filter_output: Arc<RwLock<Option<OParryFilterOutput>>>, ee_matching_weight: T, collision_avoidance_weight: T, min_vel_weight: T, min_acc_weight: T, min_jerk_weight: T) -> Self {
+    pub fn new(robot: Arc<ORobot<T, C, L>>, ik_goals: Vec<IKGoal<T, C::P<T>>>, init_state: Vec<T>, filter_query: OwnedPairGroupQry<T, FQ>, distance_query: OwnedPairGroupQry<T, Q>, constant_selector: Option<OParryPairSelector>, dis_filter_cutoff: T, linf_dis_cutoff: f64, last_proximity_filter_state: Arc<RwLock<Option<Vec<f64>>>>, filter_output: Arc<RwLock<Option<OParryFilterOutput>>>, ee_matching_weight: T, collision_avoidance_weight: T, min_vel_weight: T, min_acc_weight: T, min_jerk_weight: T) -> Self {
         let prev_states = IKPrevStates::new(init_state.clone());
         Self { robot, ik_goals: RwLock::new(ik_goals), prev_states: RwLock::new(prev_states), filter_query, distance_query, constant_selector, dis_filter_cutoff, linf_dis_cutoff, last_proximity_filter_state, filter_output, ee_matching_weight, collision_avoidance_weight, min_vel_weight, min_acc_weight, min_jerk_weight }
     }
@@ -82,7 +81,8 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> w
 
         if self.ee_matching_weight > T::zero() {
             let loss = OptimizationLossGroove::new(GrooveLossGaussianDirection::BowlUp, T::zero(), T::constant(2.0), T::constant(0.5), T::constant(1.0), T::constant(2.0));
-            out_val += self.ee_matching_weight * loss.loss(robot_ik_goals_objective::<T, C>(&fk_res, &self.ik_goals.read().unwrap()));
+            out_val += self.ee_matching_weight * loss.loss(robot_ik_position_goals_objective::<T, C>(&fk_res, &self.ik_goals.read().unwrap()));
+            out_val += self.ee_matching_weight * loss.loss(robot_ik_rotation_goals_objective::<T, C>(&fk_res, &self.ik_goals.read().unwrap()));
         }
 
         if self.collision_avoidance_weight > T::zero() {
@@ -114,7 +114,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> w
 
         (vec![out_val], fk_res)
     }
-    pub fn robot(&self) -> &Cow<'a, ORobot<T, C, L>> {
+    pub fn robot(&self) -> &Arc<ORobot<T, C, L>> {
         &self.robot
     }
     pub fn ik_goals(&self) -> &RwLock<Vec<IKGoal<T, C::P<T>>>> {
@@ -123,9 +123,9 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> w
     pub fn prev_states(&self) -> &RwLock<IKPrevStates<T>> {
         &self.prev_states
     }
-    pub fn to_other_ad_type<T1: AD>(&self) -> DifferentiableFunctionIKObjective<'a, T1, C, L, FQ, Q> {
+    pub fn to_other_ad_type<T1: AD>(&self) -> DifferentiableFunctionIKObjective<T1, C, L, FQ, Q> {
         DifferentiableFunctionIKObjective {
-            robot: Cow::Owned(self.robot.to_other_ad_type::<T1>()),
+            robot: Arc::new(self.robot.to_other_ad_type::<T1>()),
             ik_goals: self.ik_goals.to_other_generic_types::<T1, C>(),
             prev_states: self.prev_states.to_other_ad_type::<T1>(),
             filter_query: self.filter_query.to_other_ad_type::<T1>(),
@@ -143,7 +143,7 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> w
         }
     }
 }
-impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait<'a, T> for DifferentiableFunctionIKObjective<'a, T, C, L, FQ, Q> where T: AD,
+impl<T, C, L, FQ, Q> DifferentiableFunctionTrait<T> for DifferentiableFunctionIKObjective<T, C, L, FQ, Q> where T: AD,
                                                                                                                             C: AliasO3DPoseCategory,
                                                                                                                             L: AliasOLinalgCategory,
                                                                                                                             FQ: AliasParryGroupFilterQry,
@@ -159,12 +159,12 @@ impl<'a, T, C, L, FQ, Q> DifferentiableFunctionTrait<'a, T> for DifferentiableFu
     fn num_outputs(&self) -> usize { 1 }
 }
 
-pub type DifferentiableBlockIKObjective<'a, C, L, FQ, Q, E> = DifferentiableBlock<'a, DifferentiableFunctionClassIKObjective<C, L, FQ, Q>, E>;
-pub trait DifferentiableBlockIKObjectiveTrait<'a, C: O3DPoseCategory> {
+pub type DifferentiableBlockIKObjective<C, L, FQ, Q, E> = DifferentiableBlock<DifferentiableFunctionClassIKObjective<C, L, FQ, Q>, E>;
+pub trait DifferentiableBlockIKObjectiveTrait<C: O3DPoseCategory> {
     fn update_ik_pose(&self, idx: usize, pose: C::P<f64>, update_mode: IKGoalUpdateMode);
     fn update_prev_states(&self, state: Vec<f64>);
 }
-impl<'a, C, L, FQ, Q, E> DifferentiableBlockIKObjectiveTrait<'a, C> for DifferentiableBlock<'a, DifferentiableFunctionClassIKObjective<C, L, FQ, Q>, E>
+impl<C, L, FQ, Q, E> DifferentiableBlockIKObjectiveTrait<C> for DifferentiableBlock<DifferentiableFunctionClassIKObjective<C, L, FQ, Q>, E>
     where C: AliasO3DPoseCategory,
           L: AliasOLinalgCategory,
           FQ: AliasParryGroupFilterQry,

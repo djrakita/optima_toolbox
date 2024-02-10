@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use std::ops::Neg;
 use ad_trait::{AD};
 use as_any::AsAny;
 use nalgebra::{Matrix3, Quaternion, Rotation3, UnitQuaternion, Vector3};
@@ -292,9 +293,19 @@ impl<T: AD> O3DRotation<T> for UnitQuaternion<T> {
 
     #[inline(always)]
     fn dis(&self, other: &Self) -> T {
-        let option1 = self.displacement(other).angle();
-        let option2 = self.displacement(&other.conjugate()).angle();
-        return option1.min(option2);
+        let option1 = self.displacement(other).scaled_axis().norm();
+        let option2 = self.displacement(&UnitQuaternion::from_quaternion(other.neg())).scaled_axis().norm();
+        let out = option1.min(option2);
+        out
+        /*
+        let a = self.scaled_axis_of_rotation();
+        let b = other.scaled_axis_of_rotation();
+        let c = UnitQuaternion::from_quaternion(other.neg()).scaled_axis_of_rotation();
+
+        let option1 = a.o3dvec_sub(&b).norm();
+        let option2 = a.o3dvec_sub(&c).norm();
+        option1.min(option2)
+        */
     }
 
     #[inline(always)]

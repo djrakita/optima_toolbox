@@ -1,3 +1,5 @@
+
+/*
 use std::borrow::Cow;
 use std::marker::PhantomData;
 use ad_trait::AD;
@@ -21,11 +23,11 @@ impl<C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeC
 }
 
 #[allow(dead_code)]
-pub struct DifferentiableFunctionPathOpt<'a, T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory>>
+pub struct DifferentiableFunctionPathOpt<T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryTrait<ShapeCategory=ShapeCategoryOParryShape, SelectorType=OParryPairSelector, OutputCategory=ToParryProximityOutputCategory>>
 {
     spline_constructor: S,
     environment: Cow<'a, OParryGenericShapeScene<T, C::P<T>>>,
-    proximity_qry: OwnedPairGroupQry<'a, T, Q>,
+    proximity_qry: OwnedPairGroupQry<T, Q>,
     spheres: Vec<OParryShape<T, C::P<T>>>,
     start_point: Vec<T>,
     end_point: Vec<T>,
@@ -140,3 +142,4 @@ impl<'a, T: AD, C: O3DPoseCategory, S: SplineConstructorTrait, Q: OPairGroupQryT
 }
 
 pub type DifferentiableBlockPathOpt<'a, C, S, Q, E> = DifferentiableBlock<'a, DifferentiableFunctionClassPathOpt<C, S, Q>, E>;
+*/

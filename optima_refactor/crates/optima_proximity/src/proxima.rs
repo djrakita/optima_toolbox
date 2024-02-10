@@ -1,4 +1,4 @@
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use ad_trait::AD;
 use parry_ad::na::{Isometry3, Vector3};
@@ -22,7 +22,7 @@ impl OPairGroupQryTrait for OParryProximaQry {
     type ArgsCategory = OParryProximaArgsCategory;
     type OutputCategory = OParryProximaOutputCategory;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: OPairSkipsTrait, A: OPairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, freeze: bool, args: &<Self::ArgsCategory as OPairGroupQryArgsCategoryTrait>::Args<'a, T>) -> <Self::OutputCategory as OPairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<T: AD, P: O3DPose<T>, S: OPairSkipsTrait, A: OPairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, freeze: bool, args: &<Self::ArgsCategory as OPairGroupQryArgsCategoryTrait>::Args<T>) -> <Self::OutputCategory as OPairGroupQryOutputCategoryTrait>::Output<T, P> {
         let start = Instant::now();
         if !freeze { args.proxima_container.transfer_staging_to_current_for_all_blocks(); }
 
@@ -67,12 +67,12 @@ impl OPairGroupQryTrait for OParryProximaQry {
                         parry_qry_shape_type: parry_qry_shape_type.clone(),
                         parry_shape_rep1: parry_shape_rep1.clone(),
                         parry_shape_rep2: parry_shape_rep2.clone(),
-                        pose_a_j: pose_a.o3dpose_downcast_or_convert::<P>().as_ref(),
-                        pose_b_j: pose_b.o3dpose_downcast_or_convert::<P>().as_ref(),
-                        closest_point_a_j: contact.point1.coords.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref(),
-                        closest_point_b_j: contact.point2.coords.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref(),
+                        pose_a_j: Arc::new(pose_a.o3dpose_downcast_or_convert::<P>().as_ref().clone()),
+                        pose_b_j: Arc::new(pose_b.o3dpose_downcast_or_convert::<P>().as_ref().clone()),
+                        closest_point_a_j: Arc::new(contact.point1.coords.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref().clone()),
+                        closest_point_b_j: Arc::new(contact.point2.coords.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref().clone()),
                         raw_distance_j: contact.dist,
-                        displacement_between_a_and_b_j: &displacement_between_a_and_b_j,
+                        displacement_between_a_and_b_j: Arc::new(displacement_between_a_and_b_j),
                         cutoff_distance: args.cutoff_distance,
                         average_distance,
                     })
@@ -82,12 +82,12 @@ impl OPairGroupQryTrait for OParryProximaQry {
                         parry_qry_shape_type: parry_qry_shape_type.clone(),
                         parry_shape_rep1: parry_shape_rep1.clone(),
                         parry_shape_rep2: parry_shape_rep2.clone(),
-                        pose_a_j: block.pose_a_j.o3dpose_downcast_or_convert::<P>().as_ref(),
-                        pose_b_j: block.pose_b_j.o3dpose_downcast_or_convert::<P>().as_ref(),
-                        closest_point_a_j: block.closest_point_a_j.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref(),
-                        closest_point_b_j: block.closest_point_b_j.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref(),
+                        pose_a_j: Arc::new(block.pose_a_j.o3dpose_downcast_or_convert::<P>().as_ref().clone()),
+                        pose_b_j: Arc::new(block.pose_b_j.o3dpose_downcast_or_convert::<P>().as_ref().clone()),
+                        closest_point_a_j: Arc::new(block.closest_point_a_j.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref().clone()),
+                        closest_point_b_j: Arc::new(block.closest_point_b_j.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref().clone()),
                         raw_distance_j: block.raw_distance_j,
-                        displacement_between_a_and_b_j: block.displacement_between_a_and_b_j.o3dpose_downcast_or_convert::<P>().as_ref(),
+                        displacement_between_a_and_b_j: Arc::new(block.displacement_between_a_and_b_j.o3dpose_downcast_or_convert::<P>().as_ref().clone()),
                         cutoff_distance: args.cutoff_distance,
                         average_distance,
                     })
@@ -347,11 +347,11 @@ impl OPairGroupQryTrait for ParryProximaLiteQry {
 }
 */
 
-pub type OwnedParryProximaQry<'a, T> = OwnedPairGroupQry<'a, T, OParryProximaQry>;
+pub type OwnedParryProximaQry<T> = OwnedPairGroupQry<T, OParryProximaQry>;
 
 pub struct OParryProximaArgsCategory;
 impl OPairGroupQryArgsCategoryTrait for OParryProximaArgsCategory {
-    type Args<'a, T: AD> = OParryProximaArgs<T>;
+    type Args<T: AD> = OParryProximaArgs<T>;
     type QueryType = OParryProximaQry;
 }
 
@@ -382,7 +382,7 @@ impl<T: AD> OParryProximaArgs<T> {
 /*
 pub struct PairGroupQryArgsCategoryParryProximaLite;
 impl PairGroupQryArgsCategory for PairGroupQryArgsCategoryParryProximaLite {
-    type Args<'a, T: AD> = PairGroupArgsParryProximaLite<'a, T>;
+    type Args<T: AD> = PairGroupArgsParryProximaLite<'a, T>;
     type QueryType = ParryProximaLiteQry;
 }
 */
@@ -443,12 +443,12 @@ impl OPairGroupQryTrait for OParryProximaAsProximityQry {
     type ArgsCategory = OParryProximaArgsCategory;
     type OutputCategory = ToParryProximityOutputCategory;
 
-    fn query<'a, T: AD, P: O3DPose<T>, S: OPairSkipsTrait, A: OPairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, freeze: bool, args: &<Self::ArgsCategory as OPairGroupQryArgsCategoryTrait>::Args<'a, T>) -> <Self::OutputCategory as OPairGroupQryOutputCategoryTrait>::Output<T, P> {
+    fn query<T: AD, P: O3DPose<T>, S: OPairSkipsTrait, A: OPairAverageDistanceTrait<T>>(shape_group_a: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, shape_group_b: &Vec<<Self::ShapeCategory as ShapeCategoryTrait>::ShapeType<T, P>>, poses_a: &Vec<P>, poses_b: &Vec<P>, pair_selector: &Self::SelectorType, pair_skips: &S, pair_average_distances: &A, freeze: bool, args: &<Self::ArgsCategory as OPairGroupQryArgsCategoryTrait>::Args<T>) -> <Self::OutputCategory as OPairGroupQryOutputCategoryTrait>::Output<T, P> {
         OParryProximaQry::query(shape_group_a, shape_group_b, poses_a, poses_b, pair_selector, pair_skips, pair_average_distances, freeze, args)
     }
 }
 
-pub type OwnedParryProximaAsProximityQry<'a, T> = OwnedPairGroupQry<'a, T, OParryProximaAsProximityQry>;
+pub type OwnedParryProximaAsProximityQry<T> = OwnedPairGroupQry<T, OParryProximaAsProximityQry>;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -536,12 +536,12 @@ impl<T: AD, P: O3DPose<T>> OProximaGenericContainer<T, P> {
                         parry_qry_shape_type: parry_qry_shape_type.clone(),
                         parry_shape_rep1: parry_shape_rep1.clone(),
                         parry_shape_rep2: parry_shape_rep2.clone(),
-                        pose_a_j: pose_a.o3dpose_downcast_or_convert::<P>().as_ref(),
-                        pose_b_j: pose_b.o3dpose_downcast_or_convert::<P>().as_ref(),
-                        closest_point_a_j: contact.point1.coords.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref(),
-                        closest_point_b_j: contact.point2.coords.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref(),
+                        pose_a_j: Arc::new(pose_a.o3dpose_downcast_or_convert::<P>().as_ref().clone()),
+                        pose_b_j: Arc::new(pose_b.o3dpose_downcast_or_convert::<P>().as_ref().clone()),
+                        closest_point_a_j: Arc::new(contact.point1.coords.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref().clone()),
+                        closest_point_b_j: Arc::new(contact.point2.coords.o3dvec_downcast_or_convert::<<P::RotationType as O3DRotation<T>>::Native3DVecType>().as_ref().clone()),
                         raw_distance_j: contact.dist,
-                        displacement_between_a_and_b_j: &displacement_between_a_and_b_j,
+                        displacement_between_a_and_b_j: Arc::new(displacement_between_a_and_b_j),
                         cutoff_distance,
                         average_distance,
                     })
@@ -551,12 +551,12 @@ impl<T: AD, P: O3DPose<T>> OProximaGenericContainer<T, P> {
                         parry_qry_shape_type: parry_qry_shape_type.clone(),
                         parry_shape_rep1: parry_shape_rep1.clone(),
                         parry_shape_rep2: parry_shape_rep2.clone(),
-                        pose_a_j: &block.pose_a_j,
-                        pose_b_j: &block.pose_b_j,
-                        closest_point_a_j: &block.closest_point_a_j,
-                        closest_point_b_j: &block.closest_point_b_j,
+                        pose_a_j: Arc::new(block.pose_a_j.clone()),
+                        pose_b_j: Arc::new(block.pose_b_j.clone()),
+                        closest_point_a_j: Arc::new(block.closest_point_a_j.clone()),
+                        closest_point_b_j: Arc::new(block.closest_point_b_j.clone()),
                         raw_distance_j: block.raw_distance_j,
-                        displacement_between_a_and_b_j: &block.displacement_between_a_and_b_j,
+                        displacement_between_a_and_b_j: Arc::new(block.displacement_between_a_and_b_j.clone()),
                         cutoff_distance,
                         average_distance,
                     })

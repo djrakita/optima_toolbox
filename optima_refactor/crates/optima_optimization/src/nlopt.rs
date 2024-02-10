@@ -20,7 +20,7 @@ impl NLOptOptimizer {
 impl DiffBlockOptimizerTrait for NLOptOptimizer {
     type OutputType = NLOptOptimizerOutput;
 
-    fn optimize<'a, DC1, E1, DC2, E2, DC3, E3>(&self, initial_condition: &[f64], objective_function: &DifferentiableBlock<'a, DC1, E1>, equality_constraint_function: &DifferentiableBlock<'a, DC2, E2>, inequality_constraint_function: &DifferentiableBlock<'a, DC3, E3>) -> Self::OutputType where DC1: DifferentiableFunctionClass, DC2: DifferentiableFunctionClass, DC3: DifferentiableFunctionClass, E1: DerivativeMethodTrait, E2: DerivativeMethodTrait, E3: DerivativeMethodTrait {
+    fn optimize<DC1, E1, DC2, E2, DC3, E3>(&self, initial_condition: &[f64], objective_function: &DifferentiableBlock<DC1, E1>, equality_constraint_function: &DifferentiableBlock<DC2, E2>, inequality_constraint_function: &DifferentiableBlock<DC3, E3>) -> Self::OutputType where DC1: DifferentiableFunctionClass, DC2: DifferentiableFunctionClass, DC3: DifferentiableFunctionClass, E1: DerivativeMethodTrait, E2: DerivativeMethodTrait, E3: DerivativeMethodTrait {
         let start = Instant::now();
         let obj_f = |x: &[f64], gradient: Option<&mut [f64]>, _params: &mut ()| -> f64 {
             let res = objective_function.call(x);

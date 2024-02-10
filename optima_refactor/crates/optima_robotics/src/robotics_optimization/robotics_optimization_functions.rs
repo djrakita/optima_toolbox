@@ -10,7 +10,7 @@ use optima_proximity::trait_aliases::{AliasParryGroupFilterQry, AliasParryToProx
 use crate::robot::{FKResult, ORobot};
 use crate::robotics_optimization::robotics_optimization_ik::{IKGoal, IKPrevStates};
 
-pub fn robot_self_proximity_refilter_check<'a, T, C, L, FQ>(robot: &ORobot<T, C, L>, filter_query: &OwnedPairGroupQry<'a, T, FQ>, inputs: &[T], fk_res: &FKResult<T, C::P<T>>, last_proximity_filter_state: &Arc<RwLock<Option<Vec<f64>>>>, filter_output: &Arc<RwLock<Option<OParryFilterOutput>>>, linf_dis_cutoff: f64)
+pub fn robot_self_proximity_refilter_check<'a, T, C, L, FQ>(robot: &ORobot<T, C, L>, filter_query: &OwnedPairGroupQry<T, FQ>, inputs: &[T], fk_res: &FKResult<T, C::P<T>>, last_proximity_filter_state: &Arc<RwLock<Option<Vec<f64>>>>, filter_output: &Arc<RwLock<Option<OParryFilterOutput>>>, linf_dis_cutoff: f64)
     where T: AD,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
@@ -35,7 +35,7 @@ pub fn robot_self_proximity_refilter_check<'a, T, C, L, FQ>(robot: &ORobot<T, C,
     }
 }
 
-pub fn robot_self_proximity_objective<'a, T, C, L, Q>(robot: &ORobot<T, C, L>, fk_res: &FKResult<T, C::P<T>>, distance_query: &OwnedPairGroupQry<'a, T, Q>, selector: &OParryPairSelector, cutoff: T, p_norm: T, loss_function: OProximityLossFunction, freeze: bool) -> T
+pub fn robot_self_proximity_objective<T, C, L, Q>(robot: &ORobot<T, C, L>, fk_res: &FKResult<T, C::P<T>>, distance_query: &OwnedPairGroupQry<T, Q>, selector: &OParryPairSelector, cutoff: T, p_norm: T, loss_function: OProximityLossFunction, freeze: bool) -> T
     where T: AD,
           C: O3DPoseCategory + 'static,
           L: OLinalgCategory + 'static,
@@ -45,7 +45,7 @@ pub fn robot_self_proximity_objective<'a, T, C, L, Q>(robot: &ORobot<T, C, L>, f
     res.get_proximity_objective_value(cutoff, p_norm, loss_function)
 }
 
-pub fn robot_ik_goals_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, ik_goals: &Vec<IKGoal<T, C::P<T>>>) -> T
+pub fn robot_ik_position_goals_objective<T, C>(fk_res: &FKResult<T, C::P<T>>, ik_goals: &Vec<IKGoal<T, C::P<T>>>) -> T
     where T: AD,
           C: O3DPoseCategory + 'static,
 {
@@ -58,8 +58,32 @@ pub fn robot_ik_goals_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, ik_goal
         // let dis = pose.dis(&ik_goal.goal_pose);
         // out += ik_goal.weight * dis;
         let position_error = ik_goal.goal_pose.translation().o3dvec_sub(pose.translation()).norm();
+        // let rotation_error = ik_goal.goal_pose.rotation().dis(&pose.rotation());
+        out += ik_goal.weight * position_error;
+        // out += ik_goal.weight * position_error;
+    });
+
+    out /= T::constant(ik_goals.len() as f64);
+
+    out
+}
+
+pub fn robot_ik_rotation_goals_objective<T, C>(fk_res: &FKResult<T, C::P<T>>, ik_goals: &Vec<IKGoal<T, C::P<T>>>) -> T
+    where T: AD,
+          C: O3DPoseCategory + 'static,
+{
+    let mut out = T::zero();
+    if ik_goals.len() == 0 { return out; }
+
+    ik_goals.iter().for_each(|ik_goal| {
+        let pose = fk_res.get_link_pose(ik_goal.goal_link_idx).as_ref().expect("error");
+        // let interpolated_ik_goal = pose.interpolate_with_max_translation_and_rotation(&ik_goal.goal_pose, max_translation, max_rotation);
+        // let dis = pose.dis(&ik_goal.goal_pose);
+        // out += ik_goal.weight * dis;
+        // let position_error = ik_goal.goal_pose.translation().o3dvec_sub(pose.translation()).norm();
         let rotation_error = ik_goal.goal_pose.rotation().dis(&pose.rotation());
-        out += ik_goal.weight * (position_error + rotation_error);
+        out += ik_goal.weight * rotation_error;
+        // out += ik_goal.weight * position_error;
     });
 
     out /= T::constant(ik_goals.len() as f64);
@@ -120,7 +144,7 @@ pub fn robot_link_look_at_roll_prevention_objective<'a, T, C>(fk_res: &FKResult<
     res
 }
 
-pub fn robot_goal_distance_between_looker_and_look_at_target_objective<'a, T, C>(fk_res: &FKResult<T, C::P<T>>, goal_distance: T, looker_link: usize, look_at_target: &LookAtTarget<T, O3DVecCategoryArr>) -> T
+pub fn robot_goal_distance_between_looker_and_look_at_target_objective<T, C>(fk_res: &FKResult<T, C::P<T>>, goal_distance: T, looker_link: usize, look_at_target: &LookAtTarget<T, O3DVecCategoryArr>) -> T
     where T: AD, C: AliasO3DPoseCategory
 {
     let looker_pose = fk_res.get_link_pose(looker_link).as_ref().expect("error");

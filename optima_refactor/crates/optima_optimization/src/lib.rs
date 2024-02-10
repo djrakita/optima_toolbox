@@ -14,7 +14,7 @@ use ad_trait::differentiable_function::{DerivativeAlwaysZero, DerivativeMethodTr
 pub trait DiffBlockOptimizerTrait {
     type OutputType : Any + OptimizerOutputTrait<DataType = f64>;
 
-    fn optimize<'a, DC1, E1, DC2, E2, DC3, E3>(&self, initial_condition: &[f64], objective_function: &DifferentiableBlock<'a, DC1, E1>, equality_constraint_function: &DifferentiableBlock<'a, DC2, E2>, inequality_constraint_function: &DifferentiableBlock<'a, DC3, E3>) -> Self::OutputType
+    fn optimize<'a, DC1, E1, DC2, E2, DC3, E3>(&self, initial_condition: &[f64], objective_function: &DifferentiableBlock<DC1, E1>, equality_constraint_function: &DifferentiableBlock<DC2, E2>, inequality_constraint_function: &DifferentiableBlock<DC3, E3>) -> Self::OutputType
         where DC1: DifferentiableFunctionClass,
               DC2: DifferentiableFunctionClass,
               DC3: DifferentiableFunctionClass,
@@ -22,7 +22,7 @@ pub trait DiffBlockOptimizerTrait {
               E2: DerivativeMethodTrait,
               E3: DerivativeMethodTrait;
 
-    fn optimize_unconstrained<'a, DC1, E1>(&self, initial_condition: &[f64], objective_function: &DifferentiableBlock<'a, DC1, E1>) -> Self::OutputType
+    fn optimize_unconstrained<DC1, E1>(&self, initial_condition: &[f64], objective_function: &DifferentiableBlock<DC1, E1>) -> Self::OutputType
         where DC1: DifferentiableFunctionClass, E1: DerivativeMethodTrait
     {
         let c = DifferentiableBlockZero::new_zero(DerivativeAlwaysZero, objective_function.num_inputs(), objective_function.num_outputs());
