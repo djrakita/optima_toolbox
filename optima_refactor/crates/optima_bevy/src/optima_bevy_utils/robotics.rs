@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use ad_trait::AD;
-use ad_trait::differentiable_function::{FiniteDifferencing, ReverseAD};
+use ad_trait::differentiable_function::{FiniteDifferencing};
 use bevy::pbr::StandardMaterial;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -19,7 +19,6 @@ use optima_file::traits::{FromJsonString, ToJsonString};
 use optima_interpolation::InterpolatorTrait;
 use optima_linalg::{OLinalgCategory, OVec, AliasOLinalgCategory, OLinalgCategoryNalgebra};
 use optima_optimization::{DiffBlockOptimizerTrait, OptimizerOutputTrait};
-use optima_optimization::nlopt::{Algorithm, Nlopt, NLOptOptimizer};
 use optima_optimization::open::SimpleOpEnOptimizer;
 use optima_proximity::pair_group_queries::{OPairGroupQryTrait, OParryDistanceGroupArgs, OParryDistanceGroupQry, OParryIntersectGroupArgs, OParryIntersectGroupQry, OParryPairSelector, OProximityLossFunction, OSkipReason, ToParryProximityOutputTrait};
 use optima_proximity::pair_queries::{ParryDisMode, ParryShapeRep};
@@ -589,7 +588,7 @@ impl BevyRoboticsTraitF64 for ORobotDefault {
 
         // let self_clone = self.clone();
         // let self_clone = self.clone();
-        let ik = self.get_default_vanilla_ik_differentiable_block(ReverseAD::new(), start_state.ovec_as_slice(), vec![goal_link_idx]);
+        let ik = self.get_default_vanilla_ik_differentiable_block(FiniteDifferencing::new(), start_state.ovec_as_slice(), vec![goal_link_idx]);
         let o = SimpleOpEnOptimizer::new(self.get_dof_lower_bounds(), self.get_dof_upper_bounds(), 0.001);
         // let o = NLOptOptimizer::new(Algorithm::Slsqp, false, self.num_dofs(), None, None, None);
         let fk_res = self.forward_kinematics(start_state, None);

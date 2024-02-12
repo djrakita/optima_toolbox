@@ -8,7 +8,7 @@ use optima_3d_spatial::optima_3d_vec::O3DVecCategoryArr;
 use optima_linalg::{OLinalgCategory, OVec, OVecCategoryVec};
 use optima_optimization::loss_functions::{GrooveLossGaussianDirection, OptimizationLossFunctionTrait, OptimizationLossGroove};
 use optima_proximity::trait_aliases::{AliasParryGroupFilterQry, AliasParryToProximityQry};
-use crate::robotics_optimization::robotics_optimization_functions::{AxisDirection, LookAtTarget, LookAtTargetRwLockTrait, robot_goal_distance_between_looker_and_look_at_target_objective, robot_link_look_at_objective, robot_link_look_at_roll_prevention_objective};
+use crate::robotics_optimization::robotics_optimization_functions::{AxisDirection, LookAtTarget, LookAtTargetRwLockTrait, robot_link_look_at_objective, robot_link_look_at_roll_prevention_objective};
 use crate::robotics_optimization::robotics_optimization_ik::{DifferentiableFunctionIKObjective, IKGoalRwLockVecTrait, IKGoalUpdateMode, IKPrevStatesRwLockTrait};
 
 pub struct DifferentiableFunctionClassLookAt<C, L, FQ, Q>(PhantomData<(C, L, FQ, Q)>)
