@@ -1013,7 +1013,7 @@ impl<C: AliasO3DPoseCategory, L: AliasOLinalgCategory> ORobot<f64, C, L> {
         self.get_ik_differentiable_block(derivative_method, OwnedEmptyParryFilter::new(()), OwnedEmptyToProximityQry::new(()), None, init_state, ik_goal_link_idxs, 0.0, 0.0, 1.0, 0.0, 0.5, 0.2, 0.1)
     }
     pub fn get_default_ik_lookat_differentiable_block<E: DerivativeMethodTrait>(&self, derivative_method: E, init_state: &[f64], ik_goal_link_idxs: Vec<usize>, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, look_at_target: LookAtTarget<f64, O3DVecCategoryArr>) -> DifferentiableBlock<DifferentiableFunctionClassLookAt<C, L, EmptyParryFilter, EmptyToParryProximity>, E> {
-        self.get_look_at_differentiable_block(derivative_method, OwnedEmptyParryFilter::new(()), OwnedEmptyToProximityQry::new(()), None, init_state, ik_goal_link_idxs, looker_link, looker_forward_axis, looker_side_axis, look_at_target, 1.0, 0.0, 0.0, 1.0, 0.0, 0.2, 0.1, 0.1, 0.5, 0.02, 0.0)
+        self.get_look_at_differentiable_block(derivative_method, OwnedEmptyParryFilter::new(()), OwnedEmptyToProximityQry::new(()), None, init_state, ik_goal_link_idxs, looker_link, looker_forward_axis, looker_side_axis, look_at_target, 0.5, 0.0, 0.0, 1.0, 0.0, 0.5, 0.3, 0.2, 1.0, 0.2, 0.0)
     }
 }
 /// Objective Functions

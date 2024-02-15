@@ -661,7 +661,7 @@ impl BevyRoboticsTraitF64 for ORobotDefault {
         let curr_goal_pose = fk_res.get_link_pose(ik_goal_link_idx).as_ref().unwrap().clone();
         let mut curr_goal_pos = curr_goal_pose.translation().o3dvec_as_slice().to_vec();
         let mut curr_solution = start_state.to_constant_vec();
-        app.add_systems(Update, move |mut gizmos: Gizmos, keys: Res<Input<KeyCode>>, mut robot_state_engine: ResMut<crate::optima_bevy_utils::robotics::RobotStateEngine>| {
+        app.add_systems(Update, move |mut gizmos: Gizmos, keys: Res<Input<KeyCode>>, mut robot_state_engine: ResMut<RobotStateEngine>| {
             gizmos.sphere(TransformUtils::util_convert_z_up_ovec3_to_y_up_vec3(&curr_goal_pos), Quat::default(), 0.08, Color::default());
             if keys.pressed(KeyCode::W) {
                 curr_goal_pos[0] += f64::constant(0.01);
@@ -680,6 +680,25 @@ impl BevyRoboticsTraitF64 for ORobotDefault {
             }
             if keys.pressed(KeyCode::Z) {
                 curr_goal_pos[2] -= f64::constant(0.01);
+            }
+
+            if keys.pressed(KeyCode::Up) {
+                ik.move_looker_position_goal_in_or_out(0.005);
+            }
+            if keys.pressed(KeyCode::Down) {
+                ik.move_looker_position_goal_in_or_out(-0.005);
+            }
+            if keys.pressed(KeyCode::Right) {
+                ik.move_looker_position_goal_along_direction([0.0, 0.005, 0.0]);
+            }
+            if keys.pressed(KeyCode::Left) {
+                ik.move_looker_position_goal_along_direction([0.0, -0.005, 0.0]);
+            }
+            if keys.pressed(KeyCode::P) {
+                ik.move_looker_position_goal_along_direction([0.0, 0.0, 0.005]);
+            }
+            if keys.pressed(KeyCode::L) {
+                ik.move_looker_position_goal_along_direction([0.0, 0.0, -0.005]);
             }
 
             let solution = o.optimize_unconstrained(curr_solution.ovec_as_slice(), &ik);
@@ -712,7 +731,6 @@ impl BevyRoboticsTraitF64 for ORobotDefault {
 
             ViewportVisualsActions::action_draw_gpu_line_optima_space_gizmo(&mut gizmos, TransformUtils::util_convert_z_up_ovec3_to_z_up_vec3(&start_point), TransformUtils::util_convert_z_up_ovec3_to_z_up_vec3(&end_point), Color::default(), 0.01, 10, 1);
         });
-
 
         app
     }
