@@ -711,6 +711,7 @@ impl BevyRoboticsTraitF64 for ORobotDefault {
             goal_pose.translation.z = curr_goal_pos[2];
             ik.update_ik_pose(0, goal_pose, IKGoalUpdateMode::Absolute);
             ik.update_prev_states(curr_solution.clone());
+            println!("{:?}", curr_solution);
             robot_state_engine.add_update_request(0, &curr_solution);
 
             let fk = self_clone.forward_kinematics(&curr_solution, None);
