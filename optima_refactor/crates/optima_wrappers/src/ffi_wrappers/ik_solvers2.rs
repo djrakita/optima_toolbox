@@ -18,50 +18,10 @@ use crate::ffi_wrappers::{DoubleArray, ArrayOfDoubleArrays, FFIConverters, GLOBA
 
 // type FAD = adfn<8>;
 
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
-use std::cell::RefCell;
-
 thread_local! {
-    static GLOBAL_STATIC_IK_DB: RefCell<Option<DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, EmptyParryFilter, EmptyToParryProximity, FiniteDifferencing>>> = RefCell::new(None);
-    static GLOBAL_STATIC_VIEWPOINT_DB: RefCell<Option<DifferentiableBlockLookAt<FiniteDifferencing,O3DPoseCategoryIsometry3,OLinalgCategoryNalgebra,EmptyParryFilter,EmptyToParryProximity>>> = RefCell::new(None);
-    static GLOBAL_IK_OPTIMIZER: RefCell<Option<SimpleOpEnOptimizer>> = RefCell::new(None);
-}
-
-pub fn set_global_static_ik_db(ik_db: DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, EmptyParryFilter, EmptyToParryProximity, FiniteDifferencing>) {
-    GLOBAL_STATIC_IK_DB.with(|global| {
-        *global.borrow_mut() = Some(ik_db);
-    });
-}
-
-pub fn clear_global_static_ik_db() {
-    GLOBAL_STATIC_IK_DB.with(|global| {
-        *global.borrow_mut() = None;
-    });
-}
-
-pub fn set_global_static_viewpoint_db(viewpoint_db: DifferentiableBlockLookAt<FiniteDifferencing,O3DPoseCategoryIsometry3,OLinalgCategoryNalgebra,EmptyParryFilter,EmptyToParryProximity>) {
-    GLOBAL_STATIC_VIEWPOINT_DB.with(|global| {
-        *global.borrow_mut() = Some(viewpoint_db);
-    });
-}
-
-pub fn clear_global_static_viewpoint_db() {
-    GLOBAL_STATIC_VIEWPOINT_DB.with(|global| {
-        *global.borrow_mut() = None;
-    });
-}
-
-pub fn set_global_ik_optimizer(ik_optimizer: SimpleOpEnOptimizer) {
-    GLOBAL_IK_OPTIMIZER.with(|global| {
-        *global.borrow_mut() = Some(ik_optimizer);
-    });
-}
-
-pub fn clear_global_ik_optimizer() {
-    GLOBAL_IK_OPTIMIZER.with(|global| {
-        *global.borrow_mut() = None;
-    });
+    static GLOBAL_STATIC_IK_DB: OnceLock<DifferentiableBlockIKObjective<O3DPoseCategoryIsometry3, OLinalgCategoryNalgebra, EmptyParryFilter, EmptyToParryProximity, FiniteDifferencing>> = OnceLock::new();
+    static GLOBAL_STATIC_VIEWPOINT_DB: OnceLock<DifferentiableBlockLookAt<FiniteDifferencing,O3DPoseCategoryIsometry3,OLinalgCategoryNalgebra,EmptyParryFilter,EmptyToParryProximity>> = OnceLock::new();
+    static GLOBAL_IK_OPTIMIZER: OnceLock<SimpleOpEnOptimizer> = OnceLock::new();
 }
 
 pub fn compute_interpolated_motion_path_viewpoint(ik_goal_link_idx: usize, ee_position: Vec<f64>, ee_orientation: Vec<f64>, init_state: Vec<f64>, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, looker_link_position_delta: [f64; 3], looker_link_in_out_delta: f64) -> Vec<Vec<f64>> {
@@ -74,17 +34,13 @@ pub fn compute_interpolated_motion_path_viewpoint(ik_goal_link_idx: usize, ee_po
 
     let res = GLOBAL_STATIC_VIEWPOINT_DB.with(|once_lock_viewpoint_diff_block| {
         let res = GLOBAL_IK_OPTIMIZER.with(|once_lock_ik_optimizer| {
-            //let db = once_lock_viewpoint_diff_block.get_or_init(|| r.get_default_ik_lookat_differentiable_block(FiniteDifferencing::new(), &init_state, vec![ik_goal_link_idx], looker_link, looker_forward_axis, looker_side_axis, LookAtTarget::RobotLink(ik_goal_link_idx)));
-            let mut binding = once_lock_viewpoint_diff_block.borrow_mut();
-            let db = binding.get_or_insert(r.get_default_ik_lookat_differentiable_block(FiniteDifferencing::new(), &init_state, vec![ik_goal_link_idx], looker_link, looker_forward_axis, looker_side_axis, LookAtTarget::RobotLink(ik_goal_link_idx)));
+            let db = once_lock_viewpoint_diff_block.get_or_init(|| r.get_default_ik_lookat_differentiable_block(FiniteDifferencing::new(), &init_state, vec![ik_goal_link_idx], looker_link, looker_forward_axis, looker_side_axis, LookAtTarget::RobotLink(ik_goal_link_idx)));
 
             db.update_ik_pose(0, Isometry3::from_constructors(&ee_position, &QuatConstructor::new_from_wxyz_ovec(&ee_orientation)), IKGoalUpdateMode::Absolute);
             db.move_looker_position_goal_along_direction(looker_link_position_delta);
             db.move_looker_position_goal_in_or_out(looker_link_in_out_delta);
 
-            //let o = once_lock_ik_optimizer.get_or_init(|| SimpleOpEnOptimizer::new(r.get_dof_lower_bounds(), r.get_dof_upper_bounds(), 0.001));
-            let mut binding = once_lock_ik_optimizer.borrow_mut();
-            let o = binding.get_or_insert(SimpleOpEnOptimizer::new(r.get_dof_lower_bounds(), r.get_dof_upper_bounds(), 0.001));
+            let o = once_lock_ik_optimizer.get_or_init(|| SimpleOpEnOptimizer::new(r.get_dof_lower_bounds(), r.get_dof_upper_bounds(), 0.001));
 
             let r = o.optimize_unconstrained(&init_state, &db);
             let solution_point = r.x_star().to_vec();
@@ -113,15 +69,11 @@ pub fn compute_interpolated_motion_path_to_ee_pose(goal_link_idx: usize, ee_posi
 
     let res = GLOBAL_STATIC_IK_DB.with(|once_lock_ik_diff_block| {
         let res = GLOBAL_IK_OPTIMIZER.with(|once_lock_ik_optimizer| {
-            //let db = once_lock_ik_diff_block.get_or_init(|| r.get_ik_differentiable_block(FiniteDifferencing::new(), OwnedEmptyParryFilter::new(()), OwnedEmptyToProximityQry::new(()), None, &init_state, vec![goal_link_idx], 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0));
-            let mut binding = once_lock_ik_diff_block.borrow_mut();
-            let db = binding.get_or_insert(r.get_ik_differentiable_block(FiniteDifferencing::new(), OwnedEmptyParryFilter::new(()), OwnedEmptyToProximityQry::new(()), None, &init_state, vec![goal_link_idx], 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0));
+            let db = once_lock_ik_diff_block.get_or_init(|| r.get_ik_differentiable_block(FiniteDifferencing::new(), OwnedEmptyParryFilter::new(()), OwnedEmptyToProximityQry::new(()), None, &init_state, vec![goal_link_idx], 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0));
 
             db.update_ik_pose(0, Isometry3::from_constructors(&ee_position, &QuatConstructor::new_from_wxyz_ovec(&ee_orientation)), IKGoalUpdateMode::Absolute);
 
-            //let o = once_lock_ik_optimizer.get_or_init(|| SimpleOpEnOptimizer::new(r.get_dof_lower_bounds(), r.get_dof_upper_bounds(), 0.001));
-            let mut binding = once_lock_ik_optimizer.borrow_mut();
-            let o = binding.get_or_insert(SimpleOpEnOptimizer::new(r.get_dof_lower_bounds(), r.get_dof_upper_bounds(), 0.001));
+            let o = once_lock_ik_optimizer.get_or_init(|| SimpleOpEnOptimizer::new(r.get_dof_lower_bounds(), r.get_dof_upper_bounds(), 0.001));
 
             let r = o.optimize_unconstrained(&init_state, &db);
             let solution_point = r.x_star().to_vec();
@@ -197,21 +149,5 @@ pub extern "C" fn ffi_free_array_of_double_arrays(ptr: *mut ArrayOfDoubleArrays)
         }
     }
 }
-
-#[no_mangle]
-pub extern "C" fn ffi_clear_global_static_ik_db() {
-    clear_global_static_ik_db();
-}
-
-#[no_mangle]
-pub extern "C" fn ffi_clear_global_static_viewpoint_db() {
-    clear_global_static_viewpoint_db();
-}
-
-#[no_mangle]
-pub extern "C" fn ffi_clear_global_ik_optimizer() {
-    clear_global_ik_optimizer();
-}
-
 
 
