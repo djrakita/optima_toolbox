@@ -2,6 +2,8 @@ use std::ffi::{c_int, CString};
 use std::os::raw::{c_char, c_double};
 use std::sync::OnceLock;
 use optima_robotics::robot::ORobotDefault;
+use std::sync::Mutex;
+use once_cell::sync::Lazy;
 
 pub mod ik_solvers;
 pub mod ik_solvers2;
@@ -77,14 +79,27 @@ pub struct ArrayOfDoubleArrays {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-pub (crate) static GLOBAL_ROBOT: OnceLock<ORobotDefault> = OnceLock::new();
+pub static GLOBAL_ROBOT: Lazy<Mutex<Option<ORobotDefault>>> = Lazy::new(|| Mutex::new(None));
 
 pub fn set_global_robot(robot_name: &str) {
-    GLOBAL_ROBOT.set(ORobotDefault::load_from_saved_robot(robot_name)).expect("error");
+    let mut robot_lock = GLOBAL_ROBOT.lock().unwrap();
+    *robot_lock = Some(ORobotDefault::load_from_saved_robot(robot_name));
 }
+
+pub fn clear_global_robot() {
+    let mut robot_lock = GLOBAL_ROBOT.lock().unwrap();
+    *robot_lock = None;
+}
+
+
 
 #[no_mangle]
 pub unsafe extern "C" fn ffi_set_global_robot(robot_name: *const c_char) {
     let s = FFIConverters::c_str_to_rust_string(robot_name);
     set_global_robot(&s);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ffi_clear_global_robot() {
+    clear_global_robot();
 }

@@ -25,7 +25,12 @@ thread_local! {
 }
 
 pub fn compute_interpolated_motion_path_viewpoint(ik_goal_link_idx: usize, ee_position: Vec<f64>, ee_orientation: Vec<f64>, init_state: Vec<f64>, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection, looker_link_position_delta: [f64; 3], looker_link_in_out_delta: f64) -> Vec<Vec<f64>> {
-    let r = GLOBAL_ROBOT.get_or_init(|| panic!("use set_global_robot to initialize robot"));
+    //let r = GLOBAL_ROBOT.get_or_init(|| panic!("use set_global_robot to initialize robot"));
+    let mut robot_lock = GLOBAL_ROBOT.lock().unwrap();
+    if robot_lock.is_none() {
+        panic!("Use set_global_robot to initialize the robot");
+    }
+    let r = robot_lock.as_ref().unwrap();
 
     let res = GLOBAL_STATIC_VIEWPOINT_DB.with(|once_lock_viewpoint_diff_block| {
         let res = GLOBAL_IK_OPTIMIZER.with(|once_lock_ik_optimizer| {
@@ -55,7 +60,12 @@ pub fn compute_interpolated_motion_path_viewpoint(ik_goal_link_idx: usize, ee_po
 }
 
 pub fn compute_interpolated_motion_path_to_ee_pose(goal_link_idx: usize, ee_position: Vec<f64>, ee_orientation: Vec<f64>, init_state: Vec<f64>) -> Vec<Vec<f64>> {
-    let r = GLOBAL_ROBOT.get_or_init(|| panic!("use set_global_robot to initialize robot"));
+    //let r = GLOBAL_ROBOT.get_or_init(|| panic!("use set_global_robot to initialize robot"));
+    let mut robot_lock = GLOBAL_ROBOT.lock().unwrap();
+    if robot_lock.is_none() {
+        panic!("Use set_global_robot to initialize the robot");
+    }
+    let r = robot_lock.as_ref().unwrap();
 
     let res = GLOBAL_STATIC_IK_DB.with(|once_lock_ik_diff_block| {
         let res = GLOBAL_IK_OPTIMIZER.with(|once_lock_ik_optimizer| {

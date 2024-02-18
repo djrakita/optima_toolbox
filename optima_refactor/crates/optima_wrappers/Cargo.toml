@@ -16,4 +16,5 @@ optima_proximity = { path = "../optima_proximity" }
 optima_optimization = { path = "../optima_optimization" }
 optima_interpolation = { path = "../optima_interpolation" }
 nalgebra = { version="0.32.*", features=["rand", "serde-serialize"] }
+once_cell = "1.19.0"
 
