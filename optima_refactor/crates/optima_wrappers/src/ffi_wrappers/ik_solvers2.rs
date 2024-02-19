@@ -1,6 +1,7 @@
 use std::ffi::{c_double, c_int};
 use std::os::raw::c_char;
 use std::sync::{OnceLock};
+use std::thread::LocalKey;
 use ad_trait::differentiable_function::{FiniteDifferencing};
 use nalgebra::Isometry3;
 use optima_3d_spatial::optima_3d_pose::{O3DPose, O3DPoseCategoryIsometry3};
@@ -148,6 +149,51 @@ pub extern "C" fn ffi_free_array_of_double_arrays(ptr: *mut ArrayOfDoubleArrays)
             let _ = Box::from_raw(ptr);
         }
     }
+}
+
+pub fn clear_global_statics(ik_goal_link_idx: usize, init_state: Vec<f64>, looker_link: usize, looker_forward_axis: AxisDirection, looker_side_axis: AxisDirection)
+{
+    let mut robot_lock = GLOBAL_ROBOT.lock().unwrap();
+    if robot_lock.is_none() {
+        panic!("Use set_global_robot to initialize the robot");
+    }
+    let r = robot_lock.as_ref().unwrap();
+
+    let db = r.get_default_ik_lookat_differentiable_block(FiniteDifferencing::new(), &init_state, vec![ik_goal_link_idx], looker_link, looker_forward_axis, looker_side_axis, LookAtTarget::RobotLink(ik_goal_link_idx));
+    let o = SimpleOpEnOptimizer::new(r.get_dof_lower_bounds(), r.get_dof_upper_bounds(), 0.001);
+
+    GLOBAL_STATIC_VIEWPOINT_DB.with(|once_lock_viewpoint_diff_block| {
+        let _ = once_lock_viewpoint_diff_block.set(db);
+    });
+
+    GLOBAL_IK_OPTIMIZER.with(|once_lock_ik_optimizer| {
+        let _ = once_lock_ik_optimizer.set(o);
+    });
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn ffi_clear_global_statics(goal_link_idx: c_int, init_state: *const c_double, state_length: c_int, looker_link: c_int, looker_forward_axis: *const c_char, looker_side_axis: *const c_char) {
+    let ik_goal_link_idx = goal_link_idx as usize;
+
+    let init_state = FFIConverters::c_double_arr_to_rust_double_vec(init_state, state_length);
+    let looker_link = FFIConverters::c_int_to_rust_usize(looker_link);
+    let looker_forward_axis_string = FFIConverters::c_str_to_rust_string(looker_forward_axis);
+    let looker_forward_axis = if looker_forward_axis_string == "X" {
+        AxisDirection::X
+    } else if looker_forward_axis_string == "Y" {
+        AxisDirection::Y
+    } else if looker_forward_axis_string == "Z" {
+        AxisDirection::Z
+    } else { panic!("unsupported") };
+    let looker_side_axis_string = FFIConverters::c_str_to_rust_string(looker_side_axis);
+    let looker_side_axis = if looker_side_axis_string == "X" {
+        AxisDirection::X
+    } else if looker_side_axis_string == "Y" {
+        AxisDirection::Y
+    } else if looker_side_axis_string == "Z" {
+        AxisDirection::Z
+    } else { panic!("unsupported") };
+    clear_global_statics(ik_goal_link_idx, init_state, looker_link, looker_forward_axis, looker_side_axis);
 }
 
 
